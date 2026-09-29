@@ -1128,6 +1128,10 @@ tr:last-child td {
   color: #967336;
   border: 1px solid #eee2c6;
 }
+.pricing-issues {
+  margin: 4px 0;
+  padding-left: 18px;
+}
 .alert button {
   margin-left: auto;
   display: flex;

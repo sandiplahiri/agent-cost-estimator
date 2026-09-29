@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { X, Search } from 'lucide-react';
-import { type Execution, type Price, money } from './types';
+import { type Execution, type Price, rateMoney } from './types';
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -37,6 +37,7 @@ export function Numeric({
         max={max}
         step={integer ? '1' : 'any'}
         value={value}
+        onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => onChange(e.target.value)}
       />
     </Field>
@@ -161,9 +162,9 @@ export function ModelPicker({
                   </small>
                 </span>
                 <span>
-                  {p.input === null ? 'Unknown' : money(p.input)} in
+                  {p.input === null ? 'Unavailable' : rateMoney(p.input)} in
                   <br />
-                  {p.output === null ? 'Unknown' : money(p.output)} out
+                  {p.output === null ? 'Unavailable' : rateMoney(p.output)} out
                 </span>
               </button>
             ))}
@@ -237,7 +238,7 @@ export function ExecutionFields({
         value={value.cache_write_fraction}
         max={1}
         onChange={(cache_write_fraction) => onChange({ cache_write_fraction })}
-        hint="Read + write fractions must not exceed 1."
+        hint="Read + write fractions must not exceed 1; requires a cache-write rate."
       />
     </div>
   );

@@ -32,6 +32,7 @@ import {
   id,
   money,
   number,
+  rateMoney,
   type AgentRow,
   type Catalog,
   type Estimate,
@@ -263,6 +264,10 @@ export default function App() {
     );
 
   const expected = result?.scenarios.find((s) => s.name === 'Expected');
+  const incompleteDetails =
+    expected?.lines.flatMap((line) =>
+      line.issues.map((issue) => `${line.name} (${line.model_id || 'no model'}): ${issue}`),
+    ) || [];
   const totalAgents = estimate.agents.reduce((sum, r) => sum + r.count, 0);
   const rowResults = (rowId: string) => expected?.lines.filter((l) => l.row_id === rowId) || [];
   const rowCost = (rowId: string) => rowResults(rowId).reduce((sum, l) => sum + Number(l.cost || 0), 0);
@@ -440,8 +445,12 @@ export default function App() {
                     )}
                   </div>
                   <div className="cost-value" data-testid={`cost-${name.toLowerCase()}`}>
-                    {data ? money(data.llm_cost) : '—'}
-                    <span>/mo</span>
+                    {data
+                      ? !data.complete && Number(data.llm_cost) === 0
+                        ? 'Incomplete'
+                        : money(data.llm_cost)
+                      : '—'}
+                    {data && (data.complete || Number(data.llm_cost) !== 0) && <span>/mo</span>}
                   </div>
                   <p>
                     {data && !data.complete ? (
@@ -464,6 +473,29 @@ export default function App() {
               );
             })}
           </section>
+
+          {incompleteDetails.length > 0 && (
+            <div className="alert warning" role="alert">
+              <CircleHelp size={16} />
+              <div>
+                <strong>Expected monthly LLM estimate is incomplete.</strong>
+                <ul className="pricing-issues">
+                  {incompleteDetails.slice(0, 3).map((detail, index) => (
+                    <li key={`${detail}-${index}`}>{detail}</li>
+                  ))}
+                </ul>
+                {incompleteDetails.length > 3 && (
+                  <span>And {incompleteDetails.length - 3} more pricing issues.</span>
+                )}
+                {incompleteDetails.some((detail) => detail.includes('Missing cache write price.')) && (
+                  <span className="block">
+                    Set cache write fraction to 0 only if there are no cache writes. Otherwise, add a custom
+                    model with the applicable cache-write rate.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {result?.warnings.map((w) => (
             <div className="alert warning" key={w}>
@@ -581,6 +613,7 @@ export default function App() {
                                     step={1}
                                     aria-label={`${row.name} count`}
                                     value={row.count}
+                                    onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) =>
                                       update((n) => {
                                         n.agents.find((r) => r.id === row.id)!.count = Number(e.target.value);
@@ -595,6 +628,7 @@ export default function App() {
                                     step="any"
                                     aria-label={`${row.name} monthly invocations`}
                                     value={row.invocations}
+                                    onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) =>
                                       update((n) => {
                                         n.agents.find((r) => r.id === row.id)!.invocations = e.target.value;
@@ -614,7 +648,11 @@ export default function App() {
                                   </button>
                                 </td>
                                 <td className="cost-cell">
-                                  {expected ? money(rowCost(row.id)) : '—'}
+                                  {expected
+                                    ? incomplete && rowCost(row.id) === 0
+                                      ? 'Incomplete'
+                                      : money(rowCost(row.id))
+                                    : '—'}
                                   {incomplete && (
                                     <span
                                       className="row-warning"
@@ -645,8 +683,14 @@ export default function App() {
                       <strong>
                         Suite total{' '}
                         <span>
-                          {expected ? money(expected.llm_cost) : '—'}
-                          {expected && !expected.complete ? ' (partial)' : ''}
+                          {expected && !expected.complete && Number(expected.llm_cost) === 0
+                            ? 'Incomplete'
+                            : expected
+                              ? money(expected.llm_cost)
+                              : '—'}
+                          {expected && !expected.complete && Number(expected.llm_cost) !== 0
+                            ? ' (partial)'
+                            : ''}
                         </span>
                       </strong>
                     </div>
@@ -916,6 +960,8 @@ export default function App() {
                       <th>PROVIDER</th>
                       <th>INPUT / 1M</th>
                       <th>OUTPUT / 1M</th>
+                      <th>CACHE READ / 1M</th>
+                      <th>CACHE WRITE / 1M</th>
                       <th>SOURCE / DATE</th>
                     </tr>
                   </thead>
@@ -932,8 +978,10 @@ export default function App() {
                           )}
                         </td>
                         <td>{p.provider}</td>
-                        <td>{p.input === null ? 'Unknown' : money(p.input)}</td>
-                        <td>{p.output === null ? 'Unknown' : money(p.output)}</td>
+                        <td>{p.input === null ? 'Unavailable' : rateMoney(p.input)}</td>
+                        <td>{p.output === null ? 'Unavailable' : rateMoney(p.output)}</td>
+                        <td>{p.cache_read === null ? 'Unavailable' : rateMoney(p.cache_read)}</td>
+                        <td>{p.cache_write === null ? 'Unavailable' : rateMoney(p.cache_write)}</td>
                         <td>
                           <span className="source-label" title={p.source}>
                             {p.custom

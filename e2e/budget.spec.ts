@@ -483,3 +483,129 @@ test('Bundled cache-hit pricing is used in the browser and exported workbook', a
     actual,
   });
 });
+
+test('Gemini cache-write gap identifies the missing rate and recovers when unused', async ({
+  page,
+  request,
+}) => {
+  const modelId = 'gemini/gemini-3.8-flash';
+  const catalog = await (await request.get('/api/catalog')).json();
+  const price = catalog.prices[modelId];
+  expect(price.input).toBe('0.75000000');
+  expect(price.output).toBe('3.75000000');
+  expect(price.cache_read).toBe('0.075000000');
+  expect(price.cache_write).toBeNull();
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
+  await page.getByRole('button', { name: 'Model: Select model', exact: true }).first().click();
+  const picker = page.getByRole('dialog', { name: 'Choose a model' });
+  await picker.getByLabel('Search models').fill(modelId);
+  await picker.getByText(modelId, { exact: true }).click();
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
+  const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
+  await quick.getByLabel('Total agent count').fill('1');
+  await quick.getByLabel('Simple agents', { exact: true }).fill('1');
+  await quick.getByLabel('Medium agents', { exact: true }).fill('0');
+  await quick.getByLabel('High agents', { exact: true }).fill('0');
+  await quick.getByRole('button', { name: 'Create suite' }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$3.44/mo');
+
+  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
+  await page.getByLabel('Cached read fraction', { exact: true }).first().fill('0.5');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$2.75/mo');
+  await page.getByLabel('Cache write fraction', { exact: true }).first().fill('0.25');
+  await expect(page.getByTestId('cost-expected')).toContainText('Incomplete');
+  await expect(page.getByRole('alert')).toContainText('Missing cache write price');
+  await page.getByRole('button', { name: 'Model pricing', exact: true }).click();
+  const pricingRow = page.getByRole('row').filter({ hasText: modelId }).first();
+  await expect(pricingRow).toContainText('Unavailable');
+  await expect(pricingRow).toContainText('$0.075');
+
+  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
+  await page.getByLabel('Cache write fraction', { exact: true }).first().fill('0');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$2.75/mo');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  const snapshot = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
+  );
+  const calculated = await (await request.post('/api/calculate', { data: snapshot })).json();
+  const expected = calculated.scenarios.find((s: { name: string }) => s.name === 'Expected');
+  expect(Number(expected.llm_cost)).toBeCloseTo(2.754, 10);
+
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export Excel', exact: true }).click();
+  const file = path.join(artifacts, 'gemini-cache-budget.xlsx');
+  await (await download).saveAs(file);
+  const { engine, summary } = await recalculateWorkbook(file);
+  const workbookTotal = engine.getCellValue({ sheet: summary, col: 1, row: 2 });
+  expect(workbookTotal).toBeCloseTo(2.754, 10);
+  engine.destroy();
+  records.push({
+    journey: 'Gemini cached-read pricing and missing cache-write recovery',
+    evidence: file,
+    expected: { noCache: 3.4425, cachedRead: 2.754, missingCacheWrite: 'Incomplete' },
+    actual: { cachedRead: Number(expected.llm_cost), workbook: workbookTotal },
+  });
+});
+
+test('Typing into prefilled numeric fields replaces their values', async ({ page, request }) => {
+  await setup(page);
+  await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
+  const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
+  const totalCount = quick.getByLabel('Total agent count');
+  await totalCount.click();
+  await page.keyboard.type('3');
+  await expect(totalCount).toHaveValue('3');
+  const enteredCount = await totalCount.inputValue();
+  await quick.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
+  const inputTokens = page.getByLabel('Input tokens / call', { exact: true }).first();
+  await inputTokens.click();
+  await page.keyboard.type('3000');
+  await expect(inputTokens).toHaveValue('3000');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$20.40/mo');
+  const enteredTokens = await inputTokens.inputValue();
+
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  const invocations = page.getByLabel('Simple agents monthly invocations');
+  await invocations.click();
+  await page.keyboard.type('25');
+  await expect(invocations).toHaveValue('25');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$0.51/mo');
+  const enteredInvocations = await invocations.inputValue();
+
+  await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
+  const expected = page
+    .locator('.scenario-editor-grid article')
+    .filter({ has: page.getByRole('heading', { name: 'Expected', exact: true }) });
+  const volume = expected.getByLabel('Invocation volume ×');
+  await volume.focus();
+  await page.keyboard.type('0.5');
+  await expect(volume).toHaveValue('0.5');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$0.26/mo');
+  const snapshot = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
+  );
+  const calculated = await (await request.post('/api/calculate', { data: snapshot })).json();
+  const monthlyUsd = Number(
+    calculated.scenarios.find((s: { name: string }) => s.name === 'Expected').llm_cost,
+  );
+  expect(monthlyUsd).toBeCloseTo(0.255, 10);
+  await page.screenshot({ path: path.join(artifacts, 'numeric-replacement.png'), fullPage: true });
+  records.push({
+    journey: 'Replace prefilled numeric values with mouse and keyboard focus',
+    evidence: 'artifacts/numeric-replacement.png',
+    expected: { totalCount: 3, inputTokens: 3000, invocations: 25, volumeFactor: 0.5, monthlyUsd: 0.255 },
+    actual: {
+      totalCount: Number(enteredCount),
+      inputTokens: Number(enteredTokens),
+      invocations: Number(enteredInvocations),
+      volumeFactor: Number(await volume.inputValue()),
+      monthlyUsd,
+      displayedMonthlyUsd: await page.getByTestId('cost-expected').innerText(),
+    },
+  });
+});

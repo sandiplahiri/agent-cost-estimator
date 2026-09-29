@@ -29,6 +29,24 @@ Override precedence: bundled profile -> edited profile -> row overrides -> scena
 - Reset deletes agent counts, invocation volumes, custom pricing, or additional cost items.
 - Workbook totals diverge from the UI; formulas exist but do not recalculate correctly.
 
+## Missing cache-rate display: failure cases and expected outcomes
+
+Recorded before changing the display behavior. The bundled `gemini/gemini-3.8-flash` snapshot has USD 0.75/M input, USD 3.75/M output, USD 0.075/M cached read, and no cache-write rate. With one simple agent, 1,000 monthly invocations, 2,000 input and 500 output tokens per call, and 2% extra attempts:
+
+- At zero cache fractions, the independent result is 1,020 calls and USD 3.4425/month. The estimate must be complete.
+- At a 0.5 cached-read fraction and zero cache writes, the independent result is USD 2.754/month. The estimate must remain complete.
+- At a positive cache-write fraction, the missing rate must make the estimate incomplete. The main result must name the missing cache-write price and must not present USD 0.00 as a complete monthly bill.
+- Restoring the cache-write fraction to zero must restore the previously calculated complete result. The pricing table must distinguish the available cached-read rate from the unavailable cache-write rate.
+
+## Numeric entry replacement: failure cases and expected outcomes
+
+Recorded before changing numeric input behavior. A user clicking a prefilled numeric control and typing a new value should replace the old value on that first focus.
+
+- A profile's 2,000 input tokens per call must become 3,000 when the user clicks and types `3000`, rather than appending digits to 2,000.
+- An inventory row's 1,000 monthly invocations must become 25 when the user clicks and types `25`; this must update the actual budget inputs, not just the displayed text.
+- The quick setup's default total count of 10 must become 3 when the user clicks and types `3`.
+- Explicit zero and fractional values must remain enterable where valid, and keyboard focus must still support replacement.
+
 ## Independent arithmetic fixture
 
 Use custom model Fixture A, USD 2 / million input and USD 8 / million output (synthetic, not provider prices). Two simple agents each invoked 1,000/month, 1 call/invocation, 2,000 input and 500 output tokens/call, 2% additional attempts:

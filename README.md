@@ -35,6 +35,7 @@ The starter simple/medium/high profiles use 1/4/10 model calls per invocation, 2
 - Output tokens include all billable reasoning. Do not add reasoning again if it is already included.
 - Retry rate is extra attempts divided by normal calls, not a failure probability. A value of 0.05 means 5 extra attempts per 100 calls. Normal tool and revision cycles belong in the call count.
 - Cached reads and writes partition total input; their fractions cannot sum above 1. Cache writes use the supplied base/short-duration rate. Storage and other cache overhead can be separate items.
+- A model can have input/output prices without a cache-write price. For example, the bundled `gemini/gemini-3.8-flash` snapshot has a cached-read rate but no cache-write rate. If cache writes are part of the workload, the estimate is incomplete until you supply an applicable custom rate. Set the cache-write fraction to zero only when the workload has no cache writes. The Model pricing tab shows each selected model's cache-rate availability.
 - Detailed workflows are explicit model-call steps with expected repetitions and their own models/token sizes. They replace the aggregate execution for that row. Conditional paths can be represented using expected fractional repetitions; there is no executable workflow graph.
 - Agent volumes are manually supplied and include all sources, including delegation. A parent's steps cover its own calls only. Business-event mapping and automatic call-graph propagation are not implemented.
 

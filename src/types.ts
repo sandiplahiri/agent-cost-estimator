@@ -130,6 +130,13 @@ export const money = (value: string | number) =>
     currency: 'USD',
     maximumFractionDigits: Number(value) > 0 && Number(value) < 0.01 ? 6 : 2,
   }).format(Number(value));
+export const rateMoney = (value: string | number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  }).format(Number(value));
 export const number = (value: string | number) =>
   new Intl.NumberFormat('en-US', {
     notation: Number(value) >= 1000000 ? 'compact' : 'standard',

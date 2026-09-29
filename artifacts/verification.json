@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-09-25T21:24:33.104Z",
+  "executedAt": "2026-09-29T17:02:27.106Z",
   "command": "npm run build && npm run test:e2e",
   "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
   "note": "Workbook formulas independently recalculated with HyperFormula; Excel desktop UI was not automated.",
@@ -83,6 +83,38 @@
       "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/cache-hit-budget.xlsx",
       "expected": 0.59976,
       "actual": 0.59976
+    },
+    {
+      "journey": "Gemini cached-read pricing and missing cache-write recovery",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/gemini-cache-budget.xlsx",
+      "expected": {
+        "noCache": 3.4425,
+        "cachedRead": 2.754,
+        "missingCacheWrite": "Incomplete"
+      },
+      "actual": {
+        "cachedRead": 2.754,
+        "workbook": 2.754
+      }
+    },
+    {
+      "journey": "Replace prefilled numeric values with mouse and keyboard focus",
+      "evidence": "artifacts/numeric-replacement.png",
+      "expected": {
+        "totalCount": 3,
+        "inputTokens": 3000,
+        "invocations": 25,
+        "volumeFactor": 0.5,
+        "monthlyUsd": 0.255
+      },
+      "actual": {
+        "totalCount": 3,
+        "inputTokens": 3000,
+        "invocations": 25,
+        "volumeFactor": 0.5,
+        "monthlyUsd": 0.255,
+        "displayedMonthlyUsd": "$0.26/mo"
+      }
     }
   ]
 }
