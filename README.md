@@ -2,11 +2,24 @@
 
 A local web app for AI architects estimating the LLM spending of proposed agent suites. Define complexity groups or import agent rows, compare explicit scenarios, and export an Excel budget with its assumptions and pricing snapshot.
 
-## Reports and requests
+## Bug reports and feature requests
 
-Use [GitHub Issues](https://github.com/sandiplahiri/llm-token-cost-estimator/issues/new/choose) to report a bug or suggest a feature. Search existing issues and use the appropriate form. Keep reports public only when they contain no sensitive data; use synthetic examples instead of customer workbooks or estimates. See [CONTRIBUTING.md](CONTRIBUTING.md) for reporting guidance.
+Search [existing issues](https://github.com/sandiplahiri/llm-token-cost-estimator/issues) before submitting a report or request. Issues are public: use synthetic examples and remove customer workbooks, estimates, prompts, API keys, and sensitive details from logs or screenshots. See [CONTRIBUTING.md](CONTRIBUTING.md) for more guidance.
 
-Report possible security vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/sandiplahiri/llm-token-cost-estimator/security/advisories), following [SECURITY.md](SECURITY.md). Do not publish exploit details in an issue.
+### Submit a bug report
+
+1. Open [New issue](https://github.com/sandiplahiri/llm-token-cost-estimator/issues/new/choose) and choose **Bug report**.
+2. Enter the version or commit and your environment (operating system, browser, and relevant Python or Node.js versions).
+3. Provide steps to reproduce with synthetic inputs, the expected result, and the actual result. For a calculation error, include the expected amount, its units, and how you calculated it independently.
+4. Add sanitized context if useful, then submit the issue. A maintainer may ask for more detail.
+
+### Submit a feature request
+
+1. Open [New issue](https://github.com/sandiplahiri/llm-token-cost-estimator/issues/new/choose) and choose **Feature request**.
+2. Describe the problem or workflow, the behavior you want, and a synthetic example of the expected outcome.
+3. Include any current workaround or alternatives, then submit the issue.
+
+For a possible security vulnerability, use [GitHub's private vulnerability reporting](https://github.com/sandiplahiri/llm-token-cost-estimator/security/advisories) and follow [SECURITY.md](SECURITY.md). Do not publish exploit details in an issue.
 
 ## Run locally
 
