@@ -2,6 +2,12 @@
 
 A local web app for AI architects estimating the LLM spending of proposed agent suites. Define complexity groups or import agent rows, compare explicit scenarios, and export an Excel budget with its assumptions and pricing snapshot.
 
+## Reports and requests
+
+Use [GitHub Issues](https://github.com/sandiplahiri/llm-token-cost-estimator/issues/new/choose) to report a bug or suggest a feature. Search existing issues and use the appropriate form. Keep reports public only when they contain no sensitive data; use synthetic examples instead of customer workbooks or estimates. See [CONTRIBUTING.md](CONTRIBUTING.md) for reporting guidance.
+
+Report possible security vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/sandiplahiri/llm-token-cost-estimator/security/advisories), following [SECURITY.md](SECURITY.md). Do not publish exploit details in an issue.
+
 ## Run locally
 
 Requires Python 3.12+, Node.js 22+, npm, and [uv](https://docs.astral.sh/uv/). Dependency installation requires internet access.

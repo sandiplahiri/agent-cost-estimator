@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible problem with Agent Ledger.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues before submitting. Public issues can be read by anyone.
+        For a possible security vulnerability, use the private reporting link instead.
+        Do not include customer workbooks, estimates, prompts, API keys, or other secrets.
+        Use synthetic data for examples, and inspect screenshots and logs before sharing them.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The release version or Git commit you ran.
+      placeholder: e.g. v1.0.0 or a commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, browser, and relevant Python/Node versions.
+      placeholder: e.g. macOS 15, Chrome 129, Python 3.12, Node 22
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use synthetic inputs and include the smallest set of actions that triggers the problem.
+      placeholder: |
+        1. Create an estimate with ...
+        2. Set ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: For a calculation issue, include the expected number, units, and how you calculated it independently.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include any visible error text. Remove sensitive values before pasting logs.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Optional sanitized screenshots, pricing source/date, or synthetic sample data. Never upload a real customer workbook.

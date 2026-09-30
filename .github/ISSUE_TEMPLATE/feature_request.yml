@@ -1,0 +1,34 @@
+name: Feature request
+description: Propose a change to the local estimator or Excel workflow.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues and the product brief first. Describe the workflow without customer data or secrets.
+        For a security vulnerability, use the private reporting link instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow
+      description: What are you trying to do, and where does the current workflow fall short?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain what the app or exported workbook should do.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example and expected outcome
+      description: A synthetic example is useful, especially for pricing, scenarios, imports, or exports. Include units and assumptions.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Current workaround or alternatives
+      description: Optional.
