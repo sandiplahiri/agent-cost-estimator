@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "defaults_version": 1,
-  "id": "0f9cfd32-e706-4875-be20-876c10fc2546",
+  "id": "07265610-40ec-4923-8437-d5f9e41b4136",
   "name": "Tier and cache fixture",
   "notes": "",
   "profiles": {

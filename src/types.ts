@@ -19,6 +19,9 @@ export interface AgentRow {
   complexity: Complexity;
   count: number;
   invocations: Numeric;
+  volume_source: 'manual' | 'daily_users';
+  users_per_day: Numeric | null;
+  invocations_per_user_per_agent_per_day: Numeric | null;
   overrides: Partial<Execution>;
   steps: Step[];
 }
@@ -60,7 +63,7 @@ export interface AdditionalCost {
   frequency: 'monthly' | 'one-time';
 }
 export interface Estimate {
-  schema_version: 1;
+  schema_version: 2;
   defaults_version: 1;
   id: string;
   name: string;
@@ -86,6 +89,8 @@ export interface Line {
   provider: string;
   count: number;
   invocations: Numeric;
+  base_invocations: Numeric;
+  base_total_invocations: Numeric;
   calls_per_invocation: Numeric;
   input_per_call: Numeric;
   output_per_call: Numeric;
@@ -112,6 +117,17 @@ export interface ScenarioResult {
 }
 export interface Results {
   scenarios: ScenarioResult[];
+  category_invocations: Record<Complexity, { total: Numeric; complete: boolean }>;
+  category_tokens: Record<
+    Complexity,
+    {
+      monthly_input: Numeric;
+      monthly_output: Numeric;
+      monthly_total: Numeric;
+      daily_total: Numeric;
+      complete: boolean;
+    }
+  >;
   agent_count: number;
   recurring: Numeric;
   one_time: Numeric;
@@ -142,6 +158,15 @@ export const number = (value: string | number) =>
     notation: Number(value) >= 1000000 ? 'compact' : 'standard',
     maximumFractionDigits: 1,
   }).format(Number(value));
+export const displayVolume = (value: string) => {
+  const exact =
+    value.includes('.') && !/[eE]/.test(value) ? value.replace(/0+$/, '').replace(/\.$/, '') : value;
+  const numeric = Number(exact);
+  if (!Number.isFinite(numeric) || (numeric > 0 && numeric < 0.000001)) return exact;
+  const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(numeric);
+  const decimals = exact.split('.')[1]?.length ?? 0;
+  return decimals > 6 ? `≈${formatted}` : formatted;
+};
 
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`/api${path}`, {

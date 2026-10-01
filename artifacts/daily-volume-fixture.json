@@ -1,0 +1,145 @@
+{
+  "schema_version": 2,
+  "defaults_version": 1,
+  "id": "3783a545-ceaf-4366-a281-bcbbbf875021",
+  "name": "Daily volume fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": "Fixture A"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": "Fixture A"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": "Fixture A"
+    }
+  },
+  "agents": [
+    {
+      "id": "37a7e2ac-cbb4-427b-b3cf-d18dc472974d",
+      "name": "Simple agents",
+      "complexity": "simple",
+      "count": 2,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "users_per_day": "2",
+      "invocations_per_user_per_agent_per_day": "3",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": []
+    },
+    {
+      "id": "dd5ddfbf-9814-4bfa-812c-566e99765ab4",
+      "name": "Medium agents",
+      "complexity": "medium",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "2",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": []
+    },
+    {
+      "id": "7fa750cd-fad8-4d0e-9758-54521f5b9a98",
+      "name": "High agents",
+      "complexity": "high",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "users_per_day": "4",
+      "invocations_per_user_per_agent_per_day": "0.5",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": []
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Fixture A": {
+      "id": "Fixture A",
+      "provider": "Custom",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Architect-supplied custom rates",
+      "retrieved_at": "2026-10-01T17:17:27.032Z",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": []
+}

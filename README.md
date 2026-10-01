@@ -40,7 +40,7 @@ For frontend development, run `npm start` and `npm run dev` in separate terminal
 
 1. Set a name and use **Quick setup** to distribute the agent count across simple, medium, and high complexity.
 2. Select models in **Complexity profiles**. Numeric defaults are illustrative; model selections start empty to avoid silently choosing a provider for your customer.
-3. Set monthly invocations per agent for each group. Configure exceptions by opening a row and choosing **Customize one agent**, which keeps the total agent count unchanged.
+3. Enter the required **Users per agent per day** and **Invocations per user per agent per day** for each group. **Total monthly invocations per agent** is read-only and equals their product × 30 planning days. **Total monthly invocations · all agents** multiplies that result by the group count. The inventory sums all groups in each simple, medium, and high (complex) category and shows total token usage per month and average tokens per day. Configure exceptions by opening a row and choosing **Customize one agent**, which keeps the total agent count unchanged.
 4. Use **Scenarios** to vary invocation volume, calls, token sizes, retries, or model choice explicitly.
 5. Add separate monthly or one-time costs, save the estimate, and export Excel.
 
@@ -52,11 +52,12 @@ The starter simple/medium/high profiles use 1/4/10 model calls per invocation, 2
 
 - Input tokens include instructions, history, retrieval, and tool results included in the call.
 - Output tokens include all billable reasoning. Do not add reasoning again if it is already included.
+- Category token totals use Expected-scenario input plus output usage, including additional model-call attempts. Cached input remains part of input usage and is counted once. Daily token usage is the monthly total divided by the 30-day planning month. Category invocation totals are baseline volumes and do not include scenario multipliers.
 - Retry rate is extra attempts divided by normal calls, not a failure probability. A value of 0.05 means 5 extra attempts per 100 calls. Normal tool and revision cycles belong in the call count.
 - Cached reads and writes partition total input; their fractions cannot sum above 1. Cache writes use the supplied base/short-duration rate. Storage and other cache overhead can be separate items.
 - A model can have input/output prices without a cache-write price. For example, the bundled `gemini/gemini-3.8-flash` snapshot has a cached-read rate but no cache-write rate. If cache writes are part of the workload, the estimate is incomplete until you supply an applicable custom rate. Set the cache-write fraction to zero only when the workload has no cache writes. The Model pricing tab shows each selected model's cache-rate availability.
 - Detailed workflows are explicit model-call steps with expected repetitions and their own models/token sizes. They replace the aggregate execution for that row. Conditional paths can be represented using expected fractional repetitions; there is no executable workflow graph.
-- Agent volumes are manually supplied and include all sources, including delegation. A parent's steps cover its own calls only. Business-event mapping and automatic call-graph propagation are not implemented.
+- New agent volumes use required daily-user inputs and include all sources, including delegation. The entered user count is per agent, so group count scales the resulting monthly total only once. Older saved manual rows remain labeled as legacy and retain their original costs until both daily inputs are entered. A parent's steps cover its own calls only. Business-event mapping and automatic call-graph propagation are not implemented.
 
 Override precedence is profile defaults → edited profile → row overrides → scenario multipliers/model override. Detailed steps replace profile/row execution fields but still receive scenario multipliers. Zero is a valid override. Scenario changes do not mutate the underlying profile.
 
@@ -74,11 +75,11 @@ Limits: multimodal billing, hosted tool fees, cache storage, long-duration cache
 
 ## Import and Excel
 
-Download **Template**, populate its `Agents` sheet, and upload `.xlsx`. The preview replaces the agent inventory only after successful validation and an explicit Apply action. Each imported row must represent a disjoint group. Required columns are `name`, `complexity`, `count`, and `invocations`; optional overrides use the same names and units as the template. Blank overrides inherit; zero does not.
+Download **Template**, populate its `Agents` sheet, and upload `.xlsx`. The preview replaces the agent inventory only after successful validation and an explicit Apply action. Each imported row must represent a disjoint group. For new rows, supply `name`, `complexity`, `count`, `volume_source` (`daily_users`), `users_per_day`, and `invocations_per_user_per_agent_per_day`. Both daily values are required; zero is valid. The `invocations` column accepts older manual workbooks for compatibility and is ignored for daily rows. Such imported rows remain labeled as legacy until converted. Optional execution overrides use the same names and units as the template. Blank overrides inherit; zero does not.
 
 Files are limited to 5 MB, 30 MB expanded, and 1,000 agent rows. Formula cells in the agent sheet, macros, and external workbook links are rejected. Exported user text remains text, including names beginning with `=`.
 
-The exported workbook includes Summary, Calculations, Agents, Profiles, Scenarios, Additional costs, Pricing, and Read me sheets. The **Calculations** sheet contains editable effective inputs and cost formulas linked to Summary. Other sheets document the snapshot; editing them does not propagate into Calculations. Changing token sizes across a pricing threshold requires updating rates or re-exporting. The workbook documents these limits. The Agents sheet can be imported as aggregate rows; it is not a lossless backup of detailed workflows.
+The exported workbook includes Summary, Calculations, Agents, Volume, Category totals, Category usage, Profiles, Scenarios, Additional costs, Pricing, and Read me sheets. **Volume** derives baseline per-agent and all-agent monthly invocations with formulas; **Category totals** sums them by complexity. **Category usage** sums Expected-scenario input and output tokens by complexity and divides by 30 for average daily usage. **Calculations** contains editable scenario-effective inputs and cost formulas linked to Summary. Other sheets document the snapshot; editing them does not propagate into Calculations. Changing token sizes across a pricing threshold requires updating rates or re-exporting. The workbook documents these limits. The Agents sheet can be imported as aggregate rows; it is not a lossless backup of detailed workflows.
 
 First-year cost assumes 12 identical recurring months plus one-time items. Partial estimates remain clearly marked in the workbook. Excel/compatible spreadsheet software recalculates formulas on opening.
 

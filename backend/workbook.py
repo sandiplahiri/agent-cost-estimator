@@ -6,14 +6,10 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.workbook.properties import CalcProperties
 from pydantic import ValidationError
 
-from .engine import calculate
+from .engine import PLANNING_DAYS_PER_MONTH, calculate
 from .models import AgentRow, Estimate
 
-IMPORT_COLUMNS = [
-    "name",
-    "complexity",
-    "count",
-    "invocations",
+OVERRIDE_COLUMNS = [
     "model_id",
     "calls",
     "input_tokens",
@@ -21,6 +17,19 @@ IMPORT_COLUMNS = [
     "retry_rate",
     "cache_fraction",
     "cache_write_fraction",
+]
+VOLUME_COLUMNS = [
+    "volume_source",
+    "users_per_day",
+    "invocations_per_user_per_agent_per_day",
+]
+IMPORT_COLUMNS = [
+    "name",
+    "complexity",
+    "count",
+    "invocations",
+    *OVERRIDE_COLUMNS,
+    *VOLUME_COLUMNS,
 ]
 
 
@@ -59,15 +68,26 @@ def import_template():
     ws = wb.active
     ws.title = "Agents"
     literal(ws, IMPORT_COLUMNS)
-    literal(ws, ["Document classification", "simple", 1, 1000, "", "", "", "", "", "", ""])
+    literal(ws, ["Document classification", "simple", 1, 0, *([""] * 7), "daily_users", 1, 1])
     notes = wb.create_sheet("Instructions")
     literal(notes, ["Field", "Meaning"])
     for key, value in [
-        ("Required", "name, complexity, count, invocations; complexity is simple, medium, or high."),
+        (
+            "Required",
+            "New rows: name, complexity, count, volume_source=daily_users, users_per_day, and invocations_per_user_per_agent_per_day. Zero is valid; blanks are missing.",
+        ),
         ("model_id", "Exact catalog or custom model ID. Blank inherits the profile model."),
         (
             "Units",
-            "invocations per agent/month; calls per invocation; tokens per call; rates are fractions, e.g. 0.02.",
+            "users per agent/day; invocations per user per agent/day; calls per invocation; tokens per call; rates are fractions, e.g. 0.02.",
+        ),
+        (
+            "Daily volume",
+            "Monthly invocations per agent = users_per_day × invocations_per_user_per_agent_per_day × 30 days. The invocations column is a legacy manual fallback and is ignored for daily rows.",
+        ),
+        (
+            "Legacy import",
+            "Old manual rows with invocations are accepted for compatibility and labeled in the app; enter both daily inputs to convert them.",
         ),
         ("Overrides", "Blank execution cells inherit the profile. Zero is an explicit override."),
         (
@@ -103,8 +123,8 @@ def read_import(data: bytes):
         headers = [str(c.value or "").strip() for c in next(ws.iter_rows())]
         if len(set(headers)) != len(headers) or set(headers) - set(IMPORT_COLUMNS):
             raise ValueError("Use unique column names from the provided import template.")
-        if not {"name", "complexity", "count", "invocations"}.issubset(headers):
-            raise ValueError("Required columns: name, complexity, count, invocations.")
+        if not {"name", "complexity", "count"}.issubset(headers):
+            raise ValueError("Required columns: name, complexity, count.")
         for index, cells in enumerate(ws.iter_rows(min_row=2), 2):
             if all(c.value is None for c in cells):
                 continue
@@ -112,11 +132,18 @@ def read_import(data: bytes):
                 errors.append(f"Row {index}: formulas are not allowed; paste values instead.")
                 continue
             values = {key: c.value for key, c in zip(headers, cells) if c.value is not None and c.value != ""}
-            missing = {"name", "complexity", "count", "invocations"} - values.keys()
+            missing = {"name", "complexity", "count"} - values.keys()
+            source = values.get("volume_source", "manual")
+            if source == "daily_users":
+                missing |= {"users_per_day", "invocations_per_user_per_agent_per_day"} - values.keys()
+            elif "invocations" not in values:
+                missing.add("invocations")
             if missing:
                 errors.append(f"Row {index}: required values missing: {', '.join(sorted(missing))}.")
                 continue
-            overrides = {k: values.pop(k) for k in list(values) if k in IMPORT_COLUMNS[4:]}
+            if source == "daily_users" and "invocations" not in values:
+                values["invocations"] = 0
+            overrides = {k: values.pop(k) for k in list(values) if k in OVERRIDE_COLUMNS}
             try:
                 agents.append(AgentRow(**values, overrides=overrides).model_dump(mode="json"))
             except ValidationError as exc:
@@ -155,7 +182,7 @@ def export_estimate(estimate: Estimate):
         "Step",
         "Model",
         "Count",
-        "Invocations/agent/month",
+        "Total monthly invocations per agent",
         "Calls/invocation",
         "Extra attempt rate",
         "Input/call",
@@ -175,6 +202,13 @@ def export_estimate(estimate: Estimate):
         "Cache write USD",
         "LLM monthly USD",
         "Status",
+        "Volume source",
+        "Users/day/agent",
+        "Invocations/user/agent/day",
+        "Planning days/month",
+        "Manual invocations/agent/month",
+        "Scenario volume factor",
+        "Complexity",
     ]
     literal(calc, columns)
     for s in result["scenarios"]:
@@ -189,10 +223,10 @@ def export_estimate(estimate: Estimate):
                     line["step"],
                     line["model_id"],
                     line["count"],
+                    None,
                     *[
                         float(line[k])
                         for k in (
-                            "invocations",
                             "calls_per_invocation",
                             "retry_rate",
                             "input_per_call",
@@ -207,10 +241,26 @@ def export_estimate(estimate: Estimate):
                     ],
                     *[None] * 8,
                     "; ".join(line["issues"]) or "Complete",
+                    line["volume_source"],
+                    float(line["users_per_day"]) if line["users_per_day"] is not None else None,
+                    (
+                        float(line["invocations_per_user_per_agent_per_day"])
+                        if line["invocations_per_user_per_agent_per_day"] is not None
+                        else None
+                    ),
+                    float(line["days_per_month"]),
+                    float(line["manual_invocations"]),
+                    float(line["volume_factor"]),
+                    line["complexity"],
                 ],
             )
             r = calc.max_row
-            formulas = {"Q": f"E{r}*F{r}*G{r}*(1+H{r})", "R": f"Q{r}*I{r}", "S": f"Q{r}*J{r}"}
+            formulas = {
+                "F": f'IF(Z{r}="daily_users",AA{r}*AB{r}*AC{r},AD{r})*AE{r}',
+                "Q": f"E{r}*F{r}*G{r}*(1+H{r})",
+                "R": f"Q{r}*I{r}",
+                "S": f"Q{r}*J{r}",
+            }
             if not line["issues"]:
                 formulas |= {
                     "T": f"R{r}*(1-K{r}-L{r})*M{r}/1000000",
@@ -253,10 +303,93 @@ def export_estimate(estimate: Estimate):
                 float(row.invocations),
                 *[
                     str(getattr(row.overrides, k)) if getattr(row.overrides, k) is not None else ""
-                    for k in IMPORT_COLUMNS[4:]
+                    for k in OVERRIDE_COLUMNS
                 ],
+                row.volume_source,
+                float(row.users_per_day) if row.users_per_day is not None else None,
+                (
+                    float(row.invocations_per_user_per_agent_per_day)
+                    if row.invocations_per_user_per_agent_per_day is not None
+                    else None
+                ),
             ],
         )
+    volume = wb.create_sheet("Volume")
+    literal(
+        volume,
+        [
+            "Agent/group",
+            "Complexity",
+            "Agent count",
+            "Volume source",
+            "Users per agent per day",
+            "Invocations per user per agent per day",
+            "Planning days per month",
+            "Legacy manual invocations per agent per month",
+            "Total monthly invocations per agent",
+            "Total monthly invocations all agents",
+        ],
+    )
+    for row in estimate.agents:
+        literal(
+            volume,
+            [
+                row.name,
+                row.complexity,
+                row.count,
+                row.volume_source,
+                float(row.users_per_day) if row.users_per_day is not None else None,
+                (
+                    float(row.invocations_per_user_per_agent_per_day)
+                    if row.invocations_per_user_per_agent_per_day is not None
+                    else None
+                ),
+                float(PLANNING_DAYS_PER_MONTH),
+                float(row.invocations),
+                None,
+                None,
+            ],
+        )
+        r = volume.max_row
+        volume[f"I{r}"] = f'=IF(D{r}="daily_users",E{r}*F{r}*G{r},H{r})'
+        volume[f"J{r}"] = f"=C{r}*I{r}"
+    categories = wb.create_sheet("Category totals")
+    literal(categories, ["Complexity", "Total monthly invocations all agents"])
+    last_volume_row = volume.max_row
+    for complexity in ("simple", "medium", "high"):
+        literal(categories, [complexity, None])
+        r = categories.max_row
+        categories[f"B{r}"] = (
+            f"=SUMIF(Volume!B2:B{last_volume_row},A{r},Volume!J2:J{last_volume_row})"
+            if last_volume_row >= 2
+            else "=0"
+        )
+    category_usage = wb.create_sheet("Category usage")
+    literal(
+        category_usage,
+        [
+            "Complexity",
+            "Input tokens/month",
+            "Output tokens/month",
+            "Total tokens/month",
+            "Average tokens/day",
+            "Planning days/month",
+        ],
+    )
+    last_calc_row = calc.max_row
+    for complexity in ("simple", "medium", "high"):
+        literal(category_usage, [complexity, None, None, None, None, float(PLANNING_DAYS_PER_MONTH)])
+        r = category_usage.max_row
+        for col, token_col in (("B", "R"), ("C", "S")):
+            category_usage[f"{col}{r}"] = (
+                f"=SUMIFS(Calculations!{token_col}2:{token_col}{last_calc_row},"
+                f'Calculations!A2:A{last_calc_row},"Expected",'
+                f"Calculations!AF2:AF{last_calc_row},A{r})"
+                if last_calc_row >= 2
+                else "=0"
+            )
+        category_usage[f"D{r}"] = f"=B{r}+C{r}"
+        category_usage[f"E{r}"] = f"=D{r}/F{r}"
     for title, records in [
         ("Profiles", [dict(complexity=k, **v.model_dump(mode="json")) for k, v in estimate.profiles.items()]),
         ("Scenarios", [s.model_dump(mode="json") for s in estimate.scenarios]),
@@ -312,7 +445,15 @@ def export_estimate(estimate: Estimate):
         ("Currency", "USD"),
         (
             "Calculation editing",
-            "Edit numeric inputs in Calculations to recalculate costs. Profiles, Scenarios, Agents and Pricing document the snapshot; editing those sheets does not propagate to Calculations.",
+            "Edit numeric inputs in Calculations to recalculate costs. Column F derives scenario monthly volume from columns Z–AE; daily mode uses a 30-day planning month. Profiles, Scenarios, Agents and Pricing document the snapshot; editing those sheets does not propagate to Calculations.",
+        ),
+        (
+            "Volume and category totals",
+            "Volume derives baseline monthly invocations per agent and all agents from the exported inventory. Category totals sums the Volume sheet by complexity. These totals exclude scenario volume multipliers; Calculations contains scenario-effective volumes.",
+        ),
+        (
+            "Category token usage",
+            "Category usage sums Expected-scenario input and output tokens from Calculations, including normal calls and extra attempts. Cached input is part of input usage, not an extra category; billable reasoning is included in output. Average daily tokens divide monthly totals by 30 planning days.",
         ),
         (
             "Tier rates",

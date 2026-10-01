@@ -6,6 +6,15 @@ from .models import Estimate, Execution, Price, Scenario
 
 ZERO = Decimal(0)
 MILLION = Decimal(1000000)
+PLANNING_DAYS_PER_MONTH = Decimal(30)
+
+
+def monthly_invocations(row):
+    if row.volume_source == "daily_users":
+        if row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None:
+            return ZERO
+        return row.users_per_day * row.invocations_per_user_per_agent_per_day * PLANNING_DAYS_PER_MONTH
+    return row.invocations
 
 
 def selected_rates(price: Price, input_tokens: Decimal):
@@ -37,7 +46,9 @@ def effective_execution(estimate: Estimate, row) -> Execution:
 
 def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario, step_name: str):
     model_id = scenario.model_id if scenario.model_id is not None else execution.model_id
-    volume = row.invocations * scenario.volume_factor
+    base_volume = monthly_invocations(row)
+    base_total_volume = Decimal(row.count) * base_volume
+    volume = base_volume * scenario.volume_factor
     calls = execution.calls * scenario.calls_factor
     retry = execution.retry_rate * scenario.retry_factor
     input_tokens = execution.input_tokens * scenario.input_factor
@@ -48,6 +59,10 @@ def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario,
     uncached_input = input_tokens - cached_input - cache_writes
     price = estimate.prices.get(model_id)
     issues = []
+    if row.volume_source == "daily_users" and (
+        row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None
+    ):
+        issues.append("Enter users per day and invocations per user per agent per day.")
     rates = (
         selected_rates(price, input_tokens)
         if price
@@ -90,6 +105,14 @@ def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario,
         "complexity": row.complexity,
         "count": row.count,
         "invocations": volume,
+        "base_invocations": base_volume,
+        "base_total_invocations": base_total_volume,
+        "volume_source": row.volume_source,
+        "manual_invocations": row.invocations,
+        "users_per_day": row.users_per_day,
+        "invocations_per_user_per_agent_per_day": row.invocations_per_user_per_agent_per_day,
+        "days_per_month": PLANNING_DAYS_PER_MONTH,
+        "volume_factor": scenario.volume_factor,
         "calls_per_invocation": calls,
         "retry_rate": retry,
         "input_per_call": input_tokens,
@@ -109,6 +132,17 @@ def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario,
 
 
 def calculate(estimate: Estimate):
+    category_invocations = {}
+    for complexity in ("simple", "medium", "high"):
+        rows = [row for row in estimate.agents if row.complexity == complexity]
+        category_invocations[complexity] = {
+            "total": sum((Decimal(row.count) * monthly_invocations(row) for row in rows), ZERO),
+            "complete": all(
+                row.volume_source != "daily_users"
+                or (row.users_per_day is not None and row.invocations_per_user_per_agent_per_day is not None)
+                for row in rows
+            ),
+        }
     recurring = sum(
         (c.amount * c.quantity for c in estimate.additional_costs if c.frequency == "monthly"), ZERO
     )
@@ -141,6 +175,20 @@ def calculate(estimate: Estimate):
                 "lines": lines,
             }
         )
+    expected_lines = next(s["lines"] for s in scenarios if s["name"] == "Expected")
+    category_tokens = {}
+    for complexity in ("simple", "medium", "high"):
+        lines = [line for line in expected_lines if line["complexity"] == complexity]
+        monthly_input = sum((line["input_tokens"] for line in lines), ZERO)
+        monthly_output = sum((line["output_tokens"] for line in lines), ZERO)
+        monthly_total = monthly_input + monthly_output
+        category_tokens[complexity] = {
+            "monthly_input": monthly_input,
+            "monthly_output": monthly_output,
+            "monthly_total": monthly_total,
+            "daily_total": monthly_total / PLANNING_DAYS_PER_MONTH,
+            "complete": category_invocations[complexity]["complete"],
+        }
     warnings = []
     if all(s["complete"] for s in scenarios) and not (
         scenarios[0]["llm_cost"] <= scenarios[1]["llm_cost"] <= scenarios[2]["llm_cost"]
@@ -152,6 +200,8 @@ def calculate(estimate: Estimate):
         )
     return {
         "scenarios": scenarios,
+        "category_invocations": category_invocations,
+        "category_tokens": category_tokens,
         "agent_count": sum(r.count for r in estimate.agents),
         "recurring": recurring,
         "one_time": one_time,

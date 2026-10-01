@@ -19,6 +19,7 @@ export function Numeric({
   hint,
   max,
   integer = false,
+  required = false,
 }: {
   label: string;
   value: string | number;
@@ -26,6 +27,7 @@ export function Numeric({
   hint?: string;
   max?: number;
   integer?: boolean;
+  required?: boolean;
 }) {
   return (
     <Field label={label} hint={hint}>
@@ -36,6 +38,7 @@ export function Numeric({
         min="0"
         max={max}
         step={integer ? '1' : 'any'}
+        required={required}
         value={value}
         onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => onChange(e.target.value)}

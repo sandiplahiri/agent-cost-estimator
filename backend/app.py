@@ -113,7 +113,19 @@ def get_estimate(estimate_id: str):
 
 @app.post("/api/estimates")
 def save_estimate(estimate: Estimate):
+    require_daily_volume(estimate)
     return store.save(estimate)
+
+
+def require_daily_volume(estimate: Estimate):
+    for row in estimate.agents:
+        if row.volume_source == "daily_users" and (
+            row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None
+        ):
+            raise HTTPException(
+                422,
+                f"{row.name}: Users per day and invocations per user per agent per day are required.",
+            )
 
 
 def xlsx(data, filename):
@@ -141,6 +153,7 @@ async def preview(request: Request):
 
 @app.post("/api/export")
 def export(estimate: Estimate):
+    require_daily_volume(estimate)
     return xlsx(workbook.export_estimate(estimate), "agent-suite-budget.xlsx")
 
 

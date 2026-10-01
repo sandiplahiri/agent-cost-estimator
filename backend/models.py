@@ -73,6 +73,9 @@ class AgentRow(Record):
     complexity: Complexity = "simple"
     count: int = Field(default=1, ge=0, le=100000)
     invocations: Amount = Decimal(1000)
+    volume_source: Literal["manual", "daily_users"] = "manual"
+    users_per_day: Amount | None = None
+    invocations_per_user_per_agent_per_day: Amount | None = None
     overrides: Overrides = Field(default_factory=Overrides)
     steps: list[Step] = Field(default_factory=list, max_length=100)
 
@@ -96,7 +99,7 @@ class AdditionalCost(Record):
 
 
 class Estimate(Record):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     defaults_version: Literal[1] = 1
     id: str = Field(default_factory=lambda: str(uuid4()), max_length=100)
     name: str = Field(default="Untitled agent suite", min_length=1, max_length=120)
@@ -106,6 +109,13 @@ class Estimate(Record):
     scenarios: list[Scenario] = Field(max_length=3, min_length=3)
     prices: dict[str, Price] = Field(default_factory=dict, max_length=5000)
     additional_costs: list[AdditionalCost] = Field(default_factory=list, max_length=200)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_v1(cls, value):
+        if isinstance(value, dict) and value.get("schema_version", 1) == 1:
+            return {**value, "schema_version": 2}
+        return value
 
     @model_validator(mode="after")
     def consistency(self):

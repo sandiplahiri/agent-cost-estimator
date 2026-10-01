@@ -4,7 +4,7 @@ Recorded before implementing calculation behavior.
 
 ## Design
 
-FastAPI serves a built React/TypeScript app on loopback. SQLite stores versioned estimate JSON and pricing snapshots. A pure Decimal calculation module consumes validated domain records. LiteLLM supplies its bundled catalog offline; explicit refresh retrieves its published catalog. There are no paid model calls. The first detailed workflow is an ordered list of model-call steps with bounded expected repetitions; child agents remain separate rows with inclusive manual volumes.
+FastAPI serves a built React/TypeScript app on loopback. SQLite stores versioned estimate JSON and pricing snapshots. A pure Decimal calculation module consumes validated domain records. LiteLLM supplies its bundled catalog offline; explicit refresh retrieves its published catalog. There are no paid model calls. The first detailed workflow is an ordered list of model-call steps with bounded expected repetitions; child agents remain separate rows with inclusive volumes.
 
 The pricing adapter uses LiteLLM's `cache_read_input_token_cost` where present and falls back to `input_cost_per_token_cache_hit` for catalog entries that only provide that field. LiteLLM [documents the latter as a legacy cache-hit field](https://github.com/BerriAI/litellm/issues/28854). The normalized catalog carries a version; older bundled catalogs are rebuilt from the installed LiteLLM package on load. Previously refreshed catalogs need another explicit refresh to pick up this normalization change. Saved estimate price snapshots are never changed by this migration. A save records the draft at the time Save is clicked; edits made during the request remain marked unsaved. Price refresh previews and import validation use the latest draft after their asynchronous work, and reject a preview if the draft changes again before it can be applied. Import preview validates imported rows against the current profile assumptions before enabling replacement.
 
@@ -43,7 +43,7 @@ Recorded before changing the display behavior. The bundled `gemini/gemini-3.8-fl
 Recorded before changing numeric input behavior. A user clicking a prefilled numeric control and typing a new value should replace the old value on that first focus.
 
 - A profile's 2,000 input tokens per call must become 3,000 when the user clicks and types `3000`, rather than appending digits to 2,000.
-- An inventory row's 1,000 monthly invocations must become 25 when the user clicks and types `25`; this must update the actual budget inputs, not just the displayed text.
+- An inventory row's prefilled daily user count must be replaced when the user types a new count; the read-only monthly volume and budget must update from it.
 - The quick setup's default total count of 10 must become 3 when the user clicks and types `3`.
 - Explicit zero and fractional values must remain enterable where valid, and keyboard focus must still support replacement.
 
@@ -59,3 +59,16 @@ Use custom model Fixture A, USD 2 / million input and USD 8 / million output (sy
 - Detailed replacement of both agents: 2 calls with 1,000 input/250 output, no retries, yields $16/month, not $32.32.
 
 Verification uses browser interactions against the real local backend, a temporary database, downloaded workbooks, and an independent spreadsheet calculation engine. No unit tests will be added after implementation.
+## Daily-user volume (schema 2)
+
+Each agent row stores `volume_source` (`manual` for historical rows or `daily_users`), its historical manual monthly invocations, and the two daily inputs. New rows derive monthly invocations **per agent** as `users_per_day × invocations_per_user_per_agent_per_day × 30`. The engine then applies the scenario volume factor and group count. A 30-day month is an explicit planning assumption, not a calendar-month forecast. Version 1 estimates and browser drafts migrate to schema 2 with manual volume and unchanged costs; the inventory labels them as legacy. Entering both daily inputs converts such a row to derived volume. Existing pricing snapshots remain frozen.
+
+The spreadsheet import template accepts the daily source and inputs, and exported calculation rows include their source, inputs, planning days, manual fallback, and scenario factor. Monthly invocation cells in Calculations contain formulas based on those fields. The Agents sheet remains a reimportable aggregate inventory snapshot.
+
+New rows and Quick setup now require both daily inputs; monthly volume is read-only in the inventory. Save and export reject incomplete daily rows at the backend boundary. Existing manual rows remain labeled legacy and retain their original monthly costs; entering daily inputs converts them to the derived source. Legacy spreadsheet rows remain importable so previous templates do not silently lose data.
+
+Each inventory row also shows baseline monthly invocations for all agents in that row (`agent count × derived monthly invocations per agent`). Category totals sum these row contributions by complexity exactly once, including individual rows and rows with detailed workflows. An incomplete daily row makes its category total visibly incomplete. The workbook's Volume sheet recalculates row totals, and Category totals uses formulas to sum the three categories. Scenario-effective volumes remain separate in Calculations.
+
+Category token consumption sums Expected-scenario line-item input and output tokens by complexity. The sum includes normal calls, additional attempts, detailed steps, and each group's agent count; cached input is already part of input tokens, and billable reasoning is already part of output tokens. Average daily tokens = monthly total / 30 planning days. A missing daily workload input marks the category token number incomplete. The workbook's Category usage sheet uses formulas over Expected-scenario Calculations rows, so changing execution inputs there can recalculate the category figures.
+
+Independent E2E fixture: one agent per category, daily inputs of 2 × 3, 1 × 2, and 4 × 0.5 produce 180, 60, and 60 monthly invocations per agent. With synthetic USD 2/M input and USD 8/M output prices, starter execution profiles yield USD 1.4688 + USD 5.04 + USD 30.36 = USD 36.8688/month. A missing daily input must mark the estimate incomplete and block save/export; explicit zero is valid. Historical manual rows retain their original volume until converted.

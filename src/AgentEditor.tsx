@@ -48,11 +48,34 @@ export function AgentEditor({
           onChange={(v) => setDraft({ ...draft, count: Number(v) })}
         />
         <Numeric
-          label="Monthly invocations per agent"
-          value={draft.invocations}
-          onChange={(invocations) => setDraft({ ...draft, invocations })}
+          label="Users per agent per day *"
+          value={draft.users_per_day ?? ''}
+          required
+          onChange={(users_per_day) =>
+            setDraft({ ...draft, users_per_day: users_per_day || null, volume_source: 'daily_users' })
+          }
+          hint="Daily users of each agent in this row. Uses a 30-day planning month."
+        />
+        <Numeric
+          label="Invocations per user per agent per day *"
+          value={draft.invocations_per_user_per_agent_per_day ?? ''}
+          required
+          onChange={(invocations_per_user_per_agent_per_day) =>
+            setDraft({
+              ...draft,
+              invocations_per_user_per_agent_per_day: invocations_per_user_per_agent_per_day || null,
+              volume_source: 'daily_users',
+            })
+          }
+          hint="Average per user for each agent, including calls from other agents."
         />
       </div>
+      <p className="muted small">
+        * Required for every group. Total monthly invocations per agent are calculated from these inputs using
+        30 days/month.
+        {draft.volume_source === 'manual' &&
+          ' This saved row still uses a legacy manual volume until both daily inputs are entered.'}
+      </p>
       <div className="editor-section">
         <h3>Execution assumptions</h3>
         <p className="muted small">
@@ -155,7 +178,11 @@ export function AgentEditor({
         </div>
         <button
           className="button dark"
-          disabled={saving}
+          disabled={
+            saving ||
+            (draft.volume_source === 'daily_users' &&
+              (draft.users_per_day === null || draft.invocations_per_user_per_agent_per_day === null))
+          }
           onClick={async () => {
             setSaving(true);
             try {

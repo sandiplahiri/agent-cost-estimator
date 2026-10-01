@@ -6,6 +6,12 @@ Help AI architects budget proposed collections of one to hundreds of agents and 
 
 This brief records the discovery interview. Confirmed requirements are distinguished from proposed implementation defaults. It does not claim that the application has been implemented.
 
+**Later product decision (2026-10-01):** New inventory rows require users per agent per day and average invocations per user per agent per day. Total monthly invocations per agent is calculated and read-only. This supersedes the manual monthly entry described in the original discovery requirements below. Existing saved manual rows remain available as labeled legacy data until converted.
+
+**Follow-up decision:** Also derive total monthly invocations for all agents in each inventory group and roll them up by simple, medium, and high (complex) category. Group and category totals are read-only.
+
+**Follow-up decision:** Show total input-plus-output token consumption for each category per month and as an average per day over the 30-day planning month. Use Expected-scenario execution assumptions and count cached input and billable reasoning within their existing input/output categories.
+
 ## Confirmed requirements
 
 - Run as a local web application initially.

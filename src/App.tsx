@@ -29,6 +29,7 @@ import {
   api,
   complexities,
   effective,
+  displayVolume,
   id,
   money,
   number,
@@ -56,6 +57,8 @@ const descriptions = {
 };
 const emptyPrices: Record<string, Price> = {};
 const clone = <T,>(value: T): T => structuredClone(value);
+const quantityLabel = (total: string, complete: boolean) =>
+  complete ? displayVolume(total) : Number(total) === 0 ? 'Incomplete' : `${displayVolume(total)} (partial)`;
 
 function withSnapshots(next: Estimate, available: Record<string, Price>) {
   const modelIds = [
@@ -87,7 +90,17 @@ export default function App() {
   const [editing, setEditing] = useState<AgentRow | null>(null);
   const [undo, setUndo] = useState<Estimate | null>(null);
   const [clearOverrides, setClearOverrides] = useState(true);
-  const [quick, setQuick] = useState({ total: 10, simple: 6, medium: 3, high: 1, invocations: '1000' });
+  const [quick, setQuick] = useState({
+    total: 10,
+    simple: 6,
+    medium: 3,
+    high: 1,
+    daily: {
+      simple: { users: '', perUser: '' },
+      medium: { users: '', perUser: '' },
+      high: { users: '', perUser: '' },
+    },
+  });
   const [imported, setImported] = useState<{ agents: AgentRow[]; errors: string[] } | null>(null);
   const [refreshPreview, setRefreshPreview] = useState<{
     base: Estimate;
@@ -122,6 +135,15 @@ export default function App() {
         const text = localStorage.getItem('agent-ledger-draft-v1');
         if (text) {
           const parsed = JSON.parse(text);
+          if (parsed.schema_version === 1) {
+            parsed.schema_version = 2;
+            parsed.agents = parsed.agents.map((row: AgentRow) => ({
+              ...row,
+              volume_source: row.volume_source ?? 'manual',
+              users_per_day: row.users_per_day ?? null,
+              invocations_per_user_per_agent_per_day: row.invocations_per_user_per_agent_per_day ?? null,
+            }));
+          }
           await api<Results>('/calculate', parsed);
           draft = parsed;
         }
@@ -269,6 +291,11 @@ export default function App() {
       line.issues.map((issue) => `${line.name} (${line.model_id || 'no model'}): ${issue}`),
     ) || [];
   const totalAgents = estimate.agents.reduce((sum, r) => sum + r.count, 0);
+  const missingDaily = estimate.agents.filter(
+    (r) =>
+      r.volume_source === 'daily_users' &&
+      (r.users_per_day === null || r.invocations_per_user_per_agent_per_day === null),
+  );
   const rowResults = (rowId: string) => expected?.lines.filter((l) => l.row_id === rowId) || [];
   const rowCost = (rowId: string) => rowResults(rowId).reduce((sum, l) => sum + Number(l.cost || 0), 0);
   const filteredRows = estimate.agents.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
@@ -362,11 +389,19 @@ export default function App() {
               {calculating ? <LoaderCircle size={13} className="spin" /> : <span className="status-dot" />}
               {calculating ? 'Calculating' : isSaved ? 'Saved locally' : 'Browser draft'}
             </span>
-            <button className="button subtle" onClick={save} disabled={!!busy || !!calcError}>
+            <button
+              className="button subtle"
+              onClick={save}
+              disabled={!!busy || !!calcError || !!missingDaily.length}
+            >
               <Save size={15} />
               Save estimate
             </button>
-            <button className="button dark" onClick={exportWorkbook} disabled={!!busy || !result}>
+            <button
+              className="button dark"
+              onClick={exportWorkbook}
+              disabled={!!busy || !result || !!missingDaily.length}
+            >
               <ArrowDownToLine size={16} />
               Export Excel
             </button>
@@ -560,7 +595,10 @@ export default function App() {
                             name: 'New agent group',
                             complexity: 'simple',
                             count: 1,
-                            invocations: '1000',
+                            invocations: '0',
+                            volume_source: 'daily_users',
+                            users_per_day: null,
+                            invocations_per_user_per_agent_per_day: null,
                             overrides: {},
                             steps: [],
                           })
@@ -570,13 +608,26 @@ export default function App() {
                         Add group
                       </button>
                     </div>
+                    <p className="volume-note">
+                      * Required for each group. Total monthly invocations per agent = users per day ×
+                      invocations per user per agent per day × 30 days. All-agent totals also multiply by the
+                      group count; category totals sum every group of the same complexity.
+                    </p>
+                    {missingDaily.length > 0 && (
+                      <p className="volume-note invalid-text" role="alert">
+                        Complete both required daily inputs for {missingDaily.length} group
+                        {missingDaily.length === 1 ? '' : 's'} before saving or exporting.
+                      </p>
+                    )}
                     <div className="table-scroll">
                       <table className="agent-table">
                         <thead>
                           <tr>
                             <th>AGENT / GROUP</th>
                             <th>COUNT</th>
-                            <th>INVOCATIONS / AGENT / MO</th>
+                            <th>USERS / AGENT / DAY *</th>
+                            <th>INVOCATIONS / USER / AGENT / DAY *</th>
+                            <th>MONTHLY INVOCATIONS</th>
                             <th>MODEL</th>
                             <th>LLM / MONTH</th>
                             <th>
@@ -626,15 +677,83 @@ export default function App() {
                                     type="number"
                                     min={0}
                                     step="any"
-                                    aria-label={`${row.name} monthly invocations`}
-                                    value={row.invocations}
+                                    required
+                                    aria-label={`${row.name} users per day`}
+                                    value={
+                                      row.volume_source === 'daily_users' ? (row.users_per_day ?? '') : ''
+                                    }
+                                    placeholder="Required"
                                     onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) =>
                                       update((n) => {
-                                        n.agents.find((r) => r.id === row.id)!.invocations = e.target.value;
+                                        const target = n.agents.find((r) => r.id === row.id)!;
+                                        target.volume_source = 'daily_users';
+                                        target.users_per_day = e.target.value || null;
                                       })
                                     }
                                   />
+                                </td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    required
+                                    aria-label={`${row.name} invocations per user per agent per day`}
+                                    value={
+                                      row.volume_source === 'daily_users'
+                                        ? (row.invocations_per_user_per_agent_per_day ?? '')
+                                        : ''
+                                    }
+                                    placeholder="Required"
+                                    onFocus={(e) => e.currentTarget.select()}
+                                    onChange={(e) =>
+                                      update((n) => {
+                                        const target = n.agents.find((r) => r.id === row.id)!;
+                                        target.volume_source = 'daily_users';
+                                        target.invocations_per_user_per_agent_per_day =
+                                          e.target.value || null;
+                                      })
+                                    }
+                                  />
+                                </td>
+                                <td>
+                                  <div className="derived-volume">
+                                    <span>
+                                      Per agent:{' '}
+                                      <output
+                                        title={lines[0]?.base_invocations}
+                                        aria-label={`${row.name} total monthly invocations per agent`}
+                                      >
+                                        {lines.length &&
+                                        (row.volume_source === 'manual' ||
+                                          (row.users_per_day !== null &&
+                                            row.invocations_per_user_per_agent_per_day !== null))
+                                          ? displayVolume(lines[0].base_invocations)
+                                          : '—'}
+                                      </output>
+                                    </span>
+                                    <span>
+                                      All agents:{' '}
+                                      <output
+                                        title={lines[0]?.base_total_invocations}
+                                        aria-label={`${row.name} total monthly invocations all agents`}
+                                        className="total-volume"
+                                      >
+                                        {lines.length &&
+                                        (row.volume_source === 'manual' ||
+                                          (row.users_per_day !== null &&
+                                            row.invocations_per_user_per_agent_per_day !== null))
+                                          ? displayVolume(lines[0].base_total_invocations)
+                                          : '—'}
+                                      </output>
+                                    </span>
+                                    {row.volume_source === 'manual' && (
+                                      <small title="Enter both required daily inputs to convert this saved manual volume.">
+                                        Legacy manual volume
+                                      </small>
+                                    )}
+                                  </div>
                                 </td>
                                 <td>
                                   <button
@@ -678,6 +797,46 @@ export default function App() {
                       </table>
                     </div>
                     {filteredRows.length === 0 && <p className="empty-inline">No matching agents.</p>}
+                    <div className="category-volume-grid" aria-label="Monthly invocations by complexity">
+                      {complexities.map((complexity) => {
+                        const volume = result?.category_invocations[complexity];
+                        const tokens = result?.category_tokens[complexity];
+                        return (
+                          <div key={complexity}>
+                            <span>{complexity === 'high' ? 'High (complex)' : complexity} agents</span>
+                            <strong data-testid={`category-invocations-${complexity}`}>
+                              {volume ? quantityLabel(volume.total, volume.complete) : '—'}
+                            </strong>
+                            <small>invocations/month · all agents</small>
+                            <dl className="category-token-list">
+                              <div>
+                                <dt>Tokens/day</dt>
+                                <dd data-testid={`category-tokens-daily-${complexity}`}>
+                                  {tokens ? quantityLabel(tokens.daily_total, tokens.complete) : '—'}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt>Tokens/month</dt>
+                                <dd
+                                  data-testid={`category-tokens-monthly-${complexity}`}
+                                  title={
+                                    tokens
+                                      ? `Input ${tokens.monthly_input} + output ${tokens.monthly_output}`
+                                      : undefined
+                                  }
+                                >
+                                  {tokens ? quantityLabel(tokens.monthly_total, tokens.complete) : '—'}
+                                </dd>
+                              </div>
+                            </dl>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="category-token-note">
+                      Tokens are Expected-scenario input + output usage, including additional attempts. Daily
+                      values average the 30-day planning month.
+                    </p>
                     <div className="table-footer">
                       <span>Expected scenario · LLM costs only</span>
                       <strong>
@@ -1182,12 +1341,36 @@ export default function App() {
           >
             {quick.simple + quick.medium + quick.high} of {quick.total} agents assigned
           </p>
-          <Numeric
-            label="Monthly invocations per agent"
-            value={quick.invocations}
-            onChange={(invocations) => setQuick({ ...quick, invocations })}
-            hint="Starting value for all groups. Edit each group independently afterward."
-          />
+          {complexities.map((c) => (
+            <div className="quick-volume-group" key={c}>
+              <h3>{c[0].toUpperCase() + c.slice(1)} daily volume</h3>
+              <div className="form-grid">
+                <Numeric
+                  label={`${c[0].toUpperCase() + c.slice(1)} users per agent per day *`}
+                  value={quick.daily[c].users}
+                  required={quick[c] > 0}
+                  onChange={(users) =>
+                    setQuick({
+                      ...quick,
+                      daily: { ...quick.daily, [c]: { ...quick.daily[c], users } },
+                    })
+                  }
+                />
+                <Numeric
+                  label={`${c[0].toUpperCase() + c.slice(1)} invocations per user per agent per day *`}
+                  value={quick.daily[c].perUser}
+                  required={quick[c] > 0}
+                  onChange={(perUser) =>
+                    setQuick({
+                      ...quick,
+                      daily: { ...quick.daily, [c]: { ...quick.daily[c], perUser } },
+                    })
+                  }
+                />
+              </div>
+            </div>
+          ))}
+          <p className="muted small">* Required for categories with agents. Zero is a valid value.</p>
           <div className="modal-actions">
             <button className="button subtle" onClick={() => setModal(null)}>
               Cancel
@@ -1199,8 +1382,13 @@ export default function App() {
                 ![quick.total, quick.simple, quick.medium, quick.high].every(
                   (v) => Number.isInteger(v) && v >= 0 && v <= 100000,
                 ) ||
-                !quick.invocations ||
-                Number(quick.invocations) < 0
+                complexities.some(
+                  (c) =>
+                    quick[c] > 0 &&
+                    [quick.daily[c].users, quick.daily[c].perUser].some(
+                      (value) => value === '' || !Number.isFinite(Number(value)) || Number(value) < 0,
+                    ),
+                )
               }
               onClick={() => {
                 setUndo(clone(estimate));
@@ -1210,7 +1398,10 @@ export default function App() {
                     name: `${c[0].toUpperCase() + c.slice(1)} agents`,
                     complexity: c,
                     count: quick[c],
-                    invocations: quick.invocations,
+                    invocations: '0',
+                    volume_source: 'daily_users',
+                    users_per_day: quick[c] > 0 ? quick.daily[c].users : '0',
+                    invocations_per_user_per_agent_per_day: quick[c] > 0 ? quick.daily[c].perUser : '0',
                     overrides: {},
                     steps: [],
                   }));
@@ -1319,7 +1510,7 @@ export default function App() {
         <Modal title="Reset execution parameters" onClose={() => setModal(null)}>
           <p>
             Restore all three profiles to the starter calls, token sizes, retry rates and cache assumptions.
-            Model choices, agent names/counts, monthly invocations, custom rates and additional costs are
+            Model choices, agent names/counts, daily workload inputs, custom rates and additional costs are
             preserved.
           </p>
           <label className="checkbox-field">
@@ -1383,8 +1574,10 @@ export default function App() {
             <div className="import-preview">
               {imported.agents.slice(0, 20).map((r) => (
                 <p key={r.id}>
-                  <strong>{r.name}</strong> · {r.count} {r.complexity} · {number(r.invocations)}{' '}
-                  invocations/agent/mo
+                  <strong>{r.name}</strong> · {r.count} {r.complexity} ·{' '}
+                  {r.volume_source === 'daily_users'
+                    ? `${r.users_per_day ?? 'missing'} users/day × ${r.invocations_per_user_per_agent_per_day ?? 'missing'} invocations/user/agent/day × 30 days`
+                    : `${number(r.invocations)} legacy manual invocations/agent/mo`}
                 </p>
               ))}
               {imported.agents.length > 20 && <p>And {imported.agents.length - 20} more rows…</p>}
