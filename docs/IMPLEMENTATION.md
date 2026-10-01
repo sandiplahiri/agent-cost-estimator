@@ -80,3 +80,10 @@ Independent E2E fixture: two simple agents, one medium agent, and one high agent
 - Cached input must appear in exactly one input token type; output already includes billable reasoning. Multiple models or rates must retain separate detail rows so a single catalog rate is never falsely applied to an entire category.
 - If any contributing line lacks a required rate or has invalid pricing limits, its category cost must be marked incomplete; the displayed cost and workbook subtotal may include only fully priced lines. Tokens from supplied workload remain visible. Zero workload is a valid complete zero when inputs are present.
 - Workbook Category costs formulas must recalculate the same token partitions and costs from Calculations. Category totals must reconcile to the Summary Expected LLM amount, within spreadsheet numeric precision.
+
+## Daily and monthly token-type cost: failure cases and independent outcomes
+
+- With the synthetic two-simple-agent fixture, uncached input is 734,400 tokens and USD 1.4688/month; output is 183,600 tokens and USD 1.4688/month. Their daily averages must be 24,480 and 6,120 tokens, USD 0.04896 each. Category daily cost is USD 0.09792. Division must happen before display rounding.
+- With the tier/cache fixture, monthly token-type costs USD 2, USD 0.25, USD 1.5, and USD 0.08 yield daily averages USD 0.066666666..., USD 0.008333333..., USD 0.05, and USD 0.002666666...; daily category cost is USD 3.83 / 30. Cached reads and writes remain distinct token types.
+- Two models in one category must be combined into category token-type totals without discarding their distinct rates. Missing pricing or workload volume must mark affected category cost totals incomplete, rather than presenting a zero daily cost as complete.
+- The exported Category costs sheet must calculate daily token and cost columns from monthly formula results using the 30-day planning month, and its category subtotals must reconcile with the Expected suite total.

@@ -230,10 +230,26 @@ def calculate(estimate: Estimate):
                     entry["issues"] = list(dict.fromkeys(entry["issues"] + line["issues"]))
                 else:
                     entry["monthly_cost"] += line["costs"][cost_key]
+        type_totals = {}
+        for token_type, _, _ in TOKEN_TYPES:
+            matching = [entry for entry in entries.values() if entry["token_type"] == token_type]
+            type_tokens = sum((entry["monthly_tokens"] for entry in matching), ZERO)
+            type_cost = sum((entry["monthly_cost"] for entry in matching), ZERO)
+            type_totals[token_type] = {
+                "monthly_tokens": type_tokens,
+                "daily_tokens": type_tokens / PLANNING_DAYS_PER_MONTH,
+                "monthly_cost": type_cost,
+                "daily_cost": type_cost / PLANNING_DAYS_PER_MONTH,
+                "complete": category_invocations[complexity]["complete"]
+                and all(entry["complete"] for entry in matching),
+            }
+        monthly_cost = sum((line["cost"] for line in lines if line["cost"] is not None), ZERO)
         category_costs[complexity] = {
-            "monthly_cost": sum((line["cost"] for line in lines if line["cost"] is not None), ZERO),
+            "monthly_cost": monthly_cost,
+            "daily_cost": monthly_cost / PLANNING_DAYS_PER_MONTH,
             "complete": category_invocations[complexity]["complete"]
             and all(not line["issues"] for line in lines),
+            "types": type_totals,
             "entries": list(entries.values()),
         }
     warnings = []

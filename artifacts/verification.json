@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-10-01T18:21:10.795Z",
+  "executedAt": "2026-10-01T19:13:47.403Z",
   "command": "npm run test:e2e",
   "prerequisites": "npm run build and npm run check completed before this run.",
   "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
@@ -63,6 +63,11 @@
           2.9376,
           5.04,
           30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
         ]
       },
       "actual": {
@@ -91,6 +96,11 @@
           2.9376,
           5.04,
           30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
         ]
       }
     },
@@ -126,11 +136,15 @@
       "expected": {
         "suiteUsd": 2.2644,
         "categoryUsd": 2.2644,
+        "dailyCategoryUsd": 0.07548,
+        "dailyInputUsd": 0.0408,
         "modelBInputTokens": 122400
       },
       "actual": {
         "suiteUsd": 2.2644,
         "categoryUsd": 2.2644,
+        "dailyCategoryUsd": 0.07548,
+        "dailyInputUsd": 0.0408,
         "modelBInputTokens": 122400
       }
     },

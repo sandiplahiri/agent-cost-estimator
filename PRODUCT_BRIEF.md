@@ -14,6 +14,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up decision:** Show the Expected-scenario monthly LLM cost for each category as a token-type calculation. Separate uncached input, cached reads, cache writes, and output (including billable reasoning), and show the selected per-million rate for each model/tier. Category cost totals must reconcile to the suite's Expected LLM total; missing pricing remains visibly incomplete.
 
+**Follow-up decision:** For each category, show each token type's average tokens and LLM cost per day alongside monthly tokens and cost. Daily amounts divide unrounded Expected-scenario monthly values by 30 planning days; mixed-model rates remain inspectable separately.
+
 ## Confirmed requirements
 
 - Run as a local web application initially.

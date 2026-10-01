@@ -409,6 +409,9 @@ def export_estimate(estimate: Estimate):
             "Known cost USD/month",
             "Blended USD/1M tokens",
             "Status",
+            "Average tokens/day",
+            "Known cost USD/day",
+            "Planning days/month",
         ],
     )
     for complexity in ("simple", "medium", "high"):
@@ -424,7 +427,20 @@ def export_estimate(estimate: Estimate):
             ("Input cache write", "AI", "W"),
             ("Output incl. reasoning", "S", "U"),
         ):
-            literal(category_costs, [complexity, token_type, None, None, None, status])
+            literal(
+                category_costs,
+                [
+                    complexity,
+                    token_type,
+                    None,
+                    None,
+                    None,
+                    status,
+                    None,
+                    None,
+                    float(PLANNING_DAYS_PER_MONTH),
+                ],
+            )
             r = category_costs.max_row
             for column, source in (("C", token_col), ("D", cost_col)):
                 category_costs[f"{column}{r}"] = (
@@ -436,11 +452,18 @@ def export_estimate(estimate: Estimate):
                 )
             if status == "Complete":
                 category_costs[f"E{r}"] = f'=IF(C{r}=0,"",D{r}*1000000/C{r})'
+            category_costs[f"G{r}"] = f"=C{r}/I{r}"
+            category_costs[f"H{r}"] = f"=D{r}/I{r}"
         last = category_costs.max_row
-        literal(category_costs, [complexity, "Total", None, None, None, status])
+        literal(
+            category_costs,
+            [complexity, "Total", None, None, None, status, None, None, float(PLANNING_DAYS_PER_MONTH)],
+        )
         r = category_costs.max_row
         category_costs[f"C{r}"] = f"=SUM(C{first}:C{last})"
         category_costs[f"D{r}"] = f"=SUM(D{first}:D{last})"
+        category_costs[f"G{r}"] = f"=C{r}/I{r}"
+        category_costs[f"H{r}"] = f"=D{r}/I{r}"
     for title, records in [
         ("Profiles", [dict(complexity=k, **v.model_dump(mode="json")) for k, v in estimate.profiles.items()]),
         ("Scenarios", [s.model_dump(mode="json") for s in estimate.scenarios]),
@@ -508,7 +531,7 @@ def export_estimate(estimate: Estimate):
         ),
         (
             "Category token costs",
-            "Category costs splits Expected-scenario tokens into uncached input, cached reads, cache writes and output. Known costs sum the corresponding Calculations formulas. Blended USD/1M is derived from each token-type subtotal when pricing is complete; inspect Calculations for each model's selected rate. Incomplete rows omit unpriced agent lines from costs while retaining their token counts. Re-export after resolving pricing or limits.",
+            "Category costs splits Expected-scenario tokens into uncached input, cached reads, cache writes and output. Known monthly costs sum the corresponding Calculations formulas; average daily tokens and costs divide monthly values by 30 planning days. Blended USD/1M is derived from each token-type subtotal when pricing is complete; inspect Calculations for each model's selected rate. Incomplete rows omit unpriced agent lines from costs while retaining their token counts. Re-export after resolving pricing or limits.",
         ),
         (
             "Tier rates",

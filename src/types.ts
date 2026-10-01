@@ -132,7 +132,18 @@ export interface Results {
     Complexity,
     {
       monthly_cost: Numeric;
+      daily_cost: Numeric;
       complete: boolean;
+      types: Record<
+        'input' | 'cache_read' | 'cache_write' | 'output',
+        {
+          monthly_tokens: Numeric;
+          daily_tokens: Numeric;
+          monthly_cost: Numeric;
+          daily_cost: Numeric;
+          complete: boolean;
+        }
+      >;
       entries: {
         token_type: 'input' | 'cache_read' | 'cache_write' | 'output';
         model_id: string;

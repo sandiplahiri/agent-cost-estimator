@@ -61,10 +61,13 @@ const tokenTypeLabels = {
   cache_write: 'Input cache write',
   output: 'Output, incl. reasoning',
 };
+const tokenTypes = ['input', 'cache_read', 'cache_write', 'output'] as const;
 const emptyPrices: Record<string, Price> = {};
 const clone = <T,>(value: T): T => structuredClone(value);
 const quantityLabel = (total: string, complete: boolean) =>
   complete ? displayVolume(total) : Number(total) === 0 ? 'Incomplete' : `${displayVolume(total)} (partial)`;
+const costLabel = (total: string, complete: boolean, format = money) =>
+  complete ? format(total) : Number(total) === 0 ? 'Incomplete' : `${format(total)} (partial)`;
 
 function withSnapshots(next: Estimate, available: Record<string, Price>) {
   const modelIds = [
@@ -846,25 +849,90 @@ export default function App() {
                     <div className="category-cost-grid" aria-label="Token cost calculation by category">
                       {complexities.map((complexity) => {
                         const breakdown = result?.category_costs[complexity];
+                        const categoryTokens = result?.category_tokens[complexity];
                         return (
                           <details className="category-cost-detail" key={complexity}>
                             <summary>
                               <span>{complexity === 'high' ? 'High (complex)' : complexity} token cost</span>
                               <strong data-testid={`category-cost-${complexity}`}>
-                                {breakdown
-                                  ? breakdown.complete
-                                    ? money(breakdown.monthly_cost)
-                                    : Number(breakdown.monthly_cost) === 0
-                                      ? 'Incomplete'
-                                      : `${money(breakdown.monthly_cost)} (partial)`
-                                  : '—'}
+                                {breakdown ? costLabel(breakdown.monthly_cost, breakdown.complete) : '—'}
                               </strong>
                             </summary>
                             {breakdown && (
                               <div className="category-cost-content">
+                                <div className="category-cost-scroll">
+                                  <table className="category-type-table">
+                                    <thead>
+                                      <tr>
+                                        <th scope="col">Token type</th>
+                                        <th scope="col">Tokens/day</th>
+                                        <th scope="col">Tokens/month</th>
+                                        <th scope="col">USD/day</th>
+                                        <th scope="col">USD/month</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {tokenTypes.map((tokenType) => {
+                                        const type = breakdown.types[tokenType];
+                                        return (
+                                          <tr
+                                            key={tokenType}
+                                            data-testid={`category-type-${complexity}-${tokenType}`}
+                                          >
+                                            <th scope="row">{tokenTypeLabels[tokenType]}</th>
+                                            <td title={type.daily_tokens}>
+                                              {quantityLabel(
+                                                type.daily_tokens,
+                                                categoryTokens?.complete ?? false,
+                                              )}
+                                            </td>
+                                            <td title={type.monthly_tokens}>
+                                              {quantityLabel(
+                                                type.monthly_tokens,
+                                                categoryTokens?.complete ?? false,
+                                              )}
+                                            </td>
+                                            <td title={type.daily_cost}>
+                                              {costLabel(type.daily_cost, type.complete, rateMoney)}
+                                            </td>
+                                            <td title={type.monthly_cost}>
+                                              {costLabel(type.monthly_cost, type.complete, rateMoney)}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                      <tr className="category-type-total">
+                                        <th scope="row">Total</th>
+                                        <td>
+                                          {categoryTokens
+                                            ? quantityLabel(
+                                                categoryTokens.daily_total,
+                                                categoryTokens.complete,
+                                              )
+                                            : '—'}
+                                        </td>
+                                        <td>
+                                          {categoryTokens
+                                            ? quantityLabel(
+                                                categoryTokens.monthly_total,
+                                                categoryTokens.complete,
+                                              )
+                                            : '—'}
+                                        </td>
+                                        <td data-testid={`category-cost-daily-${complexity}`}>
+                                          {costLabel(breakdown.daily_cost, breakdown.complete, rateMoney)}
+                                        </td>
+                                        <td>
+                                          {costLabel(breakdown.monthly_cost, breakdown.complete, rateMoney)}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
                                 {breakdown.entries.length ? (
-                                  <div className="category-cost-scroll">
-                                    <table>
+                                  <div className="category-cost-scroll model-cost-section">
+                                    <h4>Model rates and monthly calculation</h4>
+                                    <table className="model-cost-table">
                                       <thead>
                                         <tr>
                                           <th scope="col">Token type</th>
@@ -888,11 +956,7 @@ export default function App() {
                                                 : rateMoney(entry.rate_per_million)}
                                             </td>
                                             <td title={entry.issues.join(' ')}>
-                                              {entry.complete
-                                                ? money(entry.monthly_cost)
-                                                : Number(entry.monthly_cost) === 0
-                                                  ? 'Incomplete'
-                                                  : `${money(entry.monthly_cost)} (partial)`}
+                                              {costLabel(entry.monthly_cost, entry.complete, rateMoney)}
                                             </td>
                                           </tr>
                                         ))}

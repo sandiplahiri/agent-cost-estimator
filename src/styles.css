@@ -700,10 +700,24 @@ tr:last-child td {
   border-bottom: 1px solid #e5eadf;
   text-align: left;
 }
-.category-cost-content td:nth-last-child(-n + 3),
-.category-cost-content th:nth-last-child(-n + 3) {
+.category-type-table td,
+.category-type-table th:not(:first-child),
+.model-cost-table td:nth-last-child(-n + 3),
+.model-cost-table th:nth-last-child(-n + 3) {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.category-type-total {
+  background: #f2f7ef;
+  font-weight: 700;
+}
+.model-cost-section {
+  margin-top: 15px;
+}
+.model-cost-section h4 {
+  margin: 0 0 6px;
+  color: #2b4234;
+  font-size: 11px;
 }
 .category-cost-content p {
   margin: 9px 0 0;
