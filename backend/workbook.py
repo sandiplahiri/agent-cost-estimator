@@ -209,6 +209,9 @@ def export_estimate(estimate: Estimate):
         "Manual invocations/agent/month",
         "Scenario volume factor",
         "Complexity",
+        "Uncached input tokens/month",
+        "Cached read tokens/month",
+        "Cache write tokens/month",
     ]
     literal(calc, columns)
     for s in result["scenarios"]:
@@ -252,6 +255,9 @@ def export_estimate(estimate: Estimate):
                     float(line["manual_invocations"]),
                     float(line["volume_factor"]),
                     line["complexity"],
+                    None,
+                    None,
+                    None,
                 ],
             )
             r = calc.max_row
@@ -260,6 +266,9 @@ def export_estimate(estimate: Estimate):
                 "Q": f"E{r}*F{r}*G{r}*(1+H{r})",
                 "R": f"Q{r}*I{r}",
                 "S": f"Q{r}*J{r}",
+                "AG": f"R{r}*(1-K{r}-L{r})",
+                "AH": f"R{r}*K{r}",
+                "AI": f"R{r}*L{r}",
             }
             if not line["issues"]:
                 formulas |= {
@@ -390,6 +399,48 @@ def export_estimate(estimate: Estimate):
             )
         category_usage[f"D{r}"] = f"=B{r}+C{r}"
         category_usage[f"E{r}"] = f"=D{r}/F{r}"
+    category_costs = wb.create_sheet("Category costs")
+    literal(
+        category_costs,
+        [
+            "Complexity",
+            "Token type",
+            "Tokens/month",
+            "Known cost USD/month",
+            "Blended USD/1M tokens",
+            "Status",
+        ],
+    )
+    for complexity in ("simple", "medium", "high"):
+        first = category_costs.max_row + 1
+        status = (
+            "Complete"
+            if result["category_costs"][complexity]["complete"]
+            else "INCOMPLETE — known costs only"
+        )
+        for token_type, token_col, cost_col in (
+            ("Uncached input", "AG", "T"),
+            ("Cached input read", "AH", "V"),
+            ("Input cache write", "AI", "W"),
+            ("Output incl. reasoning", "S", "U"),
+        ):
+            literal(category_costs, [complexity, token_type, None, None, None, status])
+            r = category_costs.max_row
+            for column, source in (("C", token_col), ("D", cost_col)):
+                category_costs[f"{column}{r}"] = (
+                    f"=SUMIFS(Calculations!{source}2:{source}{last_calc_row},"
+                    f'Calculations!A2:A{last_calc_row},"Expected",'
+                    f"Calculations!AF2:AF{last_calc_row},A{r})"
+                    if last_calc_row >= 2
+                    else "=0"
+                )
+            if status == "Complete":
+                category_costs[f"E{r}"] = f'=IF(C{r}=0,"",D{r}*1000000/C{r})'
+        last = category_costs.max_row
+        literal(category_costs, [complexity, "Total", None, None, None, status])
+        r = category_costs.max_row
+        category_costs[f"C{r}"] = f"=SUM(C{first}:C{last})"
+        category_costs[f"D{r}"] = f"=SUM(D{first}:D{last})"
     for title, records in [
         ("Profiles", [dict(complexity=k, **v.model_dump(mode="json")) for k, v in estimate.profiles.items()]),
         ("Scenarios", [s.model_dump(mode="json") for s in estimate.scenarios]),
@@ -454,6 +505,10 @@ def export_estimate(estimate: Estimate):
         (
             "Category token usage",
             "Category usage sums Expected-scenario input and output tokens from Calculations, including normal calls and extra attempts. Cached input is part of input usage, not an extra category; billable reasoning is included in output. Average daily tokens divide monthly totals by 30 planning days.",
+        ),
+        (
+            "Category token costs",
+            "Category costs splits Expected-scenario tokens into uncached input, cached reads, cache writes and output. Known costs sum the corresponding Calculations formulas. Blended USD/1M is derived from each token-type subtotal when pricing is complete; inspect Calculations for each model's selected rate. Incomplete rows omit unpriced agent lines from costs while retaining their token counts. Re-export after resolving pricing or limits.",
         ),
         (
             "Tier rates",

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "defaults_version": 1,
-  "id": "3783a545-ceaf-4366-a281-bcbbbf875021",
+  "id": "ddd4e8da-99b2-478f-8dad-9ea0204ec8cf",
   "name": "Daily volume fixture",
   "notes": "",
   "profiles": {
@@ -35,7 +35,7 @@
   },
   "agents": [
     {
-      "id": "37a7e2ac-cbb4-427b-b3cf-d18dc472974d",
+      "id": "71605a11-91cb-47a4-8f50-7748269c4645",
       "name": "Simple agents",
       "complexity": "simple",
       "count": 2,
@@ -55,7 +55,7 @@
       "steps": []
     },
     {
-      "id": "dd5ddfbf-9814-4bfa-812c-566e99765ab4",
+      "id": "e4dcef8c-98f3-4263-a45b-ac809f957a11",
       "name": "Medium agents",
       "complexity": "medium",
       "count": 1,
@@ -75,7 +75,7 @@
       "steps": []
     },
     {
-      "id": "7fa750cd-fad8-4d0e-9758-54521f5b9a98",
+      "id": "bfe7e3f7-5df9-4e82-931b-b15c87bfdbad",
       "name": "High agents",
       "complexity": "high",
       "count": 1,
@@ -136,7 +136,7 @@
       "max_input": null,
       "max_output": null,
       "source": "Architect-supplied custom rates",
-      "retrieved_at": "2026-10-01T17:17:27.032Z",
+      "retrieved_at": "2026-10-01T18:20:50.714Z",
       "custom": true,
       "unsupported": []
     }

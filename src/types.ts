@@ -128,6 +128,22 @@ export interface Results {
       complete: boolean;
     }
   >;
+  category_costs: Record<
+    Complexity,
+    {
+      monthly_cost: Numeric;
+      complete: boolean;
+      entries: {
+        token_type: 'input' | 'cache_read' | 'cache_write' | 'output';
+        model_id: string;
+        rate_per_million: Numeric | null;
+        monthly_tokens: Numeric;
+        monthly_cost: Numeric;
+        complete: boolean;
+        issues: string[];
+      }[];
+    }
+  >;
   agent_count: number;
   recurring: Numeric;
   one_time: Numeric;

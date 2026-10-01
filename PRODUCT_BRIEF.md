@@ -12,6 +12,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up decision:** Show total input-plus-output token consumption for each category per month and as an average per day over the 30-day planning month. Use Expected-scenario execution assumptions and count cached input and billable reasoning within their existing input/output categories.
 
+**Follow-up decision:** Show the Expected-scenario monthly LLM cost for each category as a token-type calculation. Separate uncached input, cached reads, cache writes, and output (including billable reasoning), and show the selected per-million rate for each model/tier. Category cost totals must reconcile to the suite's Expected LLM total; missing pricing remains visibly incomplete.
+
 ## Confirmed requirements
 
 - Run as a local web application initially.

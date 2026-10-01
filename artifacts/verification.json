@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-10-01T17:17:45.991Z",
+  "executedAt": "2026-10-01T18:21:10.795Z",
   "command": "npm run test:e2e",
   "prerequisites": "npm run build and npm run check completed before this run.",
   "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
@@ -58,7 +58,12 @@
           58800,
           374000
         ],
-        "monthlyUsd": 38.3376
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ]
       },
       "actual": {
         "perAgentVolumes": [
@@ -81,7 +86,12 @@
           58800,
           374000
         ],
-        "monthlyUsd": 38.3376
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ]
       }
     },
     {
@@ -111,6 +121,20 @@
       }
     },
     {
+      "journey": "Two models with different rates in one category",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/mixed-model-category-budget.xlsx",
+      "expected": {
+        "suiteUsd": 2.2644,
+        "categoryUsd": 2.2644,
+        "modelBInputTokens": 122400
+      },
+      "actual": {
+        "suiteUsd": 2.2644,
+        "categoryUsd": 2.2644,
+        "modelBInputTokens": 122400
+      }
+    },
+    {
       "journey": "Split + zero override + detailed replacement",
       "evidence": "Browser interactions",
       "expected": 12.08,
@@ -131,16 +155,32 @@
     {
       "journey": "Per-call context tiers + cache reads/writes",
       "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/tier-cache-budget.xlsx",
-      "expected": [
-        2.8725,
-        3.83,
-        11.43
-      ],
-      "actual": [
-        2.8725,
-        3.83,
-        11.43
-      ]
+      "expected": {
+        "scenarios": [
+          2.8725,
+          3.83,
+          11.43
+        ],
+        "components": [
+          2,
+          0.25,
+          1.5,
+          0.08
+        ]
+      },
+      "actual": {
+        "scenarios": [
+          2.8725,
+          3.83,
+          11.43
+        ],
+        "components": [
+          2,
+          0.25,
+          1.5,
+          0.08
+        ]
+      }
     },
     {
       "journey": "Concurrent draft edits during save and refresh",

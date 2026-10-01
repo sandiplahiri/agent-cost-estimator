@@ -7,6 +7,12 @@ from .models import Estimate, Execution, Price, Scenario
 ZERO = Decimal(0)
 MILLION = Decimal(1000000)
 PLANNING_DAYS_PER_MONTH = Decimal(30)
+TOKEN_TYPES = (
+    ("input", "input", "input"),
+    ("cache_read", "cache_read", "cache"),
+    ("cache_write", "cache_write", "cache_write"),
+    ("output", "output", "output"),
+)
 
 
 def monthly_invocations(row):
@@ -177,6 +183,7 @@ def calculate(estimate: Estimate):
         )
     expected_lines = next(s["lines"] for s in scenarios if s["name"] == "Expected")
     category_tokens = {}
+    category_costs = {}
     for complexity in ("simple", "medium", "high"):
         lines = [line for line in expected_lines if line["complexity"] == complexity]
         monthly_input = sum((line["input_tokens"] for line in lines), ZERO)
@@ -188,6 +195,46 @@ def calculate(estimate: Estimate):
             "monthly_total": monthly_total,
             "daily_total": monthly_total / PLANNING_DAYS_PER_MONTH,
             "complete": category_invocations[complexity]["complete"],
+        }
+        entries = {}
+        for line in lines:
+            cached_read = line["input_tokens"] * line["cache_fraction"]
+            cached_write = line["input_tokens"] * line["cache_write_fraction"]
+            tokens_by_type = {
+                "input": line["input_tokens"] - cached_read - cached_write,
+                "cache_read": cached_read,
+                "cache_write": cached_write,
+                "output": line["output_tokens"],
+            }
+            for token_type, rate_key, cost_key in TOKEN_TYPES:
+                tokens = tokens_by_type[token_type]
+                if not tokens:
+                    continue
+                rate = line["rates"][rate_key]
+                key = (token_type, line["model_id"], rate)
+                entry = entries.setdefault(
+                    key,
+                    {
+                        "token_type": token_type,
+                        "model_id": line["model_id"],
+                        "rate_per_million": rate,
+                        "monthly_tokens": ZERO,
+                        "monthly_cost": ZERO,
+                        "complete": True,
+                        "issues": [],
+                    },
+                )
+                entry["monthly_tokens"] += tokens
+                if line["costs"] is None:
+                    entry["complete"] = False
+                    entry["issues"] = list(dict.fromkeys(entry["issues"] + line["issues"]))
+                else:
+                    entry["monthly_cost"] += line["costs"][cost_key]
+        category_costs[complexity] = {
+            "monthly_cost": sum((line["cost"] for line in lines if line["cost"] is not None), ZERO),
+            "complete": category_invocations[complexity]["complete"]
+            and all(not line["issues"] for line in lines),
+            "entries": list(entries.values()),
         }
     warnings = []
     if all(s["complete"] for s in scenarios) and not (
@@ -202,6 +249,7 @@ def calculate(estimate: Estimate):
         "scenarios": scenarios,
         "category_invocations": category_invocations,
         "category_tokens": category_tokens,
+        "category_costs": category_costs,
         "agent_count": sum(r.count for r in estimate.agents),
         "recurring": recurring,
         "one_time": one_time,

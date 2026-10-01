@@ -658,6 +658,58 @@ tr:last-child td {
   font-size: 10px;
   border-top: 1px solid #e5eadf;
 }
+.category-cost-grid {
+  border-top: 1px solid #e5eadf;
+}
+.category-cost-detail {
+  border-bottom: 1px solid #e5eadf;
+}
+.category-cost-detail summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 25px;
+  cursor: pointer;
+  color: #2b4234;
+  text-transform: capitalize;
+}
+.category-cost-detail summary strong {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.category-cost-detail summary:focus-visible {
+  outline: 2px solid #2b6847;
+  outline-offset: -2px;
+}
+.category-cost-content {
+  padding: 0 25px 12px;
+}
+.category-cost-scroll {
+  overflow-x: auto;
+}
+.category-cost-content table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.category-cost-content th,
+.category-cost-content td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5eadf;
+  text-align: left;
+}
+.category-cost-content td:nth-last-child(-n + 3),
+.category-cost-content th:nth-last-child(-n + 3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.category-cost-content p {
+  margin: 9px 0 0;
+  color: #65745f;
+  font-size: 10px;
+}
 .volume-note {
   margin: 0 25px 12px;
   color: #65745f;

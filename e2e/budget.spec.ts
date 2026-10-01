@@ -237,6 +237,17 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
     );
   }
   await expect(page.getByTestId('cost-expected')).toHaveText('$38.34/mo');
+  const expectedCategoryCosts = [2.9376, 5.04, 30.36];
+  for (const [i, complexity] of ['simple', 'medium', 'high'].entries()) {
+    await expect(page.getByTestId(`category-cost-${complexity}`)).toHaveText(
+      `$${expectedCategoryCosts[i].toFixed(2)}`,
+    );
+  }
+  await page.locator('.category-cost-detail').first().locator('summary').click();
+  const simpleCost = page.locator('.category-cost-detail').first();
+  await expect(simpleCost.getByRole('row', { name: /Uncached input/ })).toContainText('734,400');
+  await expect(simpleCost.getByRole('row', { name: /Uncached input/ })).toContainText('$1.47');
+  await expect(simpleCost.getByRole('row', { name: /Output, incl. reasoning/ })).toContainText('183,600');
 
   await page.getByLabel('Medium agents invocations per user per agent per day').fill('0');
   await expect(page.getByTestId('cost-expected')).toHaveText('$33.30/mo');
@@ -277,6 +288,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   const volumeSheet = engine.getSheetId('Volume')!;
   const categorySheet = engine.getSheetId('Category totals')!;
   const usageSheet = engine.getSheetId('Category usage')!;
+  const costSheet = engine.getSheetId('Category costs')!;
   expect(engine.getCellValue({ sheet: volumeSheet, col: 9, row: 1 })).toBe(360);
   const expectedCategoryTotals = [360, 60, 60];
   for (let i = 0; i < 3; i++) {
@@ -292,6 +304,15 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   }
   expect(engine.getCellValue({ sheet: usageSheet, col: 1, row: 1 })).toBeCloseTo(734400, 6);
   expect(engine.getCellValue({ sheet: usageSheet, col: 2, row: 1 })).toBeCloseTo(183600, 6);
+  const expectedCategoryCostRows = [5, 10, 15];
+  for (const [i, row] of expectedCategoryCostRows.entries()) {
+    expect(engine.getCellValue({ sheet: costSheet, col: 3, row })).toBeCloseTo(expectedCategoryCosts[i], 8);
+  }
+  expect(engine.getCellValue({ sheet: costSheet, col: 2, row: 1 })).toBeCloseTo(734400, 6);
+  expect(engine.getCellValue({ sheet: costSheet, col: 3, row: 1 })).toBeCloseTo(1.4688, 8);
+  expect(engine.getCellValue({ sheet: costSheet, col: 4, row: 1 })).toBeCloseTo(2, 8);
+  expect(engine.getCellValue({ sheet: costSheet, col: 2, row: 4 })).toBeCloseTo(183600, 6);
+  expect(engine.getCellValue({ sheet: costSheet, col: 3, row: 4 })).toBeCloseTo(1.4688, 8);
   expect(workbook.getWorksheet('Agents')!.getCell('L2').value).toBe('daily_users');
   records.push({
     journey: 'Daily volume for simple, medium, and high groups survives save and Excel export',
@@ -303,6 +324,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
       monthlyTokens: expectedMonthlyTokens,
       dailyTokens: expectedDailyTokens,
       monthlyUsd: 38.3376,
+      categoryCosts: expectedCategoryCosts,
     },
     actual: {
       perAgentVolumes: expectedVolumes.map((_, i) =>
@@ -318,6 +340,9 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
         engine.getCellValue({ sheet: usageSheet, col: 4, row: 1 + i }),
       ),
       monthlyUsd: actual,
+      categoryCosts: expectedCategoryCostRows.map((row) =>
+        engine.getCellValue({ sheet: costSheet, col: 3, row }),
+      ),
     },
   });
   engine.destroy();
@@ -395,6 +420,39 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
       monthlyUsd: groupedUsd,
     },
   });
+
+  await addModel(page, 'Fixture B', '4', '10');
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: 'Edit Another simple group' }).click();
+  const mixedEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  await chooseModel(page, mixedEditor.getByRole('button', { name: 'Model: Fixture A' }), 'Fixture B');
+  await mixedEditor.getByRole('button', { name: 'Apply changes' }).click();
+  await expect(page.getByTestId('category-cost-simple')).toHaveText('$2.26');
+  await page.locator('.category-cost-detail').first().locator('summary').click();
+  const mixedDetail = page.locator('.category-cost-detail').first();
+  await expect(mixedDetail.getByRole('row', { name: /Uncached input Fixture A/ })).toContainText('367,200');
+  await expect(mixedDetail.getByRole('row', { name: /Uncached input Fixture B/ })).toContainText('122,400');
+  await expect(mixedDetail.getByRole('row', { name: /Uncached input Fixture B/ })).toContainText('$4.00');
+  const mixedDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export Excel', exact: true }).click();
+  const mixedFile = path.join(artifacts, 'mixed-model-category-budget.xlsx');
+  await (await mixedDownload).saveAs(mixedFile);
+  const { engine: mixedEngine, summary: mixedSummary } = await recalculateWorkbook(mixedFile);
+  const mixedCosts = mixedEngine.getSheetId('Category costs')!;
+  const mixedCalculations = mixedEngine.getSheetId('Calculations')!;
+  const mixedSuiteCost = mixedEngine.getCellValue({ sheet: mixedSummary, col: 1, row: 2 });
+  const mixedCategoryCost = mixedEngine.getCellValue({ sheet: mixedCosts, col: 3, row: 5 });
+  const modelBInputTokens = mixedEngine.getCellValue({ sheet: mixedCalculations, col: 32, row: 4 });
+  expect(mixedSuiteCost).toBeCloseTo(2.2644, 8);
+  expect(mixedCategoryCost).toBeCloseTo(2.2644, 8);
+  expect(modelBInputTokens).toBeCloseTo(122400, 8);
+  records.push({
+    journey: 'Two models with different rates in one category',
+    evidence: mixedFile,
+    expected: { suiteUsd: 2.2644, categoryUsd: 2.2644, modelBInputTokens: 122400 },
+    actual: { suiteUsd: mixedSuiteCost, categoryUsd: mixedCategoryCost, modelBInputTokens },
+  });
+  mixedEngine.destroy();
 });
 
 test('Individual overrides, zero output, detailed replacement and incomplete prices', async ({ page }) => {
@@ -582,6 +640,20 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
   await expect(page.getByTestId('cost-expected')).toHaveText('$3.83/mo');
   await expect(page.getByTestId('cost-low')).toHaveText('$2.87/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$11.43/mo');
+  await expect(page.getByTestId('category-cost-simple')).toHaveText('$3.83');
+  await page.locator('.category-cost-detail').first().locator('summary').click();
+  const tierDetail = page.locator('.category-cost-detail').first();
+  for (const [label, tokens, rate, cost] of [
+    ['Uncached input', '1,000,000', '$2.00', '$2.00'],
+    ['Cached input read', '500,000', '$0.50', '$0.25'],
+    ['Input cache write', '500,000', '$3.00', '$1.50'],
+    ['Output, incl. reasoning', '10,000', '$8.00', '$0.08'],
+  ]) {
+    const row = tierDetail.getByRole('row', { name: new RegExp(label) });
+    await expect(row).toContainText(tokens);
+    await expect(row).toContainText(rate);
+    await expect(row).toContainText(cost);
+  }
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export Excel', exact: true }).click();
   const exported = path.join(artifacts, 'tier-cache-budget.xlsx');
@@ -591,12 +663,24 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
   expect(actual[0]).toBeCloseTo(2.8725, 8);
   expect(actual[1]).toBeCloseTo(3.83, 8);
   expect(actual[2]).toBeCloseTo(11.43, 8);
+  const categoryCosts = engine.getSheetId('Category costs')!;
+  const expectedComponents = [2, 0.25, 1.5, 0.08];
+  for (const [i, expectedCost] of expectedComponents.entries()) {
+    expect(engine.getCellValue({ sheet: categoryCosts, col: 3, row: i + 1 })).toBeCloseTo(expectedCost, 8);
+  }
+  expect(engine.getCellValue({ sheet: categoryCosts, col: 3, row: 5 })).toBeCloseTo(3.83, 8);
+  const actualComponents = expectedComponents.map((_, i) =>
+    engine.getCellValue({ sheet: categoryCosts, col: 3, row: i + 1 }),
+  );
   engine.destroy();
   records.push({
     journey: 'Per-call context tiers + cache reads/writes',
     evidence: exported,
-    expected: [2.8725, 3.83, 11.43],
-    actual,
+    expected: { scenarios: [2.8725, 3.83, 11.43], components: expectedComponents },
+    actual: {
+      scenarios: actual,
+      components: actualComponents,
+    },
   });
   await page.getByRole('button', { name: 'Edit Tiered agent', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Configure agent group' });
@@ -747,6 +831,15 @@ test('Gemini cache-write gap identifies the missing rate and recovers when unuse
   await page.getByLabel('Cache write fraction', { exact: true }).first().fill('0.25');
   await expect(page.getByTestId('cost-expected')).toContainText('Incomplete');
   await expect(page.getByRole('alert')).toContainText('Missing cache write price');
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await expect(page.getByTestId('category-cost-simple')).toHaveText('Incomplete');
+  await page.locator('.category-cost-detail').first().locator('summary').click();
+  await expect(
+    page
+      .locator('.category-cost-detail')
+      .first()
+      .getByRole('row', { name: /Input cache write/ }),
+  ).toContainText('Missing');
   await page.getByRole('button', { name: 'Model pricing', exact: true }).click();
   const pricingRow = page.getByRole('row').filter({ hasText: modelId }).first();
   await expect(pricingRow).toContainText('Unavailable');

@@ -55,6 +55,12 @@ const descriptions = {
   medium: 'Retrieval, tools & synthesis',
   high: 'Planning, iteration & revision',
 };
+const tokenTypeLabels = {
+  input: 'Uncached input',
+  cache_read: 'Cached input read',
+  cache_write: 'Input cache write',
+  output: 'Output, incl. reasoning',
+};
 const emptyPrices: Record<string, Price> = {};
 const clone = <T,>(value: T): T => structuredClone(value);
 const quantityLabel = (total: string, complete: boolean) =>
@@ -837,6 +843,80 @@ export default function App() {
                       Tokens are Expected-scenario input + output usage, including additional attempts. Daily
                       values average the 30-day planning month.
                     </p>
+                    <div className="category-cost-grid" aria-label="Token cost calculation by category">
+                      {complexities.map((complexity) => {
+                        const breakdown = result?.category_costs[complexity];
+                        return (
+                          <details className="category-cost-detail" key={complexity}>
+                            <summary>
+                              <span>{complexity === 'high' ? 'High (complex)' : complexity} token cost</span>
+                              <strong data-testid={`category-cost-${complexity}`}>
+                                {breakdown
+                                  ? breakdown.complete
+                                    ? money(breakdown.monthly_cost)
+                                    : Number(breakdown.monthly_cost) === 0
+                                      ? 'Incomplete'
+                                      : `${money(breakdown.monthly_cost)} (partial)`
+                                  : '—'}
+                              </strong>
+                            </summary>
+                            {breakdown && (
+                              <div className="category-cost-content">
+                                {breakdown.entries.length ? (
+                                  <div className="category-cost-scroll">
+                                    <table>
+                                      <thead>
+                                        <tr>
+                                          <th scope="col">Token type</th>
+                                          <th scope="col">Model</th>
+                                          <th scope="col">Tokens/month</th>
+                                          <th scope="col">USD/1M</th>
+                                          <th scope="col">Cost/month</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {breakdown.entries.map((entry, i) => (
+                                          <tr key={`${entry.token_type}-${entry.model_id}-${i}`}>
+                                            <th scope="row">{tokenTypeLabels[entry.token_type]}</th>
+                                            <td>{entry.model_id || 'Unselected'}</td>
+                                            <td title={entry.monthly_tokens}>
+                                              {displayVolume(entry.monthly_tokens)}
+                                            </td>
+                                            <td>
+                                              {entry.rate_per_million === null
+                                                ? 'Missing'
+                                                : rateMoney(entry.rate_per_million)}
+                                            </td>
+                                            <td title={entry.issues.join(' ')}>
+                                              {entry.complete
+                                                ? money(entry.monthly_cost)
+                                                : Number(entry.monthly_cost) === 0
+                                                  ? 'Incomplete'
+                                                  : `${money(entry.monthly_cost)} (partial)`}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <p>
+                                    {breakdown.complete
+                                      ? 'No tokens in this category.'
+                                      : 'Token usage is incomplete for this category.'}
+                                  </p>
+                                )}
+                                <p>
+                                  Each cost = tokens × model rate / 1,000,000. Rates reflect the selected
+                                  per-call pricing tier. Incomplete costs include only fully priced agent
+                                  lines; token counts include all supplied volume.
+                                </p>
+                              </div>
+                            )}
+                          </details>
+                        );
+                      })}
+                    </div>
                     <div className="table-footer">
                       <span>Expected scenario · LLM costs only</span>
                       <strong>
