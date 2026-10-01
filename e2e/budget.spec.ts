@@ -239,11 +239,34 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await expect(page.getByTestId('cost-expected')).toHaveText('$38.34/mo');
   const expectedCategoryCosts = [2.9376, 5.04, 30.36];
   const expectedDailyCategoryCosts = [0.09792, 0.168, 1.012];
+  const expectedInputTokens = [734400, 1512000, 9900000];
+  const expectedOutputTokens = [183600, 252000, 1320000];
+  const expectedInputCosts = [1.4688, 3.024, 19.8];
+  const expectedOutputCosts = [1.4688, 2.016, 10.56];
+  const displayInputCosts = ['$1.4688', '$3.024', '$19.80'];
+  const displayOutputCosts = ['$1.4688', '$2.016', '$10.56'];
   for (const [i, complexity] of ['simple', 'medium', 'high'].entries()) {
     await expect(page.getByTestId(`category-cost-${complexity}`)).toHaveText(
       `$${expectedCategoryCosts[i].toFixed(2)}`,
     );
+    await expect(page.getByTestId(`monthly-summary-${complexity}-input-tokens`)).toHaveText(
+      expectedInputTokens[i].toLocaleString('en-US'),
+    );
+    await expect(page.getByTestId(`monthly-summary-${complexity}-output-tokens`)).toHaveText(
+      expectedOutputTokens[i].toLocaleString('en-US'),
+    );
+    await expect(page.getByTestId(`monthly-summary-${complexity}-input-cost`)).toHaveText(
+      displayInputCosts[i],
+    );
+    await expect(page.getByTestId(`monthly-summary-${complexity}-output-cost`)).toHaveText(
+      displayOutputCosts[i],
+    );
   }
+  await expect(page.getByTestId('monthly-summary-suite-input-tokens')).toHaveText('12,146,400');
+  await expect(page.getByTestId('monthly-summary-suite-output-tokens')).toHaveText('1,755,600');
+  await expect(page.getByTestId('monthly-summary-suite-input-cost')).toHaveText('$24.2928');
+  await expect(page.getByTestId('monthly-summary-suite-output-cost')).toHaveText('$14.0448');
+  await expect(page.getByTestId('monthly-summary-suite-total-cost')).toHaveText('$38.3376');
   await page.locator('.category-cost-detail').first().locator('summary').click();
   const simpleCost = page.locator('.category-cost-detail').first();
   const simpleInputType = page.getByTestId('category-type-simple-input');
@@ -299,6 +322,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   const categorySheet = engine.getSheetId('Category totals')!;
   const usageSheet = engine.getSheetId('Category usage')!;
   const costSheet = engine.getSheetId('Category costs')!;
+  const monthlySummary = engine.getSheetId('Monthly category summary')!;
   expect(engine.getCellValue({ sheet: volumeSheet, col: 9, row: 1 })).toBe(360);
   const expectedCategoryTotals = [360, 60, 60];
   for (let i = 0; i < 3; i++) {
@@ -321,7 +345,33 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
       expectedDailyCategoryCosts[i],
       8,
     );
+    const summaryRow = i + 1;
+    expect(engine.getCellValue({ sheet: monthlySummary, col: 1, row: summaryRow })).toBeCloseTo(
+      expectedInputTokens[i],
+      8,
+    );
+    expect(engine.getCellValue({ sheet: monthlySummary, col: 2, row: summaryRow })).toBeCloseTo(
+      expectedInputCosts[i],
+      8,
+    );
+    expect(engine.getCellValue({ sheet: monthlySummary, col: 3, row: summaryRow })).toBeCloseTo(
+      expectedOutputTokens[i],
+      8,
+    );
+    expect(engine.getCellValue({ sheet: monthlySummary, col: 4, row: summaryRow })).toBeCloseTo(
+      expectedOutputCosts[i],
+      8,
+    );
+    expect(engine.getCellValue({ sheet: monthlySummary, col: 6, row: summaryRow })).toBeCloseTo(
+      expectedCategoryCosts[i],
+      8,
+    );
   }
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 1, row: 4 })).toBeCloseTo(12146400, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 2, row: 4 })).toBeCloseTo(24.2928, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 3, row: 4 })).toBeCloseTo(1755600, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 4, row: 4 })).toBeCloseTo(14.0448, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 6, row: 4 })).toBeCloseTo(38.3376, 8);
   expect(engine.getCellValue({ sheet: costSheet, col: 2, row: 1 })).toBeCloseTo(734400, 6);
   expect(engine.getCellValue({ sheet: costSheet, col: 3, row: 1 })).toBeCloseTo(1.4688, 8);
   expect(engine.getCellValue({ sheet: costSheet, col: 6, row: 1 })).toBeCloseTo(24480, 8);
@@ -342,6 +392,17 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
       monthlyUsd: 38.3376,
       categoryCosts: expectedCategoryCosts,
       dailyCategoryCosts: expectedDailyCategoryCosts,
+      monthlyInputTokens: expectedInputTokens,
+      monthlyOutputTokens: expectedOutputTokens,
+      monthlyInputCosts: expectedInputCosts,
+      monthlyOutputCosts: expectedOutputCosts,
+      suiteMonthlySummary: {
+        inputTokens: 12146400,
+        inputUsd: 24.2928,
+        outputTokens: 1755600,
+        outputUsd: 14.0448,
+        llmUsd: 38.3376,
+      },
     },
     actual: {
       perAgentVolumes: expectedVolumes.map((_, i) =>
@@ -363,6 +424,25 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
       dailyCategoryCosts: expectedCategoryCostRows.map((row) =>
         engine.getCellValue({ sheet: costSheet, col: 7, row }),
       ),
+      monthlyInputTokens: expectedInputTokens.map((_, i) =>
+        engine.getCellValue({ sheet: monthlySummary, col: 1, row: i + 1 }),
+      ),
+      monthlyOutputTokens: expectedOutputTokens.map((_, i) =>
+        engine.getCellValue({ sheet: monthlySummary, col: 3, row: i + 1 }),
+      ),
+      monthlyInputCosts: expectedInputCosts.map((_, i) =>
+        engine.getCellValue({ sheet: monthlySummary, col: 2, row: i + 1 }),
+      ),
+      monthlyOutputCosts: expectedOutputCosts.map((_, i) =>
+        engine.getCellValue({ sheet: monthlySummary, col: 4, row: i + 1 }),
+      ),
+      suiteMonthlySummary: {
+        inputTokens: engine.getCellValue({ sheet: monthlySummary, col: 1, row: 4 }),
+        inputUsd: engine.getCellValue({ sheet: monthlySummary, col: 2, row: 4 }),
+        outputTokens: engine.getCellValue({ sheet: monthlySummary, col: 3, row: 4 }),
+        outputUsd: engine.getCellValue({ sheet: monthlySummary, col: 4, row: 4 }),
+        llmUsd: engine.getCellValue({ sheet: monthlySummary, col: 6, row: 4 }),
+      },
     },
   });
   engine.destroy();
@@ -448,6 +528,11 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await chooseModel(page, mixedEditor.getByRole('button', { name: 'Model: Fixture A' }), 'Fixture B');
   await mixedEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('category-cost-simple')).toHaveText('$2.26');
+  await expect(page.getByTestId('monthly-summary-simple-input-tokens')).toHaveText('489,600');
+  await expect(page.getByTestId('monthly-summary-simple-input-cost')).toHaveText('$1.224');
+  await expect(page.getByTestId('monthly-summary-simple-output-tokens')).toHaveText('122,400');
+  await expect(page.getByTestId('monthly-summary-simple-output-cost')).toHaveText('$1.0404');
+  await expect(page.getByTestId('monthly-summary-suite-total-cost')).toHaveText('$2.2644');
   await page.locator('.category-cost-detail').first().locator('summary').click();
   const mixedDetail = page.locator('.category-cost-detail').first();
   const mixedInputType = page.getByTestId('category-type-simple-input');
@@ -470,6 +555,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await (await mixedDownload).saveAs(mixedFile);
   const { engine: mixedEngine, summary: mixedSummary } = await recalculateWorkbook(mixedFile);
   const mixedCosts = mixedEngine.getSheetId('Category costs')!;
+  const mixedMonthlySummary = mixedEngine.getSheetId('Monthly category summary')!;
   const mixedCalculations = mixedEngine.getSheetId('Calculations')!;
   const mixedSuiteCost = mixedEngine.getCellValue({ sheet: mixedSummary, col: 1, row: 2 });
   const mixedCategoryCost = mixedEngine.getCellValue({ sheet: mixedCosts, col: 3, row: 5 });
@@ -480,6 +566,11 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   expect(mixedCategoryCost).toBeCloseTo(2.2644, 8);
   expect(mixedDailyCategoryCost).toBeCloseTo(0.07548, 8);
   expect(mixedDailyInputCost).toBeCloseTo(0.0408, 8);
+  expect(mixedEngine.getCellValue({ sheet: mixedMonthlySummary, col: 1, row: 1 })).toBeCloseTo(489600, 8);
+  expect(mixedEngine.getCellValue({ sheet: mixedMonthlySummary, col: 2, row: 1 })).toBeCloseTo(1.224, 8);
+  expect(mixedEngine.getCellValue({ sheet: mixedMonthlySummary, col: 3, row: 1 })).toBeCloseTo(122400, 8);
+  expect(mixedEngine.getCellValue({ sheet: mixedMonthlySummary, col: 4, row: 1 })).toBeCloseTo(1.0404, 8);
+  expect(mixedEngine.getCellValue({ sheet: mixedMonthlySummary, col: 6, row: 4 })).toBeCloseTo(2.2644, 8);
   expect(modelBInputTokens).toBeCloseTo(122400, 8);
   records.push({
     journey: 'Two models with different rates in one category',
@@ -688,6 +779,10 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
   await expect(page.getByTestId('cost-low')).toHaveText('$2.87/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$11.43/mo');
   await expect(page.getByTestId('category-cost-simple')).toHaveText('$3.83');
+  await expect(page.getByTestId('monthly-summary-simple-input-tokens')).toHaveText('2,000,000');
+  await expect(page.getByTestId('monthly-summary-simple-input-cost')).toHaveText('$3.75');
+  await expect(page.getByTestId('monthly-summary-simple-output-tokens')).toHaveText('10,000');
+  await expect(page.getByTestId('monthly-summary-simple-output-cost')).toHaveText('$0.08');
   await page.locator('.category-cost-detail').first().locator('summary').click();
   const tierDetail = page.locator('.category-cost-detail').first();
   await expect(page.getByTestId('category-cost-daily-simple')).toHaveText('$0.12766667');
@@ -716,6 +811,7 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
   expect(actual[1]).toBeCloseTo(3.83, 8);
   expect(actual[2]).toBeCloseTo(11.43, 8);
   const categoryCosts = engine.getSheetId('Category costs')!;
+  const monthlySummary = engine.getSheetId('Monthly category summary')!;
   const expectedComponents = [2, 0.25, 1.5, 0.08];
   for (const [i, expectedCost] of expectedComponents.entries()) {
     expect(engine.getCellValue({ sheet: categoryCosts, col: 3, row: i + 1 })).toBeCloseTo(expectedCost, 8);
@@ -724,6 +820,11 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
   expect(engine.getCellValue({ sheet: categoryCosts, col: 7, row: 5 })).toBeCloseTo(3.83 / 30, 8);
   expect(engine.getCellValue({ sheet: categoryCosts, col: 6, row: 1 })).toBeCloseTo(1000000 / 30, 5);
   expect(engine.getCellValue({ sheet: categoryCosts, col: 7, row: 2 })).toBeCloseTo(0.25 / 30, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 1, row: 1 })).toBeCloseTo(2000000, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 2, row: 1 })).toBeCloseTo(3.75, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 3, row: 1 })).toBeCloseTo(10000, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 4, row: 1 })).toBeCloseTo(0.08, 8);
+  expect(engine.getCellValue({ sheet: monthlySummary, col: 6, row: 4 })).toBeCloseTo(3.83, 8);
   const actualComponents = expectedComponents.map((_, i) =>
     engine.getCellValue({ sheet: categoryCosts, col: 3, row: i + 1 }),
   );
@@ -888,6 +989,10 @@ test('Gemini cache-write gap identifies the missing rate and recovers when unuse
   await expect(page.getByRole('alert')).toContainText('Missing cache write price');
   await page.getByRole('button', { name: /Suite planner/ }).click();
   await expect(page.getByTestId('category-cost-simple')).toHaveText('Incomplete');
+  await expect(page.getByTestId('monthly-summary-simple-input-tokens')).toContainText('2,040,000');
+  await expect(page.getByTestId('monthly-summary-simple-input-cost')).toHaveText('Incomplete');
+  await expect(page.getByTestId('monthly-summary-simple-output-cost')).toHaveText('Incomplete');
+  await expect(page.getByTestId('monthly-summary-suite-total-cost')).toHaveText('Incomplete');
   await page.locator('.category-cost-detail').first().locator('summary').click();
   await expect(page.getByTestId('category-type-simple-cache_write')).toContainText('Incomplete');
   await expect(

@@ -133,6 +133,10 @@ export interface Results {
     {
       monthly_cost: Numeric;
       daily_cost: Numeric;
+      monthly_input_cost: Numeric;
+      monthly_output_cost: Numeric;
+      input_complete: boolean;
+      output_complete: boolean;
       complete: boolean;
       types: Record<
         'input' | 'cache_read' | 'cache_write' | 'output',
@@ -155,6 +159,18 @@ export interface Results {
       }[];
     }
   >;
+  monthly_token_summary: {
+    input_tokens: Numeric;
+    output_tokens: Numeric;
+    total_tokens: Numeric;
+    input_cost: Numeric;
+    output_cost: Numeric;
+    total_cost: Numeric;
+    tokens_complete: boolean;
+    input_complete: boolean;
+    output_complete: boolean;
+    complete: boolean;
+  };
   agent_count: number;
   recurring: Numeric;
   one_time: Numeric;

@@ -658,6 +658,54 @@ tr:last-child td {
   font-size: 10px;
   border-top: 1px solid #e5eadf;
 }
+.monthly-category-summary {
+  padding: 15px 25px 17px;
+  border-top: 1px solid #e5eadf;
+}
+.monthly-category-summary h3 {
+  margin: 0;
+  color: #2b4234;
+  font-size: 13px;
+}
+.monthly-category-summary p {
+  margin: 4px 0 11px;
+  color: #65745f;
+  font-size: 10px;
+}
+.monthly-category-summary p:last-child {
+  margin: 10px 0 0;
+}
+.monthly-summary-scroll {
+  overflow-x: auto;
+}
+.monthly-category-summary table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.monthly-category-summary th,
+.monthly-category-summary td {
+  padding: 8px 7px;
+  border-bottom: 1px solid #e5eadf;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.monthly-category-summary th:first-child {
+  text-align: left;
+  text-transform: capitalize;
+}
+.monthly-category-summary thead th {
+  color: #65745f;
+  font-size: 10px;
+  font-weight: 600;
+}
+.monthly-summary-total {
+  background: #f2f7ef;
+  color: #2b4234;
+  font-weight: 700;
+}
 .category-cost-grid {
   border-top: 1px solid #e5eadf;
 }

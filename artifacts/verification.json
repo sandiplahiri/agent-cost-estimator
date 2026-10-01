@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-10-01T19:13:47.403Z",
+  "executedAt": "2026-10-01T20:02:42.203Z",
   "command": "npm run test:e2e",
   "prerequisites": "npm run build and npm run check completed before this run.",
   "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
@@ -68,7 +68,34 @@
           0.09792,
           0.168,
           1.012
-        ]
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
       },
       "actual": {
         "perAgentVolumes": [
@@ -101,7 +128,34 @@
           0.09792,
           0.168,
           1.012
-        ]
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
       }
     },
     {

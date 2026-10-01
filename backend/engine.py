@@ -244,14 +244,33 @@ def calculate(estimate: Estimate):
                 and all(entry["complete"] for entry in matching),
             }
         monthly_cost = sum((line["cost"] for line in lines if line["cost"] is not None), ZERO)
+        input_types = ("input", "cache_read", "cache_write")
         category_costs[complexity] = {
             "monthly_cost": monthly_cost,
             "daily_cost": monthly_cost / PLANNING_DAYS_PER_MONTH,
+            "monthly_input_cost": sum(
+                (type_totals[token_type]["monthly_cost"] for token_type in input_types), ZERO
+            ),
+            "monthly_output_cost": type_totals["output"]["monthly_cost"],
+            "input_complete": all(type_totals[token_type]["complete"] for token_type in input_types),
+            "output_complete": type_totals["output"]["complete"],
             "complete": category_invocations[complexity]["complete"]
             and all(not line["issues"] for line in lines),
             "types": type_totals,
             "entries": list(entries.values()),
         }
+    monthly_token_summary = {
+        "input_tokens": sum((item["monthly_input"] for item in category_tokens.values()), ZERO),
+        "output_tokens": sum((item["monthly_output"] for item in category_tokens.values()), ZERO),
+        "total_tokens": sum((item["monthly_total"] for item in category_tokens.values()), ZERO),
+        "input_cost": sum((item["monthly_input_cost"] for item in category_costs.values()), ZERO),
+        "output_cost": sum((item["monthly_output_cost"] for item in category_costs.values()), ZERO),
+        "total_cost": sum((item["monthly_cost"] for item in category_costs.values()), ZERO),
+        "tokens_complete": all(item["complete"] for item in category_tokens.values()),
+        "input_complete": all(item["input_complete"] for item in category_costs.values()),
+        "output_complete": all(item["output_complete"] for item in category_costs.values()),
+        "complete": all(item["complete"] for item in category_costs.values()),
+    }
     warnings = []
     if all(s["complete"] for s in scenarios) and not (
         scenarios[0]["llm_cost"] <= scenarios[1]["llm_cost"] <= scenarios[2]["llm_cost"]
@@ -266,6 +285,7 @@ def calculate(estimate: Estimate):
         "category_invocations": category_invocations,
         "category_tokens": category_tokens,
         "category_costs": category_costs,
+        "monthly_token_summary": monthly_token_summary,
         "agent_count": sum(r.count for r in estimate.agents),
         "recurring": recurring,
         "one_time": one_time,

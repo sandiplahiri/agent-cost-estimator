@@ -16,6 +16,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up decision:** For each category, show each token type's average tokens and LLM cost per day alongside monthly tokens and cost. Daily amounts divide unrounded Expected-scenario monthly values by 30 planning days; mixed-model rates remain inspectable separately.
 
+**Follow-up decision:** Add a visible Expected-scenario monthly summary for simple, medium, and high categories and the entire suite. Each row shows input and output token counts, input and output LLM costs, and their totals. Input cost includes uncached input, cached reads, and cache writes; incomplete costs remain labeled.
+
 ## Confirmed requirements
 
 - Run as a local web application initially.

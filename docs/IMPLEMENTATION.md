@@ -87,3 +87,11 @@ Independent E2E fixture: two simple agents, one medium agent, and one high agent
 - With the tier/cache fixture, monthly token-type costs USD 2, USD 0.25, USD 1.5, and USD 0.08 yield daily averages USD 0.066666666..., USD 0.008333333..., USD 0.05, and USD 0.002666666...; daily category cost is USD 3.83 / 30. Cached reads and writes remain distinct token types.
 - Two models in one category must be combined into category token-type totals without discarding their distinct rates. Missing pricing or workload volume must mark affected category cost totals incomplete, rather than presenting a zero daily cost as complete.
 - The exported Category costs sheet must calculate daily token and cost columns from monthly formula results using the 30-day planning month, and its category subtotals must reconcile with the Expected suite total.
+
+## Monthly input/output summary: failure cases and independent outcomes
+
+- Input cost must sum uncached input, cached reads, and cache writes exactly once; output cost must use billable output. The input and output costs must sum to each category's Expected monthly LLM cost, including mixed models and request-level tiers.
+- With the synthetic daily-volume fixture, simple input/output are 734,400/183,600 tokens and USD 1.4688/USD 1.4688; medium are 1,512,000/252,000 tokens and USD 3.024/USD 2.016; high are 9,900,000/1,320,000 tokens and USD 19.8/USD 10.56. The suite row is 12,146,400 input tokens, 1,755,600 output tokens, USD 24.2928 input, USD 14.0448 output, and USD 38.3376 total.
+- With the tier/cache fixture, 2,000,000 input tokens cost USD 3.75 (uncached USD 2 + read USD 0.25 + write USD 1.5); 10,000 output tokens cost USD 0.08. The summary must not apply one blended catalog rate to all input tokens.
+- Missing required prices or workload inputs must mark affected input/output costs and overall totals incomplete. Known subtotals may remain visible, while token counts with supplied workload remain visible. Zero workload is a valid complete zero.
+- The exported monthly summary must use formulas linked to Category usage and Category costs and reconcile its suite LLM cost to Summary's Expected LLM cost when recalculated.

@@ -72,7 +72,7 @@
       "url": "http://127.0.0.1:8011/api/health",
       "reuseExistingServer": false,
       "env": {
-        "ESTIMATOR_DB": "artifacts/e2e-1790882001599.sqlite3"
+        "ESTIMATOR_DB": "artifacts/e2e-1790884936551.sqlite3"
       },
       "timeout": 30000
     }
@@ -100,12 +100,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3775,
+                  "duration": 3711,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:22.589Z",
+                  "startTime": "2026-10-01T20:02:17.533Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -134,12 +134,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5287,
+                  "duration": 5401,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:26.748Z",
+                  "startTime": "2026-10-01T20:02:21.617Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -168,12 +168,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2428,
+                  "duration": 2352,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:32.042Z",
+                  "startTime": "2026-10-01T20:02:27.024Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -183,7 +183,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-d329fd0cffb8fc39d471",
           "file": "budget.spec.ts",
-          "line": 505,
+          "line": 596,
           "column": 1
         },
         {
@@ -202,12 +202,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3188,
+                  "duration": 3144,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:34.476Z",
+                  "startTime": "2026-10-01T20:02:29.381Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -217,7 +217,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-021e0050e0ecd63f109e",
           "file": "budget.spec.ts",
-          "line": 542,
+          "line": 633,
           "column": 1
         },
         {
@@ -236,12 +236,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1684,
+                  "duration": 1673,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:37.670Z",
+                  "startTime": "2026-10-01T20:02:32.531Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -251,7 +251,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-910e8e9c981b7fd34292",
           "file": "budget.spec.ts",
-          "line": 636,
+          "line": 727,
           "column": 1
         },
         {
@@ -270,12 +270,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1828,
+                  "duration": 1843,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:39.361Z",
+                  "startTime": "2026-10-01T20:02:34.214Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -285,7 +285,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-8a036e89ab09e797869e",
           "file": "budget.spec.ts",
-          "line": 758,
+          "line": 859,
           "column": 1
         },
         {
@@ -304,12 +304,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1603,
+                  "duration": 1587,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:41.196Z",
+                  "startTime": "2026-10-01T20:02:36.063Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -319,7 +319,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-2b50ad1cadfe2cdec46c",
           "file": "budget.spec.ts",
-          "line": 819,
+          "line": 920,
           "column": 1
         },
         {
@@ -338,12 +338,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2201,
+                  "duration": 2216,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:42.805Z",
+                  "startTime": "2026-10-01T20:02:37.655Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -353,7 +353,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-51621a0ecff4c7819d86",
           "file": "budget.spec.ts",
-          "line": 851,
+          "line": 952,
           "column": 1
         },
         {
@@ -372,12 +372,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2381,
+                  "duration": 2317,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-01T19:13:45.011Z",
+                  "startTime": "2026-10-01T20:02:39.877Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -387,7 +387,7 @@
           ],
           "id": "bfff7a1deaa6eae76f63-c1c29af912fc10a5c176",
           "file": "budget.spec.ts",
-          "line": 932,
+          "line": 1037,
           "column": 1
         }
       ]
@@ -395,8 +395,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-01T19:13:21.601Z",
-    "duration": 26006.312,
+    "startTime": "2026-10-01T20:02:16.554Z",
+    "duration": 25856.752,
     "expected": 9,
     "skipped": 0,
     "unexpected": 0,

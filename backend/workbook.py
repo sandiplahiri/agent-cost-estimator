@@ -464,6 +464,43 @@ def export_estimate(estimate: Estimate):
         category_costs[f"D{r}"] = f"=SUM(D{first}:D{last})"
         category_costs[f"G{r}"] = f"=C{r}/I{r}"
         category_costs[f"H{r}"] = f"=D{r}/I{r}"
+    monthly_summary = wb.create_sheet("Monthly category summary")
+    literal(
+        monthly_summary,
+        [
+            "Complexity",
+            "Input tokens/month",
+            "Known input USD/month",
+            "Output tokens/month",
+            "Known output USD/month",
+            "Total tokens/month",
+            "Known LLM USD/month",
+            "Status",
+        ],
+    )
+    for index, complexity in enumerate(("simple", "medium", "high")):
+        category_row = index + 2
+        first_cost_row = index * 5 + 2
+        status = (
+            "Complete"
+            if result["category_costs"][complexity]["complete"]
+            else "INCOMPLETE — known costs only"
+        )
+        literal(monthly_summary, [complexity, None, None, None, None, None, None, status])
+        r = monthly_summary.max_row
+        monthly_summary[f"B{r}"] = f"='Category usage'!B{category_row}"
+        monthly_summary[f"C{r}"] = f"=SUM('Category costs'!D{first_cost_row}:D{first_cost_row + 2})"
+        monthly_summary[f"D{r}"] = f"='Category usage'!C{category_row}"
+        monthly_summary[f"E{r}"] = f"='Category costs'!D{first_cost_row + 3}"
+        monthly_summary[f"F{r}"] = f"=B{r}+D{r}"
+        monthly_summary[f"G{r}"] = f"=C{r}+E{r}"
+    status = "Complete" if result["monthly_token_summary"]["complete"] else "INCOMPLETE — known costs only"
+    literal(monthly_summary, ["Suite total", None, None, None, None, None, None, status])
+    r = monthly_summary.max_row
+    for column in ("B", "C", "D", "E"):
+        monthly_summary[f"{column}{r}"] = f"=SUM({column}2:{column}{r - 1})"
+    monthly_summary[f"F{r}"] = f"=B{r}+D{r}"
+    monthly_summary[f"G{r}"] = f"=C{r}+E{r}"
     for title, records in [
         ("Profiles", [dict(complexity=k, **v.model_dump(mode="json")) for k, v in estimate.profiles.items()]),
         ("Scenarios", [s.model_dump(mode="json") for s in estimate.scenarios]),
@@ -532,6 +569,10 @@ def export_estimate(estimate: Estimate):
         (
             "Category token costs",
             "Category costs splits Expected-scenario tokens into uncached input, cached reads, cache writes and output. Known monthly costs sum the corresponding Calculations formulas; average daily tokens and costs divide monthly values by 30 planning days. Blended USD/1M is derived from each token-type subtotal when pricing is complete; inspect Calculations for each model's selected rate. Incomplete rows omit unpriced agent lines from costs while retaining their token counts. Re-export after resolving pricing or limits.",
+        ),
+        (
+            "Monthly category summary",
+            "Monthly category summary combines Category usage input/output token counts with Category costs. Input cost includes uncached input, cached reads, and cache writes; output includes billable reasoning. The suite row sums category values and reconciles to the Expected LLM amount in Summary. Incomplete values include only fully priced agent lines.",
         ),
         (
             "Tier rates",

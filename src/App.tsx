@@ -846,6 +846,106 @@ export default function App() {
                       Tokens are Expected-scenario input + output usage, including additional attempts. Daily
                       values average the 30-day planning month.
                     </p>
+                    <section className="monthly-category-summary" aria-label="Monthly token and cost summary">
+                      <h3>Monthly token and cost summary</h3>
+                      <p>Expected scenario · All agents in each category · USD</p>
+                      <div className="monthly-summary-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th scope="col">Category</th>
+                              <th scope="col">Input tokens</th>
+                              <th scope="col">Input cost</th>
+                              <th scope="col">Output tokens</th>
+                              <th scope="col">Output cost</th>
+                              <th scope="col">Total tokens</th>
+                              <th scope="col">LLM cost total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {complexities.map((complexity) => {
+                              const tokens = result?.category_tokens[complexity];
+                              const costs = result?.category_costs[complexity];
+                              return (
+                                <tr key={complexity}>
+                                  <th scope="row">{complexity === 'high' ? 'High (complex)' : complexity}</th>
+                                  <td data-testid={`monthly-summary-${complexity}-input-tokens`}>
+                                    {tokens ? quantityLabel(tokens.monthly_input, tokens.complete) : '—'}
+                                  </td>
+                                  <td data-testid={`monthly-summary-${complexity}-input-cost`}>
+                                    {costs
+                                      ? costLabel(costs.monthly_input_cost, costs.input_complete, rateMoney)
+                                      : '—'}
+                                  </td>
+                                  <td data-testid={`monthly-summary-${complexity}-output-tokens`}>
+                                    {tokens ? quantityLabel(tokens.monthly_output, tokens.complete) : '—'}
+                                  </td>
+                                  <td data-testid={`monthly-summary-${complexity}-output-cost`}>
+                                    {costs
+                                      ? costLabel(costs.monthly_output_cost, costs.output_complete, rateMoney)
+                                      : '—'}
+                                  </td>
+                                  <td>
+                                    {tokens ? quantityLabel(tokens.monthly_total, tokens.complete) : '—'}
+                                  </td>
+                                  <td data-testid={`monthly-summary-${complexity}-total-cost`}>
+                                    {costs ? costLabel(costs.monthly_cost, costs.complete, rateMoney) : '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {result && (
+                              <tr className="monthly-summary-total">
+                                <th scope="row">Suite total</th>
+                                <td data-testid="monthly-summary-suite-input-tokens">
+                                  {quantityLabel(
+                                    result.monthly_token_summary.input_tokens,
+                                    result.monthly_token_summary.tokens_complete,
+                                  )}
+                                </td>
+                                <td data-testid="monthly-summary-suite-input-cost">
+                                  {costLabel(
+                                    result.monthly_token_summary.input_cost,
+                                    result.monthly_token_summary.input_complete,
+                                    rateMoney,
+                                  )}
+                                </td>
+                                <td data-testid="monthly-summary-suite-output-tokens">
+                                  {quantityLabel(
+                                    result.monthly_token_summary.output_tokens,
+                                    result.monthly_token_summary.tokens_complete,
+                                  )}
+                                </td>
+                                <td data-testid="monthly-summary-suite-output-cost">
+                                  {costLabel(
+                                    result.monthly_token_summary.output_cost,
+                                    result.monthly_token_summary.output_complete,
+                                    rateMoney,
+                                  )}
+                                </td>
+                                <td>
+                                  {quantityLabel(
+                                    result.monthly_token_summary.total_tokens,
+                                    result.monthly_token_summary.tokens_complete,
+                                  )}
+                                </td>
+                                <td data-testid="monthly-summary-suite-total-cost">
+                                  {costLabel(
+                                    result.monthly_token_summary.total_cost,
+                                    result.monthly_token_summary.complete,
+                                    rateMoney,
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p>
+                        Input includes uncached input, cached reads, and cache writes. Output includes
+                        billable reasoning.
+                      </p>
+                    </section>
                     <div className="category-cost-grid" aria-label="Token cost calculation by category">
                       {complexities.map((complexity) => {
                         const breakdown = result?.category_costs[complexity];
