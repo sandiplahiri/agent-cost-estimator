@@ -41,8 +41,9 @@ For frontend development, run `npm start` and `npm run dev` in separate terminal
 1. Set a name and use **Quick setup** to distribute the agent count across simple, medium, and high complexity.
 2. Select models in **Complexity profiles**. Numeric defaults are illustrative; model selections start empty to avoid silently choosing a provider for your customer.
 3. Enter the required **Users per agent per day** and **Invocations per user per agent per day** for each group. **Total monthly invocations per agent** is read-only and equals their product × 30 planning days. **Total monthly invocations · all agents** multiplies that result by the group count. The inventory sums all groups in each simple, medium, and high (complex) category and shows total token usage per month and average tokens per day. Configure exceptions by opening a row and choosing **Customize one agent**, which keeps the total agent count unchanged.
-4. Use **Scenarios** to vary invocation volume, calls, token sizes, retries, or model choice explicitly.
-5. Add separate monthly or one-time costs, save the estimate, and export Excel.
+4. Use **Cost drivers & impact** in Suite planner to rank the priced agent groups and preview how changing one workload or execution input affects the Expected monthly LLM bill. The comparison uses the current estimate and does not edit it.
+5. Use **Scenarios** to vary invocation volume, calls, token sizes, retries, or model choice explicitly.
+6. Add separate monthly or one-time costs, save the estimate, and export Excel.
 
 All rates are USD per million tokens. Monetary calculations use Python Decimal. The total shown on scenario cards is LLM spending only; additional costs appear separately in the app and workbook.
 
@@ -60,6 +61,8 @@ The starter simple/medium/high profiles use 1/4/10 model calls per invocation, 2
 - New agent volumes use required daily-user inputs and include all sources, including delegation. The entered user count is per agent, so group count scales the resulting monthly total only once. Older saved manual rows remain labeled as legacy and retain their original costs until both daily inputs are entered. A parent's steps cover its own calls only. Business-event mapping and automatic call-graph propagation are not implemented.
 
 Override precedence is profile defaults → edited profile → row overrides → scenario multipliers/model override. Detailed steps replace profile/row execution fields but still receive scenario multipliers. Zero is a valid override. Scenario changes do not mutate the underlying profile.
+
+The cost-driver list ranks nonempty inventory rows by their Expected monthly LLM costs. An unpriced row shows its known subtotal and an incomplete label; its position may change when missing rates are supplied. The impact preview changes one row input in a temporary copy, then calculates baseline and proposed costs with the same engine used for the suite and export. It reports a full suite dollar change only when both estimates are complete. A row with detailed steps offers workload-volume previews; edit its steps to examine an execution change. Previewed values are not saved or exported until entered in the estimate itself.
 
 ## Pricing and reproducibility
 

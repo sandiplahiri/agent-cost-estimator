@@ -1,18 +1,19 @@
 import logging
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import ValidationError
+from pydantic import Field, ValidationError, model_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import pricing, store, workbook
 from .engine import calculate
-from .models import Estimate, default_profiles, default_scenarios
+from .models import Amount, Estimate, Record, default_profiles, default_scenarios
 
 app = FastAPI(title="Agent Ledger", docs_url="/api/docs")
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
@@ -96,6 +97,82 @@ def new():
 def calculate_api(estimate: Estimate):
     # Decimal must stay strings through JSON, not become binary floats.
     return JSONResponse(jsonable_encoder(calculate(estimate), custom_encoder={Decimal: str}))
+
+
+SensitivityField = Literal[
+    "users_per_day",
+    "invocations_per_user_per_agent_per_day",
+    "invocations",
+    "calls",
+    "input_tokens",
+    "output_tokens",
+    "retry_rate",
+    "cache_fraction",
+    "cache_write_fraction",
+]
+
+
+class SensitivityRequest(Record):
+    estimate: Estimate
+    row_id: str = Field(min_length=1, max_length=100)
+    field: SensitivityField
+    value: Amount
+
+    @model_validator(mode="after")
+    def fraction_bounds(self):
+        if self.field in ("cache_fraction", "cache_write_fraction") and self.value > 1:
+            raise ValueError("Cache fractions must be between 0 and 1.")
+        return self
+
+
+@app.post("/api/sensitivity")
+def sensitivity(request: SensitivityRequest):
+    original = request.estimate
+    changed = original.model_copy(deep=True)
+    row = next((item for item in changed.agents if item.id == request.row_id), None)
+    if row is None:
+        raise HTTPException(422, "Choose an agent group that is still in this estimate.")
+    if row.count == 0:
+        raise HTTPException(422, "Choose an agent group with at least one agent.")
+    if request.field in ("users_per_day", "invocations_per_user_per_agent_per_day"):
+        if row.volume_source != "daily_users":
+            raise HTTPException(422, "This agent uses legacy monthly volume.")
+        setattr(row, request.field, request.value)
+    elif request.field == "invocations":
+        if row.volume_source != "manual":
+            raise HTTPException(422, "This agent uses daily-user volume.")
+        row.invocations = request.value
+    else:
+        if row.steps:
+            raise HTTPException(422, "Detailed workflows require editing their individual steps.")
+        setattr(row.overrides, request.field, request.value)
+    try:
+        changed = Estimate.model_validate(changed.model_dump())
+    except ValidationError as exc:
+        raise HTTPException(422, exc.errors()[0]["msg"]) from exc
+
+    baseline_result = calculate(original)
+    proposed_result = calculate(changed)
+    baseline = next(s for s in baseline_result["scenarios"] if s["name"] == "Expected")
+    proposed = next(s for s in proposed_result["scenarios"] if s["name"] == "Expected")
+    baseline_row = next(d for d in baseline_result["cost_drivers"] if d["row_id"] == row.id)
+    proposed_row = next(d for d in proposed_result["cost_drivers"] if d["row_id"] == row.id)
+    row_complete = baseline_row["complete"] and proposed_row["complete"]
+    suite_complete = baseline["complete"] and proposed["complete"]
+    result = {
+        "row_id": row.id,
+        "field": request.field,
+        "value": request.value,
+        "baseline_row_cost": baseline_row["known_cost"] if row_complete else None,
+        "proposed_row_cost": proposed_row["known_cost"] if row_complete else None,
+        "row_delta": proposed_row["known_cost"] - baseline_row["known_cost"] if row_complete else None,
+        "baseline_suite_cost": baseline["llm_cost"] if suite_complete else None,
+        "proposed_suite_cost": proposed["llm_cost"] if suite_complete else None,
+        "suite_delta": proposed["llm_cost"] - baseline["llm_cost"] if suite_complete else None,
+        "issues": list(dict.fromkeys(baseline_row["issues"] + proposed_row["issues"])),
+        "suite_complete": suite_complete,
+    }
+    return JSONResponse(jsonable_encoder(result, custom_encoder={Decimal: str}))
 
 
 @app.get("/api/estimates")

@@ -95,3 +95,13 @@ Independent E2E fixture: two simple agents, one medium agent, and one high agent
 - With the tier/cache fixture, 2,000,000 input tokens cost USD 3.75 (uncached USD 2 + read USD 0.25 + write USD 1.5); 10,000 output tokens cost USD 0.08. The summary must not apply one blended catalog rate to all input tokens.
 - Missing required prices or workload inputs must mark affected input/output costs and overall totals incomplete. Known subtotals may remain visible, while token counts with supplied workload remain visible. Zero workload is a valid complete zero.
 - The exported monthly summary must use formulas linked to Category usage and Category costs and reconcile its suite LLM cost to Summary's Expected LLM cost when recalculated.
+
+## Cost-driver and sensitivity preview: failure cases and independent outcomes
+
+Recorded before implementation. A preview changes one row input in a temporary copy of the estimate, recalculates both copies with the canonical engine, and never saves or changes the draft. The ranked list and preview use Expected-scenario LLM cost only; additional costs stay separate.
+
+- For Fixture A (two simple agents in one group), the group and suite each cost USD 16.32/month. Changing that group's input tokens per call from 2,000 to 3,000 yields USD 20.40/month, an increase of USD 4.08. Changing its calls per invocation from 1 to 2 yields USD 32.64/month, an increase of USD 16.32. These expected values are computed independently from 2,040 baseline calls, USD 2/M input, and USD 8/M output.
+- With one agent split into an individual row, rank each row once. A change to the individual must not alter the remaining group; the suite delta equals that individual's cost delta. A row with several detailed steps must have its costs summed once, and aggregate execution fields must not be offered for that row.
+- The preview must preserve the current Expected scenario factor, model, snapshot rates, row overrides, and explicit zero. A changed input size crossing a context tier must reselect the rate per call; a simple percentage scaling of the displayed total would be wrong.
+- A missing volume or required price makes the affected row or suite comparison incomplete. Known subtotals must not be labeled as a full projected bill or full dollar impact.
+- Invalid, negative, infinite, out-of-range, or incompatible fields (for example a cache-read fraction that makes read plus write exceed one) must be rejected at the backend boundary. A preview must not change the saved estimate, browser draft, or exported workbook.

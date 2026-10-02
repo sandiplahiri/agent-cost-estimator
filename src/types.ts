@@ -117,6 +117,15 @@ export interface ScenarioResult {
 }
 export interface Results {
   scenarios: ScenarioResult[];
+  cost_drivers: {
+    row_id: string;
+    name: string;
+    complexity: Complexity;
+    count: number;
+    known_cost: Numeric;
+    complete: boolean;
+    issues: string[];
+  }[];
   category_invocations: Record<Complexity, { total: Numeric; complete: boolean }>;
   category_tokens: Record<
     Complexity,

@@ -25,6 +25,7 @@ import {
 import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './components';
 import { AgentEditor } from './AgentEditor';
 import { CustomPrice } from './CustomPrice';
+import { CostImpact } from './CostImpact';
 import {
   api,
   complexities,
@@ -1116,66 +1117,31 @@ export default function App() {
                   </div>
                 )}
               </section>
-              <div className="bottom-grid">
-                <section className="panel">
-                  <div className="section-heading">
-                    <div>
-                      <h2>Where the spend goes</h2>
-                      <p>Expected monthly LLM cost by group</p>
-                    </div>
-                    <Coins size={19} />
+              <CostImpact estimate={estimate} result={result} />
+              <section className="panel assumption-note">
+                <div className="section-heading">
+                  <div>
+                    <h2>A budget you can explain</h2>
+                    <p>Transparent inputs. Repeatable estimates.</p>
                   </div>
-                  {estimate.agents.length ? (
-                    <div className="contributors">
-                      {[...estimate.agents]
-                        .sort((a, b) => rowCost(b.id) - rowCost(a.id))
-                        .slice(0, 6)
-                        .map((row) => (
-                          <div key={row.id} className="contributor">
-                            <div>
-                              <span>{row.name}</span>
-                              <strong>{money(rowCost(row.id))}</strong>
-                            </div>
-                            <div className="bar-track">
-                              <span
-                                className={row.complexity}
-                                style={{
-                                  width: `${Number(expected?.llm_cost) > 0 ? (100 * rowCost(row.id)) / Number(expected?.llm_cost) : 0}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="empty-inline">Your cost breakdown will appear here.</div>
-                  )}
-                </section>
-                <section className="panel assumption-note">
-                  <div className="section-heading">
-                    <div>
-                      <h2>A budget you can explain</h2>
-                      <p>Transparent inputs. Repeatable estimates.</p>
-                    </div>
-                    <ShieldCheck size={20} />
-                  </div>
-                  <p>
-                    Profiles are starting assumptions, not measured benchmarks. Review calls, context sizes
-                    and retries for your architecture.
-                  </p>
-                  <div className="metric-line">
-                    <span>Monthly input tokens</span>
-                    <strong>{number(expected?.input_tokens || 0)}</strong>
-                  </div>
-                  <div className="metric-line">
-                    <span>Monthly output tokens</span>
-                    <strong>{number(expected?.output_tokens || 0)}</strong>
-                  </div>
-                  <button className="text-button" onClick={() => setTab('profiles')}>
-                    Review complexity profiles <ArrowUpRight size={14} />
-                  </button>
-                </section>
-              </div>
+                  <ShieldCheck size={20} />
+                </div>
+                <p>
+                  Profiles are starting assumptions, not measured benchmarks. Review calls, context sizes and
+                  retries for your architecture.
+                </p>
+                <div className="metric-line">
+                  <span>Monthly input tokens</span>
+                  <strong>{number(expected?.input_tokens || 0)}</strong>
+                </div>
+                <div className="metric-line">
+                  <span>Monthly output tokens</span>
+                  <strong>{number(expected?.output_tokens || 0)}</strong>
+                </div>
+                <button className="text-button" onClick={() => setTab('profiles')}>
+                  Review complexity profiles <ArrowUpRight size={14} />
+                </button>
+              </section>
             </>
           )}
 

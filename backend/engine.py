@@ -182,6 +182,26 @@ def calculate(estimate: Estimate):
             }
         )
     expected_lines = next(s["lines"] for s in scenarios if s["name"] == "Expected")
+    lines_by_row = {}
+    for line in expected_lines:
+        lines_by_row.setdefault(line["row_id"], []).append(line)
+    cost_drivers = []
+    for row in estimate.agents:
+        if row.count == 0:
+            continue
+        row_lines = lines_by_row.get(row.id, [])
+        cost_drivers.append(
+            {
+                "row_id": row.id,
+                "name": row.name,
+                "complexity": row.complexity,
+                "count": row.count,
+                "known_cost": sum((line["cost"] for line in row_lines if line["cost"] is not None), ZERO),
+                "complete": all(line["cost"] is not None for line in row_lines),
+                "issues": list(dict.fromkeys(issue for line in row_lines for issue in line["issues"])),
+            }
+        )
+    cost_drivers.sort(key=lambda item: (-item["known_cost"], item["name"].lower()))
     category_tokens = {}
     category_costs = {}
     for complexity in ("simple", "medium", "high"):
@@ -285,6 +305,7 @@ def calculate(estimate: Estimate):
         "category_invocations": category_invocations,
         "category_tokens": category_tokens,
         "category_costs": category_costs,
+        "cost_drivers": cost_drivers,
         "monthly_token_summary": monthly_token_summary,
         "agent_count": sum(r.count for r in estimate.agents),
         "recurring": recurring,

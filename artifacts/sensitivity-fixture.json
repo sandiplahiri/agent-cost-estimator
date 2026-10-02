@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
   "defaults_version": 1,
-  "id": "d469ce16-5ad9-416e-aece-64c6663652ff",
-  "name": "Daily volume fixture",
+  "id": "5dcaf8eb-8ebd-4a4b-8359-a06ab670b7c1",
+  "name": "Mortgage fixture",
   "notes": "",
   "profiles": {
     "simple": {
@@ -21,7 +21,7 @@
       "retry_rate": "0.05",
       "cache_fraction": "0",
       "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "model_id": ""
     },
     "high": {
       "calls": "10",
@@ -30,68 +30,56 @@
       "retry_rate": "0.10",
       "cache_fraction": "0",
       "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "model_id": ""
     }
   },
   "agents": [
     {
-      "id": "a8842f98-8785-443e-8e56-1d210ba117d0",
+      "id": "31ec33d1-7e16-4f2e-87d4-f4a7e3911506",
       "name": "Simple agents",
       "complexity": "simple",
-      "count": 2,
-      "invocations": "0",
-      "volume_source": "daily_users",
-      "users_per_day": "2",
-      "invocations_per_user_per_agent_per_day": "3",
-      "overrides": {
-        "calls": null,
-        "input_tokens": null,
-        "output_tokens": null,
-        "retry_rate": null,
-        "cache_fraction": null,
-        "cache_write_fraction": null,
-        "model_id": null
-      },
-      "steps": []
-    },
-    {
-      "id": "2be9f404-a637-4913-b9ac-e26594674dfc",
-      "name": "Medium agents",
-      "complexity": "medium",
       "count": 1,
       "invocations": "0",
       "volume_source": "daily_users",
       "users_per_day": "1",
-      "invocations_per_user_per_agent_per_day": "2",
-      "overrides": {
-        "calls": null,
-        "input_tokens": null,
-        "output_tokens": null,
-        "retry_rate": null,
-        "cache_fraction": null,
-        "cache_write_fraction": null,
-        "model_id": null
-      },
+      "invocations_per_user_per_agent_per_day": "33.3333333333333333333333333333",
+      "overrides": {},
       "steps": []
     },
     {
-      "id": "25d708d8-ad72-46c7-8d35-2ee5c77ef207",
+      "id": "87aebe96-4e74-43e3-82c4-0c69c9c2ed91",
+      "name": "Medium agents",
+      "complexity": "medium",
+      "count": 0,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {},
+      "steps": []
+    },
+    {
+      "id": "0aded97f-c4a8-496a-9942-9c2bc4ab07c2",
       "name": "High agents",
       "complexity": "high",
+      "count": 0,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {},
+      "steps": []
+    },
+    {
+      "id": "719e37a4-6654-4f7e-9fbe-b2d741d16503",
+      "name": "Simple agents · individual",
+      "complexity": "simple",
       "count": 1,
       "invocations": "0",
       "volume_source": "daily_users",
-      "users_per_day": "4",
-      "invocations_per_user_per_agent_per_day": "0.5",
-      "overrides": {
-        "calls": null,
-        "input_tokens": null,
-        "output_tokens": null,
-        "retry_rate": null,
-        "cache_fraction": null,
-        "cache_write_fraction": null,
-        "model_id": null
-      },
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "33.3333333333333333333333333333",
+      "overrides": {},
       "steps": []
     }
   ],
@@ -132,11 +120,11 @@
       "output": "8",
       "cache_read": null,
       "cache_write": null,
-      "tiers": [],
       "max_input": null,
       "max_output": null,
+      "tiers": [],
       "source": "Architect-supplied custom rates",
-      "retrieved_at": "2026-10-02T18:37:00.335Z",
+      "retrieved_at": "2026-10-02T18:36:56.709Z",
       "custom": true,
       "unsupported": []
     }

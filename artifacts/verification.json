@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-10-01T20:02:42.203Z",
+  "executedAt": "2026-10-02T18:37:20.921Z",
   "command": "npm run test:e2e",
   "prerequisites": "npm run build and npm run check completed before this run.",
   "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
@@ -32,6 +32,38 @@
         24.48,
         73.44
       ]
+    },
+    {
+      "journey": "Cost-driver sensitivity preview, split ownership, backend validation, and unchanged export",
+      "evidence": "sensitivity-fixture.json and sensitivity-budget.xlsx",
+      "expected": {
+        "baselineUsd": 16.32,
+        "inputPreviewUsd": 20.4,
+        "callsPreviewUsd": 32.64,
+        "doubledVolumeInputPreviewUsd": 40.8,
+        "individualPreviewUsd": 4.08,
+        "workbookUsd": 16.32,
+        "invalidFractionStatus": 422,
+        "incompleteComparison": true,
+        "rankedCostsUsd": [
+          8.16,
+          4.08
+        ]
+      },
+      "actual": {
+        "baselineUi": "$16.32/mo",
+        "inputPreview": "Group monthly LLM\n$16.32 → $20.40\n+$4.08 / month\nSuite monthly LLM\n$16.32 → $20.40\n+$4.08 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "callsPreview": "Group monthly LLM\n$16.32 → $32.64\n+$16.32 / month\nSuite monthly LLM\n$16.32 → $32.64\n+$16.32 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "scenarioPreview": "Group monthly LLM\n$32.64 → $40.80\n+$8.16 / month\nSuite monthly LLM\n$32.64 → $40.80\n+$8.16 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "individualPreview": "Group monthly LLM\n$8.16 → $4.08\n-$4.08 / month\nSuite monthly LLM\n$16.32 → $12.24\n-$4.08 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "workbookUsd": 16.32,
+        "invalidFractionStatus": 422,
+        "incompletePreview": "Group comparison is incomplete. Missing cache read price.\n\nPreview only. The estimate and Excel export still use the current value.",
+        "rankedDrivers": [
+          "Simple agents\n1 agent · simple\n$8.16\n66.7% of suite\nRank 1 of visible cost drivers.",
+          "Simple agents · individual\n1 agent · simple\n$4.08\n33.3% of suite\nRank 2 of visible cost drivers."
+        ]
+      }
     },
     {
       "journey": "Daily volume for simple, medium, and high groups survives save and Excel export",
@@ -234,7 +266,9 @@
           0.25,
           1.5,
           0.08
-        ]
+        ],
+        "thresholdPreviewUsd": 7.6200375,
+        "thresholdDeltaUsd": 3.7900375
       },
       "actual": {
         "scenarios": [
@@ -247,7 +281,9 @@
           0.25,
           1.5,
           0.08
-        ]
+        ],
+        "thresholdPreviewUsd": 7.6200375,
+        "thresholdDeltaUsd": 3.7900375
       }
     },
     {
