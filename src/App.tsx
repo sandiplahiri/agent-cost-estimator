@@ -26,6 +26,7 @@ import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './component
 import { AgentEditor } from './AgentEditor';
 import { CustomPrice } from './CustomPrice';
 import { CostImpact } from './CostImpact';
+import { AgentGraph } from './AgentGraph';
 import {
   api,
   complexities,
@@ -145,11 +146,13 @@ export default function App() {
         const text = localStorage.getItem('agent-ledger-draft-v1');
         if (text) {
           const parsed = JSON.parse(text);
-          if (parsed.schema_version === 1) {
-            parsed.schema_version = 2;
+          if (parsed.schema_version === 1 || parsed.schema_version === 2) {
+            parsed.schema_version = 3;
+            parsed.links = [];
             parsed.agents = parsed.agents.map((row: AgentRow) => ({
               ...row,
               volume_source: row.volume_source ?? 'manual',
+              prior_volume_source: row.prior_volume_source ?? null,
               users_per_day: row.users_per_day ?? null,
               invocations_per_user_per_agent_per_day: row.invocations_per_user_per_agent_per_day ?? null,
             }));
@@ -268,6 +271,7 @@ export default function App() {
           if (!base) throw new Error('The current estimate is unavailable. Try the import again.');
           const proposed = clone(base);
           proposed.agents = data.agents;
+          proposed.links = [];
           let validationError = '';
           try {
             await api('/calculate', proposed);
@@ -607,6 +611,7 @@ export default function App() {
                             count: 1,
                             invocations: '0',
                             volume_source: 'daily_users',
+                            prior_volume_source: null,
                             users_per_day: null,
                             invocations_per_user_per_agent_per_day: null,
                             overrides: {},
@@ -619,9 +624,9 @@ export default function App() {
                       </button>
                     </div>
                     <p className="volume-note">
-                      * Required for each group. Total monthly invocations per agent = users per day ×
-                      invocations per user per agent per day × 30 days. All-agent totals also multiply by the
-                      group count; category totals sum every group of the same complexity.
+                      * Required for direct daily-volume groups. Their monthly invocations per agent = users
+                      per day × invocations per user per agent per day × 30 days. Derived groups receive work
+                      from agent links; their total is pooled across the group count.
                     </p>
                     {missingDaily.length > 0 && (
                       <p className="volume-note invalid-text" role="alert">
@@ -670,7 +675,7 @@ export default function App() {
                                 <td>
                                   <input
                                     type="number"
-                                    min={0}
+                                    min={row.volume_source === 'derived' ? 1 : 0}
                                     step={1}
                                     aria-label={`${row.name} count`}
                                     value={row.count}
@@ -688,11 +693,12 @@ export default function App() {
                                     min={0}
                                     step="any"
                                     required
+                                    disabled={row.volume_source === 'derived'}
                                     aria-label={`${row.name} users per day`}
                                     value={
                                       row.volume_source === 'daily_users' ? (row.users_per_day ?? '') : ''
                                     }
-                                    placeholder="Required"
+                                    placeholder={row.volume_source === 'derived' ? 'From links' : 'Required'}
                                     onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) =>
                                       update((n) => {
@@ -709,13 +715,14 @@ export default function App() {
                                     min={0}
                                     step="any"
                                     required
+                                    disabled={row.volume_source === 'derived'}
                                     aria-label={`${row.name} invocations per user per agent per day`}
                                     value={
                                       row.volume_source === 'daily_users'
                                         ? (row.invocations_per_user_per_agent_per_day ?? '')
                                         : ''
                                     }
-                                    placeholder="Required"
+                                    placeholder={row.volume_source === 'derived' ? 'From links' : 'Required'}
                                     onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) =>
                                       update((n) => {
@@ -737,6 +744,7 @@ export default function App() {
                                       >
                                         {lines.length &&
                                         (row.volume_source === 'manual' ||
+                                          row.volume_source === 'derived' ||
                                           (row.users_per_day !== null &&
                                             row.invocations_per_user_per_agent_per_day !== null))
                                           ? displayVolume(lines[0].base_invocations)
@@ -752,6 +760,7 @@ export default function App() {
                                       >
                                         {lines.length &&
                                         (row.volume_source === 'manual' ||
+                                          row.volume_source === 'derived' ||
                                           (row.users_per_day !== null &&
                                             row.invocations_per_user_per_agent_per_day !== null))
                                           ? displayVolume(lines[0].base_total_invocations)
@@ -762,6 +771,9 @@ export default function App() {
                                       <small title="Enter both required daily inputs to convert this saved manual volume.">
                                         Legacy manual volume
                                       </small>
+                                    )}
+                                    {row.volume_source === 'derived' && (
+                                      <small>Derived from agent links</small>
                                     )}
                                   </div>
                                 </td>
@@ -1117,6 +1129,18 @@ export default function App() {
                   </div>
                 )}
               </section>
+              <AgentGraph
+                estimate={estimate}
+                result={result}
+                onApply={(next, base, message) => {
+                  if (estimateRef.current !== base)
+                    throw new Error('The estimate changed. Preview the link again.');
+                  setUndo(clone(base));
+                  setEstimate(next);
+                  setIsSaved(false);
+                  setNotice(message);
+                }}
+              />
               <CostImpact estimate={estimate} result={result} />
               <section className="panel assumption-note">
                 <div className="section-heading">
@@ -1610,11 +1634,13 @@ export default function App() {
                     count: quick[c],
                     invocations: '0',
                     volume_source: 'daily_users',
+                    prior_volume_source: null,
                     users_per_day: quick[c] > 0 ? quick.daily[c].users : '0',
                     invocations_per_user_per_agent_per_day: quick[c] > 0 ? quick.daily[c].perUser : '0',
                     overrides: {},
                     steps: [],
                   }));
+                  n.links = [];
                 });
                 setModal(null);
                 setTab('suite');
@@ -1645,6 +1671,12 @@ export default function App() {
             setEditing(null);
           }}
           onRemove={() => {
+            if (
+              estimate.links.some((link) => link.parent_id === editing.id || link.child_id === editing.id)
+            ) {
+              setError('Remove this agent’s links before deleting the row.');
+              return;
+            }
             setUndo(clone(estimate));
             update((n) => {
               n.agents = n.agents.filter((r) => r.id !== editing.id);
@@ -1652,6 +1684,10 @@ export default function App() {
             setEditing(null);
           }}
           onSplit={(draft) => {
+            if (estimate.links.some((link) => link.parent_id === draft.id || link.child_id === draft.id)) {
+              setError('Remove this agent’s links before splitting the group.');
+              return;
+            }
             const child = { ...clone(draft), id: id(), name: `${draft.name} · individual`, count: 1 };
             setUndo(clone(estimate));
             update((n) => {
@@ -1720,8 +1756,8 @@ export default function App() {
         <Modal title="Reset execution parameters" onClose={() => setModal(null)}>
           <p>
             Restore all three profiles to the starter calls, token sizes, retry rates and cache assumptions.
-            Model choices, agent names/counts, daily workload inputs, custom rates and additional costs are
-            preserved.
+            Model choices, agent names/counts, workload inputs, agent links, custom rates and additional costs
+            are preserved.
           </p>
           <label className="checkbox-field">
             <input
@@ -1729,7 +1765,8 @@ export default function App() {
               checked={clearOverrides}
               onChange={(e) => setClearOverrides(e.target.checked)}
             />
-            Also clear individual execution overrides, detailed steps, and scenario changes
+            Also clear individual execution overrides, detailed steps, scenario changes, and link scenario
+            overrides
           </label>
           <p className="muted small">
             {clearOverrides
@@ -1754,6 +1791,10 @@ export default function App() {
                       r.steps = [];
                     });
                     n.scenarios = clone(defaults.scenarios);
+                    n.links.forEach((link) => {
+                      link.low = { trigger_probability: null, invocations_per_trigger: null };
+                      link.high = { trigger_probability: null, invocations_per_trigger: null };
+                    });
                   }
                 });
                 setModal(null);
@@ -1771,7 +1812,8 @@ export default function App() {
           <p>
             This will replace the inventory with {imported.agents.length} rows (
             {imported.agents.reduce((sum, r) => sum + r.count, 0)} agents). Profiles, prices and scenarios
-            stay intact.
+            stay intact. {estimate.links.length} agent link{estimate.links.length === 1 ? '' : 's'} will be
+            removed.
           </p>
           {imported.errors.length > 0 ? (
             <div className="import-errors" role="alert">
@@ -1804,6 +1846,7 @@ export default function App() {
                 perform('Applying import', async () => {
                   const next = clone(estimate);
                   next.agents = imported.agents;
+                  next.links = [];
                   withSnapshots(next, available);
                   await api('/calculate', next);
                   setUndo(clone(estimate));

@@ -1,7 +1,7 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "defaults_version": 1,
-  "id": "f1c819a6-91d9-4630-98cb-aa31cd5cab65",
+  "id": "6f175095-ebcf-4700-a984-61afa53d55cb",
   "name": "Tier and cache fixture",
   "notes": "",
   "profiles": {
@@ -44,6 +44,7 @@
       "steps": []
     }
   ],
+  "links": [],
   "scenarios": [
     {
       "name": "Low",

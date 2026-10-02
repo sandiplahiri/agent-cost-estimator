@@ -18,6 +18,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up decision:** Add a visible Expected-scenario monthly summary for simple, medium, and high categories and the entire suite. Each row shows input and output token counts, input and output LLM costs, and their totals. Input cost includes uncached input, cached reads, and cache writes; incomplete costs remain labeled.
 
+**Follow-up decision:** Model agent-to-agent work as explicit invocation links. A link records trigger probability and child invocations per trigger. A linked child uses derived volume in place of its entered direct volume; existing direct inputs are retained for recovery. Reject unbounded cycles. Keep normal model-call cycles and retries separate from child-agent invocations.
+
 ## Confirmed requirements
 
 - Run as a local web application initially.

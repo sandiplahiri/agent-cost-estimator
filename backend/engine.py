@@ -15,12 +15,87 @@ TOKEN_TYPES = (
 )
 
 
-def monthly_invocations(row):
+def direct_monthly_invocations(row):
     if row.volume_source == "daily_users":
         if row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None:
             return ZERO
         return row.users_per_day * row.invocations_per_user_per_agent_per_day * PLANNING_DAYS_PER_MONTH
     return row.invocations
+
+
+def resolve_volumes(estimate: Estimate, scenario: Scenario | None = None):
+    """Resolve direct and delegated row volumes in topological order."""
+    rows = {row.id: row for row in estimate.agents}
+    incoming = {row.id: [] for row in estimate.agents}
+    outgoing = {row.id: [] for row in estimate.agents}
+    degree = {row.id: 0 for row in estimate.agents}
+    for link in estimate.links:
+        incoming[link.child_id].append(link)
+        outgoing[link.parent_id].append(link)
+        degree[link.child_id] += 1
+    ready = [row.id for row in estimate.agents if degree[row.id] == 0]
+    volumes = {}
+    contributions = {}
+    while ready:
+        row_id = ready.pop()
+        row = rows[row_id]
+        if row.volume_source == "derived":
+            total = ZERO
+            issues = []
+            for link in incoming[row_id]:
+                parent = volumes[link.parent_id]
+                override = (
+                    link.low
+                    if scenario and scenario.name == "Low"
+                    else link.high
+                    if scenario and scenario.name == "High"
+                    else None
+                )
+                probability = (
+                    override.trigger_probability
+                    if override and override.trigger_probability is not None
+                    else link.trigger_probability
+                )
+                fanout = (
+                    override.invocations_per_trigger
+                    if override and override.invocations_per_trigger is not None
+                    else link.invocations_per_trigger
+                )
+                child_invocations = parent["total"] * probability * fanout
+                contributions[link.id] = {
+                    "link_id": link.id,
+                    "parent_id": link.parent_id,
+                    "child_id": link.child_id,
+                    "parent_total": parent["total"],
+                    "trigger_probability": probability,
+                    "invocations_per_trigger": fanout,
+                    "child_total": child_invocations,
+                    "complete": parent["complete"],
+                }
+                total += child_invocations
+                if not parent["complete"]:
+                    issues.append(f"Caller {rows[link.parent_id].name} volume is incomplete.")
+            per_agent = total / Decimal(row.count)
+        else:
+            factor = scenario.volume_factor if scenario else Decimal(1)
+            per_agent = direct_monthly_invocations(row) * factor
+            total = Decimal(row.count) * per_agent
+            issues = []
+            if row.volume_source == "daily_users" and (
+                row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None
+            ):
+                issues.append("Enter users per day and invocations per user per agent per day.")
+        volumes[row_id] = {
+            "per_agent": per_agent,
+            "total": total,
+            "complete": not issues,
+            "issues": list(dict.fromkeys(issues)),
+        }
+        for link in outgoing[row_id]:
+            degree[link.child_id] -= 1
+            if degree[link.child_id] == 0:
+                ready.append(link.child_id)
+    return volumes, contributions
 
 
 def selected_rates(price: Price, input_tokens: Decimal):
@@ -50,25 +125,27 @@ def effective_execution(estimate: Estimate, row) -> Execution:
     )
 
 
-def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario, step_name: str):
+def line_item(
+    estimate: Estimate,
+    row,
+    execution: Execution,
+    scenario: Scenario,
+    step_name: str,
+    base_volume,
+    current_volume,
+):
     model_id = scenario.model_id if scenario.model_id is not None else execution.model_id
-    base_volume = monthly_invocations(row)
-    base_total_volume = Decimal(row.count) * base_volume
-    volume = base_volume * scenario.volume_factor
+    volume = current_volume["per_agent"]
     calls = execution.calls * scenario.calls_factor
     retry = execution.retry_rate * scenario.retry_factor
     input_tokens = execution.input_tokens * scenario.input_factor
     output_tokens = execution.output_tokens * scenario.output_factor
-    monthly_calls = Decimal(row.count) * volume * calls * (1 + retry)
+    monthly_calls = current_volume["total"] * calls * (1 + retry)
     cached_input = input_tokens * execution.cache_fraction
     cache_writes = input_tokens * execution.cache_write_fraction
     uncached_input = input_tokens - cached_input - cache_writes
     price = estimate.prices.get(model_id)
-    issues = []
-    if row.volume_source == "daily_users" and (
-        row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None
-    ):
-        issues.append("Enter users per day and invocations per user per agent per day.")
+    issues = list(current_volume["issues"])
     rates = (
         selected_rates(price, input_tokens)
         if price
@@ -111,8 +188,8 @@ def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario,
         "complexity": row.complexity,
         "count": row.count,
         "invocations": volume,
-        "base_invocations": base_volume,
-        "base_total_invocations": base_total_volume,
+        "base_invocations": base_volume["per_agent"],
+        "base_total_invocations": base_volume["total"],
         "volume_source": row.volume_source,
         "manual_invocations": row.invocations,
         "users_per_day": row.users_per_day,
@@ -138,16 +215,13 @@ def line_item(estimate: Estimate, row, execution: Execution, scenario: Scenario,
 
 
 def calculate(estimate: Estimate):
+    base_volumes, base_links = resolve_volumes(estimate)
     category_invocations = {}
     for complexity in ("simple", "medium", "high"):
         rows = [row for row in estimate.agents if row.complexity == complexity]
         category_invocations[complexity] = {
-            "total": sum((Decimal(row.count) * monthly_invocations(row) for row in rows), ZERO),
-            "complete": all(
-                row.volume_source != "daily_users"
-                or (row.users_per_day is not None and row.invocations_per_user_per_agent_per_day is not None)
-                for row in rows
-            ),
+            "total": sum((base_volumes[row.id]["total"] for row in rows), ZERO),
+            "complete": all(base_volumes[row.id]["complete"] for row in rows),
         }
     recurring = sum(
         (c.amount * c.quantity for c in estimate.additional_costs if c.frequency == "monthly"), ZERO
@@ -157,13 +231,33 @@ def calculate(estimate: Estimate):
     )
     scenarios = []
     for scenario in sorted(estimate.scenarios, key=lambda s: ["Low", "Expected", "High"].index(s.name)):
+        scenario_volumes, scenario_links = resolve_volumes(estimate, scenario)
         lines = []
         for row in estimate.agents:
             if row.steps:
-                lines.extend(line_item(estimate, row, step, scenario, step.name) for step in row.steps)
+                lines.extend(
+                    line_item(
+                        estimate,
+                        row,
+                        step,
+                        scenario,
+                        step.name,
+                        base_volumes[row.id],
+                        scenario_volumes[row.id],
+                    )
+                    for step in row.steps
+                )
             else:
                 lines.append(
-                    line_item(estimate, row, effective_execution(estimate, row), scenario, "Aggregate")
+                    line_item(
+                        estimate,
+                        row,
+                        effective_execution(estimate, row),
+                        scenario,
+                        "Aggregate",
+                        base_volumes[row.id],
+                        scenario_volumes[row.id],
+                    )
                 )
         known = sum((line["cost"] for line in lines if line["cost"] is not None), ZERO)
         complete = all(not line["issues"] for line in lines)
@@ -179,6 +273,8 @@ def calculate(estimate: Estimate):
                 "output_tokens": sum((line["output_tokens"] for line in lines), ZERO),
                 "monthly_calls": sum((line["monthly_calls"] for line in lines), ZERO),
                 "lines": lines,
+                "volumes": scenario_volumes,
+                "link_contributions": scenario_links,
             }
         )
     expected_lines = next(s["lines"] for s in scenarios if s["name"] == "Expected")
@@ -305,6 +401,8 @@ def calculate(estimate: Estimate):
         "category_invocations": category_invocations,
         "category_tokens": category_tokens,
         "category_costs": category_costs,
+        "base_volumes": base_volumes,
+        "base_links": base_links,
         "cost_drivers": cost_drivers,
         "monthly_token_summary": monthly_token_summary,
         "agent_count": sum(r.count for r in estimate.agents),

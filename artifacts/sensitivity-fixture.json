@@ -1,7 +1,7 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "defaults_version": 1,
-  "id": "5dcaf8eb-8ebd-4a4b-8359-a06ab670b7c1",
+  "id": "e5174ab7-a046-48bf-b20c-ca1a84aa81ca",
   "name": "Mortgage fixture",
   "notes": "",
   "profiles": {
@@ -35,54 +35,59 @@
   },
   "agents": [
     {
-      "id": "31ec33d1-7e16-4f2e-87d4-f4a7e3911506",
+      "id": "ece29954-a0a1-4f8a-8d70-583cc638c3f4",
       "name": "Simple agents",
       "complexity": "simple",
       "count": 1,
       "invocations": "0",
       "volume_source": "daily_users",
+      "prior_volume_source": null,
       "users_per_day": "1",
       "invocations_per_user_per_agent_per_day": "33.3333333333333333333333333333",
       "overrides": {},
       "steps": []
     },
     {
-      "id": "87aebe96-4e74-43e3-82c4-0c69c9c2ed91",
+      "id": "fe215aad-9254-4472-b317-1e2f3a7dacdb",
       "name": "Medium agents",
       "complexity": "medium",
       "count": 0,
       "invocations": "0",
       "volume_source": "daily_users",
+      "prior_volume_source": null,
       "users_per_day": "0",
       "invocations_per_user_per_agent_per_day": "0",
       "overrides": {},
       "steps": []
     },
     {
-      "id": "0aded97f-c4a8-496a-9942-9c2bc4ab07c2",
+      "id": "0ac99b6b-2c81-44cb-a88b-f3e202113186",
       "name": "High agents",
       "complexity": "high",
       "count": 0,
       "invocations": "0",
       "volume_source": "daily_users",
+      "prior_volume_source": null,
       "users_per_day": "0",
       "invocations_per_user_per_agent_per_day": "0",
       "overrides": {},
       "steps": []
     },
     {
-      "id": "719e37a4-6654-4f7e-9fbe-b2d741d16503",
+      "id": "123d26d5-dd19-4069-972e-fe22654110b4",
       "name": "Simple agents · individual",
       "complexity": "simple",
       "count": 1,
       "invocations": "0",
       "volume_source": "daily_users",
+      "prior_volume_source": null,
       "users_per_day": "1",
       "invocations_per_user_per_agent_per_day": "33.3333333333333333333333333333",
       "overrides": {},
       "steps": []
     }
   ],
+  "links": [],
   "scenarios": [
     {
       "name": "Low",
@@ -124,7 +129,7 @@
       "max_output": null,
       "tiers": [],
       "source": "Architect-supplied custom rates",
-      "retrieved_at": "2026-10-02T18:36:56.709Z",
+      "retrieved_at": "2026-10-02T20:28:27.284Z",
       "custom": true,
       "unsupported": []
     }

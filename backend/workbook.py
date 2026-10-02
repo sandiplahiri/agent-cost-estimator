@@ -92,7 +92,7 @@ def import_template():
         ("Overrides", "Blank execution cells inherit the profile. Zero is an explicit override."),
         (
             "Ownership",
-            "Each row is a disjoint group. This import replaces the current agent list after preview.",
+            "Each row is a disjoint direct-volume group. This import replaces the current agent list and its links after preview. Derived links must be rebuilt in the app.",
         ),
         ("Safety", "Values only: formulas, macros and external links are not supported. Maximum 1,000 rows."),
     ]:
@@ -134,6 +134,11 @@ def read_import(data: bytes):
             values = {key: c.value for key, c in zip(headers, cells) if c.value is not None and c.value != ""}
             missing = {"name", "complexity", "count"} - values.keys()
             source = values.get("volume_source", "manual")
+            if source == "derived":
+                errors.append(
+                    f"Row {index}, volume_source: derived agent links cannot be imported from Agents. Import direct-volume rows, then add links in the app."
+                )
+                continue
             if source == "daily_users":
                 missing |= {"users_per_day", "invocations_per_user_per_agent_per_day"} - values.keys()
             elif "invocations" not in values:
@@ -262,7 +267,6 @@ def export_estimate(estimate: Estimate):
             )
             r = calc.max_row
             formulas = {
-                "F": f'IF(Z{r}="daily_users",AA{r}*AB{r}*AC{r},AD{r})*AE{r}',
                 "Q": f"E{r}*F{r}*G{r}*(1+H{r})",
                 "R": f"Q{r}*I{r}",
                 "S": f"Q{r}*J{r}",
@@ -270,6 +274,11 @@ def export_estimate(estimate: Estimate):
                 "AH": f"R{r}*K{r}",
                 "AI": f"R{r}*L{r}",
             }
+            if line["volume_source"] == "derived":
+                # Graph propagation is calculated in the app; its effective result is frozen here.
+                calc[f"F{r}"] = float(line["invocations"])
+            else:
+                formulas["F"] = f'IF(Z{r}="daily_users",AA{r}*AB{r}*AC{r},AD{r})*AE{r}'
             if not line["issues"]:
                 formulas |= {
                     "T": f"R{r}*(1-K{r}-L{r})*M{r}/1000000",
@@ -337,6 +346,8 @@ def export_estimate(estimate: Estimate):
             "Legacy manual invocations per agent per month",
             "Total monthly invocations per agent",
             "Total monthly invocations all agents",
+            "Agent row ID",
+            "Previous direct volume source",
         ],
     )
     for row in estimate.agents:
@@ -357,11 +368,57 @@ def export_estimate(estimate: Estimate):
                 float(row.invocations),
                 None,
                 None,
+                row.id,
+                row.prior_volume_source,
             ],
         )
         r = volume.max_row
-        volume[f"I{r}"] = f'=IF(D{r}="daily_users",E{r}*F{r}*G{r},H{r})'
+        if row.volume_source == "derived":
+            volume[f"I{r}"] = float(result["base_volumes"][row.id]["per_agent"])
+        else:
+            volume[f"I{r}"] = f'=IF(D{r}="daily_users",E{r}*F{r}*G{r},H{r})'
         volume[f"J{r}"] = f"=C{r}*I{r}"
+    links = wb.create_sheet("Agent links")
+    literal(
+        links,
+        [
+            "Scenario",
+            "Parent agent/group",
+            "Child agent/group",
+            "Branch group",
+            "Trigger probability",
+            "Child invocations per trigger",
+            "Parent invocations/month (precomputed)",
+            "Child invocations/month",
+            "Status",
+            "Link ID",
+            "Parent row ID",
+            "Child row ID",
+        ],
+    )
+    row_names = {row.id: row.name for row in estimate.agents}
+    for scenario in result["scenarios"]:
+        for link in estimate.links:
+            contribution = scenario["link_contributions"][link.id]
+            literal(
+                links,
+                [
+                    scenario["name"],
+                    row_names[link.parent_id],
+                    row_names[link.child_id],
+                    link.branch_group,
+                    float(contribution["trigger_probability"]),
+                    float(contribution["invocations_per_trigger"]),
+                    float(contribution["parent_total"]),
+                    None,
+                    "Complete" if contribution["complete"] else "INCOMPLETE — parent volume",
+                    link.id,
+                    link.parent_id,
+                    link.child_id,
+                ],
+            )
+            r = links.max_row
+            links[f"H{r}"] = f"=E{r}*F{r}*G{r}"
     categories = wb.create_sheet("Category totals")
     literal(categories, ["Complexity", "Total monthly invocations all agents"])
     last_volume_row = volume.max_row
@@ -556,11 +613,15 @@ def export_estimate(estimate: Estimate):
         ("Currency", "USD"),
         (
             "Calculation editing",
-            "Edit numeric inputs in Calculations to recalculate costs. Column F derives scenario monthly volume from columns Z–AE; daily mode uses a 30-day planning month. Profiles, Scenarios, Agents and Pricing document the snapshot; editing those sheets does not propagate to Calculations.",
+            "Edit numeric inputs in Calculations to recalculate costs. For direct-volume rows, column F derives scenario monthly volume from columns Z–AE using a 30-day planning month. For derived rows, column F is the graph result precomputed by the app; edit links or upstream volume in the app and re-export. Profiles, Scenarios, Agents and Pricing document the snapshot; editing those sheets does not propagate to Calculations.",
         ),
         (
             "Volume and category totals",
-            "Volume derives baseline monthly invocations per agent and all agents from the exported inventory. Category totals sums the Volume sheet by complexity. These totals exclude scenario volume multipliers; Calculations contains scenario-effective volumes.",
+            "Volume derives direct baseline invocations and records app-precomputed derived invocations. Category totals sums the Volume sheet by complexity. These totals exclude scenario volume multipliers; Calculations contains scenario-effective volumes.",
+        ),
+        (
+            "Agent links",
+            "Agent links shows effective Low/Expected/High probability, fanout, and child contributions. Parent totals are precomputed in topological order by the app; changing edges or parent totals in this workbook does not update derived rows in Calculations or Volume. Re-export from the app for a revised graph. Derived rows in Agents cannot be reimported without rebuilding links in the app.",
         ),
         (
             "Category token usage",

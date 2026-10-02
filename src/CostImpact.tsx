@@ -37,22 +37,24 @@ const executionFields: { field: SensitivityField; label: string; unit: string }[
 
 function fieldsFor(row: AgentRow) {
   const volumeFields: typeof executionFields =
-    row.volume_source === 'daily_users'
-      ? [
-          { field: 'users_per_day', label: 'Users per agent per day', unit: 'users / agent / day' },
-          {
-            field: 'invocations_per_user_per_agent_per_day',
-            label: 'Invocations per user per agent per day',
-            unit: 'invocations / user / agent / day',
-          },
-        ]
-      : [
-          {
-            field: 'invocations',
-            label: 'Legacy monthly invocations per agent',
-            unit: 'invocations / agent / month',
-          },
-        ];
+    row.volume_source === 'derived'
+      ? []
+      : row.volume_source === 'daily_users'
+        ? [
+            { field: 'users_per_day', label: 'Users per agent per day', unit: 'users / agent / day' },
+            {
+              field: 'invocations_per_user_per_agent_per_day',
+              label: 'Invocations per user per agent per day',
+              unit: 'invocations / user / agent / day',
+            },
+          ]
+        : [
+            {
+              field: 'invocations',
+              label: 'Legacy monthly invocations per agent',
+              unit: 'invocations / agent / month',
+            },
+          ];
   return row.steps.length ? volumeFields : [...volumeFields, ...executionFields];
 }
 
@@ -224,6 +226,15 @@ export function CostImpact({ estimate, result }: { estimate: Estimate; result: R
               <p className="muted small">Ranking uses known costs; unpriced groups may rank differently.</p>
             )}
           </div>
+          {row && !choice && (
+            <div className="impact-preview">
+              <h3>Preview a change to {row.name}</h3>
+              <p>
+                Detailed execution is defined in this derived group’s model-call steps. Edit its steps or
+                incoming agent links to compare a change.
+              </p>
+            </div>
+          )}
           {row && choice && field && (
             <div className="impact-preview">
               <h3>Preview a change to {row.name}</h3>

@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-10-02T18:37:20.921Z",
+  "executedAt": "2026-10-02T20:28:57.804Z",
   "command": "npm run test:e2e",
   "prerequisites": "npm run build and npm run check completed before this run.",
   "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
@@ -63,6 +63,41 @@
           "Simple agents\n1 agent · simple\n$8.16\n66.7% of suite\nRank 1 of visible cost drivers.",
           "Simple agents · individual\n1 agent · simple\n$4.08\n33.3% of suite\nRank 2 of visible cost drivers."
         ]
+      }
+    },
+    {
+      "journey": "Agent links, pooled volume, scenarios, graph validation, save/reopen, undo, and workbook",
+      "evidence": "agent-graph-fixture.json, agent-graph-budget.xlsx, and agent-graph-replacement.xlsx",
+      "expected": {
+        "lowUsd": 3.0294,
+        "expectedUsd": 5.9976,
+        "highUsd": 11.934,
+        "researcherTotal": 360,
+        "reviewerTotal": 75,
+        "cycleStatus": 422,
+        "schemaTwoMigrated": true,
+        "replacementClearsLinks": true,
+        "doubledExpectedResearcherTotal": 720,
+        "twoCallerResearcherTotal": 397.5,
+        "twoCallerExpectedUsd": 6.3036,
+        "explicitZeroLowResearcherTotal": 0
+      },
+      "actual": {
+        "scenarioCosts": [
+          3.0294,
+          5.9976,
+          11.934
+        ],
+        "researcherPerAgent": 180,
+        "researcherTotal": 360,
+        "researcherLink": 360,
+        "reviewerLink": 75,
+        "cycleStatus": 422,
+        "migratedSchema": 3,
+        "doubledExpectedResearcherTotal": 720,
+        "twoCallerResearcherTotal": 397.5,
+        "twoCallerExpectedUsd": 6.3036,
+        "explicitZeroLowResearcherTotal": 0
       }
     },
     {

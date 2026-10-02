@@ -1,8 +1,8 @@
 {
   "schema_version": 3,
   "defaults_version": 1,
-  "id": "bdbafbd4-df14-4fbb-b548-4d5367ec7544",
-  "name": "Daily volume fixture",
+  "id": "4ea5119d-4d0a-46e4-8372-5694f4811069",
+  "name": "Delegated work fixture",
   "notes": "",
   "profiles": {
     "simple": {
@@ -12,7 +12,7 @@
       "retry_rate": "0.02",
       "cache_fraction": "0",
       "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "model_id": "Graph Fixture"
     },
     "medium": {
       "calls": "4",
@@ -21,7 +21,7 @@
       "retry_rate": "0.05",
       "cache_fraction": "0",
       "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "model_id": ""
     },
     "high": {
       "calls": "10",
@@ -30,41 +30,41 @@
       "retry_rate": "0.10",
       "cache_fraction": "0",
       "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "model_id": ""
     }
   },
   "agents": [
     {
-      "id": "9e821c51-cc39-442d-9300-a308d638af7a",
-      "name": "Simple agents",
+      "id": "planner",
+      "name": "Planner",
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "10",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": []
+    },
+    {
+      "id": "researcher",
+      "name": "Researcher",
       "complexity": "simple",
       "count": 2,
       "invocations": "0",
-      "volume_source": "daily_users",
-      "prior_volume_source": null,
-      "users_per_day": "2",
-      "invocations_per_user_per_agent_per_day": "3",
-      "overrides": {
-        "calls": null,
-        "input_tokens": null,
-        "output_tokens": null,
-        "retry_rate": null,
-        "cache_fraction": null,
-        "cache_write_fraction": null,
-        "model_id": null
-      },
-      "steps": []
-    },
-    {
-      "id": "a33d3e17-513d-4246-8333-fead6092ea0e",
-      "name": "Medium agents",
-      "complexity": "medium",
-      "count": 1,
-      "invocations": "0",
-      "volume_source": "daily_users",
-      "prior_volume_source": null,
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
       "users_per_day": "1",
-      "invocations_per_user_per_agent_per_day": "2",
+      "invocations_per_user_per_agent_per_day": "1",
       "overrides": {
         "calls": null,
         "input_tokens": null,
@@ -77,15 +77,15 @@
       "steps": []
     },
     {
-      "id": "9f6cd304-1cbd-4726-81d5-5ad7eba92b8a",
-      "name": "High agents",
-      "complexity": "high",
+      "id": "reviewer",
+      "name": "Reviewer",
+      "complexity": "simple",
       "count": 1,
       "invocations": "0",
-      "volume_source": "daily_users",
-      "prior_volume_source": null,
-      "users_per_day": "4",
-      "invocations_per_user_per_agent_per_day": "0.5",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
       "overrides": {
         "calls": null,
         "input_tokens": null,
@@ -98,7 +98,40 @@
       "steps": []
     }
   ],
-  "links": [],
+  "links": [
+    {
+      "id": "c10c8f1b-84b8-4e44-80e4-83b3a36f7f2c",
+      "parent_id": "planner",
+      "child_id": "researcher",
+      "trigger_probability": "0.6",
+      "invocations_per_trigger": "2",
+      "branch_group": "",
+      "low": {
+        "trigger_probability": "0.2",
+        "invocations_per_trigger": null
+      },
+      "high": {
+        "trigger_probability": "1",
+        "invocations_per_trigger": null
+      }
+    },
+    {
+      "id": "2785ac23-17e9-44ee-9802-7d99f8d39116",
+      "parent_id": "planner",
+      "child_id": "reviewer",
+      "trigger_probability": "0.25",
+      "invocations_per_trigger": "1",
+      "branch_group": "",
+      "low": {
+        "trigger_probability": null,
+        "invocations_per_trigger": null
+      },
+      "high": {
+        "trigger_probability": null,
+        "invocations_per_trigger": null
+      }
+    }
+  ],
   "scenarios": [
     {
       "name": "Low",
@@ -129,9 +162,9 @@
     }
   ],
   "prices": {
-    "Fixture A": {
-      "id": "Fixture A",
-      "provider": "Custom",
+    "Graph Fixture": {
+      "id": "Graph Fixture",
+      "provider": "Synthetic provider",
       "input": "2",
       "output": "8",
       "cache_read": null,
@@ -139,8 +172,8 @@
       "tiers": [],
       "max_input": null,
       "max_output": null,
-      "source": "Architect-supplied custom rates",
-      "retrieved_at": "2026-10-02T20:28:36.792Z",
+      "source": "Fixed E2E fixture; not provider prices",
+      "retrieved_at": "2026-01-01T00:00:00Z",
       "custom": true,
       "unsupported": []
     }

@@ -25,6 +25,7 @@ export function AgentEditor({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const execution = effective(estimate, draft);
+  const hasLinks = estimate.links.some((link) => link.parent_id === row.id || link.child_id === row.id);
   return (
     <Modal title="Configure agent group" onClose={onClose} wide>
       <div className="form-grid">
@@ -47,32 +48,37 @@ export function AgentEditor({
           value={draft.count}
           onChange={(v) => setDraft({ ...draft, count: Number(v) })}
         />
-        <Numeric
-          label="Users per agent per day *"
-          value={draft.users_per_day ?? ''}
-          required
-          onChange={(users_per_day) =>
-            setDraft({ ...draft, users_per_day: users_per_day || null, volume_source: 'daily_users' })
-          }
-          hint="Daily users of each agent in this row. Uses a 30-day planning month."
-        />
-        <Numeric
-          label="Invocations per user per agent per day *"
-          value={draft.invocations_per_user_per_agent_per_day ?? ''}
-          required
-          onChange={(invocations_per_user_per_agent_per_day) =>
-            setDraft({
-              ...draft,
-              invocations_per_user_per_agent_per_day: invocations_per_user_per_agent_per_day || null,
-              volume_source: 'daily_users',
-            })
-          }
-          hint="Average per user for each agent, including calls from other agents."
-        />
+        {draft.volume_source !== 'derived' && (
+          <>
+            <Numeric
+              label="Users per agent per day *"
+              value={draft.users_per_day ?? ''}
+              required
+              onChange={(users_per_day) =>
+                setDraft({ ...draft, users_per_day: users_per_day || null, volume_source: 'daily_users' })
+              }
+              hint="Daily users of each agent in this row. Uses a 30-day planning month."
+            />
+            <Numeric
+              label="Invocations per user per agent per day *"
+              value={draft.invocations_per_user_per_agent_per_day ?? ''}
+              required
+              onChange={(invocations_per_user_per_agent_per_day) =>
+                setDraft({
+                  ...draft,
+                  invocations_per_user_per_agent_per_day: invocations_per_user_per_agent_per_day || null,
+                  volume_source: 'daily_users',
+                })
+              }
+              hint="Average per user for each agent, including calls from other agents."
+            />
+          </>
+        )}
       </div>
       <p className="muted small">
-        * Required for every group. Total monthly invocations per agent are calculated from these inputs using
-        30 days/month.
+        {draft.volume_source === 'derived'
+          ? 'This group receives pooled work from agent links. Its previous direct inputs are retained for recovery.'
+          : '* Required for every direct-volume group. Total monthly invocations per agent are calculated from these inputs using 30 days/month.'}
         {draft.volume_source === 'manual' &&
           ' This saved row still uses a legacy manual volume until both daily inputs are entered.'}
       </p>
@@ -162,15 +168,18 @@ export function AgentEditor({
           {error}
         </p>
       )}
+      {hasLinks && (
+        <p className="muted small">Remove this group's agent links before splitting or deleting it.</p>
+      )}
       <div className="modal-actions spread">
         <div className="button-row">
-          {estimate.agents.some((r) => r.id === row.id) && (
+          {estimate.agents.some((r) => r.id === row.id) && !hasLinks && (
             <button className="button danger" onClick={onRemove}>
               <Trash2 size={14} />
               Remove
             </button>
           )}
-          {row.count > 1 && estimate.agents.some((r) => r.id === row.id) && (
+          {row.count > 1 && estimate.agents.some((r) => r.id === row.id) && !hasLinks && (
             <button className="button subtle" onClick={() => onSplit(draft)}>
               Customize one agent
             </button>
@@ -180,6 +189,7 @@ export function AgentEditor({
           className="button dark"
           disabled={
             saving ||
+            (draft.volume_source === 'derived' && draft.count < 1) ||
             (draft.volume_source === 'daily_users' &&
               (draft.users_per_day === null || draft.invocations_per_user_per_agent_per_day === null))
           }

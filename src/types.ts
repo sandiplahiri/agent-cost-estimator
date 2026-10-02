@@ -19,11 +19,22 @@ export interface AgentRow {
   complexity: Complexity;
   count: number;
   invocations: Numeric;
-  volume_source: 'manual' | 'daily_users';
+  volume_source: 'manual' | 'daily_users' | 'derived';
+  prior_volume_source: 'manual' | 'daily_users' | null;
   users_per_day: Numeric | null;
   invocations_per_user_per_agent_per_day: Numeric | null;
   overrides: Partial<Execution>;
   steps: Step[];
+}
+export interface AgentLink {
+  id: string;
+  parent_id: string;
+  child_id: string;
+  trigger_probability: Numeric;
+  invocations_per_trigger: Numeric;
+  branch_group: string;
+  low: { trigger_probability: Numeric | null; invocations_per_trigger: Numeric | null };
+  high: { trigger_probability: Numeric | null; invocations_per_trigger: Numeric | null };
 }
 export interface Price {
   id: string;
@@ -63,13 +74,14 @@ export interface AdditionalCost {
   frequency: 'monthly' | 'one-time';
 }
 export interface Estimate {
-  schema_version: 2;
+  schema_version: 3;
   defaults_version: 1;
   id: string;
   name: string;
   notes: string;
   profiles: Record<Complexity, Execution>;
   agents: AgentRow[];
+  links: AgentLink[];
   scenarios: Scenario[];
   prices: Record<string, Price>;
   additional_costs: AdditionalCost[];
@@ -114,9 +126,29 @@ export interface ScenarioResult {
   output_tokens: Numeric;
   monthly_calls: Numeric;
   lines: Line[];
+  volumes: Record<string, VolumeResult>;
+  link_contributions: Record<string, LinkContribution>;
+}
+export interface VolumeResult {
+  per_agent: Numeric;
+  total: Numeric;
+  complete: boolean;
+  issues: string[];
+}
+export interface LinkContribution {
+  link_id: string;
+  parent_id: string;
+  child_id: string;
+  parent_total: Numeric;
+  trigger_probability: Numeric;
+  invocations_per_trigger: Numeric;
+  child_total: Numeric;
+  complete: boolean;
 }
 export interface Results {
   scenarios: ScenarioResult[];
+  base_volumes: Record<string, VolumeResult>;
+  base_links: Record<string, LinkContribution>;
   cost_drivers: {
     row_id: string;
     name: string;

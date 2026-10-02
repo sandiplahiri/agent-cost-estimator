@@ -311,6 +311,340 @@ test('Cost drivers and sensitivity preview keep the estimate and workbook unchan
   });
 });
 
+test('Agent links derive pooled child volume, preserve scenarios, and export a reproducible graph', async ({
+  page,
+  request,
+}) => {
+  const fixture = await (await request.get('/api/new')).json();
+  fixture.name = 'Delegated work fixture';
+  fixture.prices['Graph Fixture'] = {
+    id: 'Graph Fixture',
+    provider: 'Synthetic provider',
+    input: '2',
+    output: '8',
+    cache_read: null,
+    cache_write: null,
+    tiers: [],
+    max_input: null,
+    max_output: null,
+    source: 'Fixed E2E fixture; not provider prices',
+    retrieved_at: '2026-01-01T00:00:00Z',
+    custom: true,
+    unsupported: [],
+  };
+  fixture.profiles.simple.model_id = 'Graph Fixture';
+  fixture.agents = [
+    {
+      id: 'planner',
+      name: 'Planner',
+      complexity: 'simple',
+      count: 1,
+      invocations: '0',
+      volume_source: 'daily_users',
+      prior_volume_source: null,
+      users_per_day: '10',
+      invocations_per_user_per_agent_per_day: '1',
+      overrides: {},
+      steps: [],
+    },
+    {
+      id: 'researcher',
+      name: 'Researcher',
+      complexity: 'simple',
+      count: 2,
+      invocations: '0',
+      volume_source: 'daily_users',
+      prior_volume_source: null,
+      users_per_day: '1',
+      invocations_per_user_per_agent_per_day: '1',
+      overrides: {},
+      steps: [],
+    },
+    {
+      id: 'reviewer',
+      name: 'Reviewer',
+      complexity: 'simple',
+      count: 1,
+      invocations: '0',
+      volume_source: 'daily_users',
+      prior_volume_source: null,
+      users_per_day: '1',
+      invocations_per_user_per_agent_per_day: '1',
+      overrides: {},
+      steps: [],
+    },
+  ];
+  const schemaTwo = structuredClone(fixture);
+  schemaTwo.id = 'schema-two-graph-migration';
+  schemaTwo.name = 'Previous schema fixture';
+  schemaTwo.schema_version = 2;
+  delete schemaTwo.links;
+  schemaTwo.agents.forEach((row: { prior_volume_source?: string | null }) => delete row.prior_volume_source);
+  expect((await request.post('/api/estimates', { data: schemaTwo })).ok()).toBe(true);
+  const migrated = await (await request.get('/api/estimates/schema-two-graph-migration')).json();
+  expect(migrated.schema_version).toBe(3);
+  expect(migrated.links).toEqual([]);
+  const migratedResult = await (await request.post('/api/calculate', { data: migrated })).json();
+  expect(
+    Number(migratedResult.scenarios.find((item: { name: string }) => item.name === 'Expected').llm_cost),
+  ).toBeCloseTo(3.1824, 8);
+  expect((await request.post('/api/estimates', { data: fixture })).ok()).toBe(true);
+  await page.goto('/');
+  await page.getByRole('button', { name: /Open estimate/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Saved estimates' })
+    .getByRole('button', { name: /Delegated work fixture/ })
+    .click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$3.18/mo');
+  const graph = page.getByRole('region', { name: 'Agent invocation graph' });
+  await graph.getByLabel('Trigger probability (0–1)').fill('0.6');
+  await graph.getByLabel('Child invocations per trigger', { exact: true }).fill('2');
+  await graph.locator('summary').click();
+  await graph.getByLabel('Low trigger probability').fill('0.2');
+  await graph.getByLabel('High trigger probability').fill('1');
+  await graph.getByRole('button', { name: 'Preview link change' }).click();
+  await expect(graph.getByRole('status')).toContainText('60 → 360');
+  await expect(graph.getByRole('status')).toContainText('$3.18 → $5.63');
+  await expect(graph.getByRole('status')).toContainText('Low suite LLM/month');
+  await expect(graph.getByRole('status')).toContainText('0.2 probability × 2 child invocations/trigger');
+  await expect(graph.getByRole('status')).toContainText('High suite LLM/month');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$3.18/mo');
+  await graph.getByRole('button', { name: 'Apply link change' }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$5.63/mo');
+  await expect(page.getByLabel('Researcher total monthly invocations per agent')).toHaveText('180');
+  await expect(page.getByLabel('Researcher total monthly invocations all agents')).toHaveText('360');
+  await expect(page.getByLabel('Researcher users per day')).toBeDisabled();
+
+  await graph.getByLabel('Child agent/group').selectOption('reviewer');
+  await graph.getByLabel('Trigger probability (0–1)').fill('0.25');
+  await graph.getByRole('button', { name: 'Preview link change' }).click();
+  await expect(graph.getByRole('status')).toContainText('30 → 75');
+  await graph.getByRole('button', { name: 'Apply link change' }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
+  await expect(page.getByTestId('cost-low')).toHaveText('$3.03/mo');
+  await expect(page.getByTestId('cost-high')).toHaveText('$11.93/mo');
+  await expect(page.getByTestId('category-invocations-simple')).toHaveText('735');
+  await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
+  const expectedScenarioEditor = page
+    .locator('.scenario-editor-grid article')
+    .filter({ has: page.getByRole('heading', { name: 'Expected', exact: true }) });
+  await expectedScenarioEditor.getByLabel('Invocation volume ×').fill('2');
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$12.00/mo');
+  await expect(page.getByLabel('Researcher total monthly invocations all agents')).toHaveText('360');
+  const doubled = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
+  );
+  const doubledResult = await (await request.post('/api/calculate', { data: doubled })).json();
+  expect(
+    Number(
+      doubledResult.scenarios.find((item: { name: string }) => item.name === 'Expected').volumes.researcher
+        .total,
+    ),
+  ).toBeCloseTo(720, 8);
+  await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
+  await expectedScenarioEditor.getByLabel('Invocation volume ×').fill('1');
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
+
+  const savedGraph = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
+  );
+  await fs.writeFile(path.join(artifacts, 'agent-graph-fixture.json'), JSON.stringify(savedGraph, null, 2));
+  const cycle = structuredClone(savedGraph);
+  cycle.agents[0].prior_volume_source = 'daily_users';
+  cycle.agents[0].volume_source = 'derived';
+  cycle.links.push({
+    id: 'cycle',
+    parent_id: 'reviewer',
+    child_id: 'planner',
+    trigger_probability: '1',
+    invocations_per_trigger: '1',
+    branch_group: '',
+    low: {},
+    high: {},
+  });
+  const cycleResponse = await request.post('/api/calculate', { data: cycle });
+  expect(cycleResponse.status()).toBe(422);
+  expect(JSON.stringify(await cycleResponse.json())).toContain('cycle');
+  const exclusive = structuredClone(savedGraph);
+  exclusive.links.forEach((link: { branch_group: string; trigger_probability: string }) => {
+    link.branch_group = 'choice';
+    link.trigger_probability = '0.7';
+  });
+  expect((await request.post('/api/calculate', { data: exclusive })).status()).toBe(422);
+  const excessiveFanout = structuredClone(savedGraph);
+  excessiveFanout.links[0].invocations_per_trigger = '1000001';
+  expect((await request.post('/api/calculate', { data: excessiveFanout })).status()).toBe(422);
+  const incomplete = structuredClone(savedGraph);
+  incomplete.agents[0].users_per_day = null;
+  const incompleteResponse = await request.post('/api/calculate', { data: incomplete });
+  expect(incompleteResponse.ok()).toBe(true);
+  const incompleteResult = await incompleteResponse.json();
+  expect(incompleteResult.base_volumes.researcher.complete).toBe(false);
+  expect(incompleteResult.scenarios.find((item: { name: string }) => item.name === 'Expected').complete).toBe(
+    false,
+  );
+  const twoCallers = structuredClone(savedGraph);
+  twoCallers.links.push({
+    id: 'reviewer-researcher',
+    parent_id: 'reviewer',
+    child_id: 'researcher',
+    trigger_probability: '0.5',
+    invocations_per_trigger: '1',
+    branch_group: '',
+    low: {},
+    high: {},
+  });
+  const twoCallerResult = await (await request.post('/api/calculate', { data: twoCallers })).json();
+  expect(Number(twoCallerResult.base_volumes.researcher.total)).toBeCloseTo(397.5, 8);
+  expect(
+    Number(twoCallerResult.scenarios.find((item: { name: string }) => item.name === 'Expected').llm_cost),
+  ).toBeCloseTo(6.3036, 8);
+  const zeroOverride = structuredClone(savedGraph);
+  zeroOverride.links[0].low.trigger_probability = '0';
+  const zeroResult = await (await request.post('/api/calculate', { data: zeroOverride })).json();
+  expect(
+    Number(
+      zeroResult.scenarios.find((item: { name: string }) => item.name === 'Low').volumes.researcher.total,
+    ),
+  ).toBe(0);
+
+  await page.getByRole('button', { name: 'Save estimate', exact: true }).click();
+  await expect(page.locator('.alert.notice')).toContainText('saved on this computer');
+  await page.reload();
+  await page.getByRole('button', { name: /Open estimate/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Saved estimates' })
+    .getByRole('button', { name: /Delegated work fixture/ })
+    .click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
+  await expect(graph.locator('.graph-edge')).toHaveCount(2);
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export Excel', exact: true }).click();
+  const file = path.join(artifacts, 'agent-graph-budget.xlsx');
+  await (await download).saveAs(file);
+  const { engine, summary } = await recalculateWorkbook(file);
+  const actualScenarioCosts = [1, 2, 3].map((row) => engine.getCellValue({ sheet: summary, col: 1, row }));
+  expect(actualScenarioCosts[0]).toBeCloseTo(3.0294, 8);
+  expect(actualScenarioCosts[1]).toBeCloseTo(5.9976, 8);
+  expect(actualScenarioCosts[2]).toBeCloseTo(11.934, 8);
+  const volumeSheet = engine.getSheetId('Volume')!;
+  const linksSheet = engine.getSheetId('Agent links')!;
+  const researcherPerAgent = engine.getCellValue({ sheet: volumeSheet, col: 8, row: 2 });
+  const researcherTotal = engine.getCellValue({ sheet: volumeSheet, col: 9, row: 2 });
+  const researcherLink = engine.getCellValue({ sheet: linksSheet, col: 7, row: 3 });
+  const reviewerLink = engine.getCellValue({ sheet: linksSheet, col: 7, row: 4 });
+  expect(researcherPerAgent).toBeCloseTo(180, 8);
+  expect(researcherTotal).toBeCloseTo(360, 8);
+  expect(researcherLink).toBeCloseTo(360, 8);
+  expect(reviewerLink).toBeCloseTo(75, 8);
+  engine.destroy();
+  const reimport = await request.post('/api/import/preview', {
+    data: await fs.readFile(file),
+    headers: { 'Content-Type': 'application/octet-stream' },
+  });
+  expect(reimport.ok()).toBe(true);
+  expect(JSON.stringify(await reimport.json())).toContain('derived agent links cannot be imported');
+
+  await graph
+    .locator('.graph-edge')
+    .filter({ hasText: 'Researcher' })
+    .getByRole('button', { name: 'Edit link' })
+    .click();
+  await graph.getByLabel('Trigger probability (0–1)').fill('0.5');
+  await graph.getByRole('button', { name: 'Preview link change' }).click();
+  await expect(graph.getByRole('status')).toContainText('360 → 300');
+  await graph.getByRole('button', { name: 'Apply link change' }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$5.51/mo');
+  await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
+
+  await graph
+    .locator('.graph-edge')
+    .filter({ hasText: 'Reviewer' })
+    .getByRole('button', { name: 'Remove link' })
+    .click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$5.63/mo');
+  await expect(page.getByLabel('Reviewer users per day')).toBeEnabled();
+  await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
+  const replacement = new ExcelJS.Workbook();
+  const replacementSheet = replacement.addWorksheet('Agents');
+  replacementSheet.addRow([
+    'name',
+    'complexity',
+    'count',
+    'volume_source',
+    'users_per_day',
+    'invocations_per_user_per_agent_per_day',
+  ]);
+  replacementSheet.addRow(['Direct replacement', 'simple', 1, 'daily_users', 1, 1]);
+  const replacementFile = path.join(artifacts, 'agent-graph-replacement.xlsx');
+  await replacement.xlsx.writeFile(replacementFile);
+  await page.getByLabel('Import agent spreadsheet').setInputFiles(replacementFile);
+  const importPreview = page.getByRole('dialog', { name: 'Review spreadsheet import' });
+  await expect(importPreview).toContainText('2 agent links will be removed');
+  await importPreview.getByRole('button', { name: 'Replace inventory' }).click();
+  await expect(graph.locator('.graph-edge')).toHaveCount(0);
+  await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');
+  await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
+  await expect(graph.locator('.graph-edge')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset parameters', exact: true }).click();
+  const resetDialog = page.getByRole('dialog', { name: 'Reset execution parameters' });
+  await expect(resetDialog).toContainText('link scenario overrides');
+  await resetDialog.getByRole('button', { name: 'Reset parameters', exact: true }).click();
+  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await expect(graph.locator('.graph-edge')).toHaveCount(2);
+  await expect(page.getByTestId('cost-low')).toHaveText('$4.50/mo');
+  await expect(page.getByTestId('cost-high')).toHaveText('$9.00/mo');
+  await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
+  await expect(page.getByTestId('cost-low')).toHaveText('$3.03/mo');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(graph).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: path.join(artifacts, 'agent-graph-mobile.png'), fullPage: true });
+  records.push({
+    journey: 'Agent links, pooled volume, scenarios, graph validation, save/reopen, undo, and workbook',
+    evidence: 'agent-graph-fixture.json, agent-graph-budget.xlsx, and agent-graph-replacement.xlsx',
+    expected: {
+      lowUsd: 3.0294,
+      expectedUsd: 5.9976,
+      highUsd: 11.934,
+      researcherTotal: 360,
+      reviewerTotal: 75,
+      cycleStatus: 422,
+      schemaTwoMigrated: true,
+      replacementClearsLinks: true,
+      doubledExpectedResearcherTotal: 720,
+      twoCallerResearcherTotal: 397.5,
+      twoCallerExpectedUsd: 6.3036,
+      explicitZeroLowResearcherTotal: 0,
+    },
+    actual: {
+      scenarioCosts: actualScenarioCosts,
+      researcherPerAgent,
+      researcherTotal,
+      researcherLink,
+      reviewerLink,
+      cycleStatus: cycleResponse.status(),
+      migratedSchema: migrated.schema_version,
+      doubledExpectedResearcherTotal: Number(
+        doubledResult.scenarios.find((item: { name: string }) => item.name === 'Expected').volumes.researcher
+          .total,
+      ),
+      twoCallerResearcherTotal: Number(twoCallerResult.base_volumes.researcher.total),
+      twoCallerExpectedUsd: Number(
+        twoCallerResult.scenarios.find((item: { name: string }) => item.name === 'Expected').llm_cost,
+      ),
+      explicitZeroLowResearcherTotal: Number(
+        zeroResult.scenarios.find((item: { name: string }) => item.name === 'Low').volumes.researcher.total,
+      ),
+    },
+  });
+});
+
 test('Daily users derive per-agent monthly volume across all complexity groups', async ({ page }) => {
   await setup(page);
   await page.getByLabel('Estimate name').fill('Daily volume fixture');
