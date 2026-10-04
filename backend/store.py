@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .models import Estimate, Execution
+from .models import ComplexityProfile, Estimate
 
 DB_PATH = Path(os.environ.get("ESTIMATOR_DB", "data/estimates.sqlite3"))
 
@@ -70,10 +70,20 @@ def save_catalog(catalog):
 def list_categories():
     with connection() as db:
         rows = db.execute("SELECT name, profile FROM complexity_categories ORDER BY rowid").fetchall()
-    return [{"name": name, "profile": Execution.model_validate_json(profile)} for name, profile in rows]
+        categories = []
+        for name, body in rows:
+            profile = json.loads(body)
+            if "model_id" in profile:
+                profile.pop("model_id")
+                db.execute(
+                    "UPDATE complexity_categories SET profile = ? WHERE name_key = ?",
+                    (json.dumps(profile), name.casefold()),
+                )
+            categories.append({"name": name, "profile": ComplexityProfile.model_validate(profile)})
+    return categories
 
 
-def add_category(name: str, profile: Execution):
+def add_category(name: str, profile: ComplexityProfile):
     with connection() as db:
         count = db.execute("SELECT COUNT(*) FROM complexity_categories").fetchone()[0]
         if count >= 50:
@@ -92,9 +102,7 @@ def delete_category(name: str, draft: Estimate):
     key = name.casefold()
     with connection() as db:
         db.execute("BEGIN IMMEDIATE")
-        category = db.execute(
-            "SELECT name FROM complexity_categories WHERE name_key = ?", (key,)
-        ).fetchone()
+        category = db.execute("SELECT name FROM complexity_categories WHERE name_key = ?", (key,)).fetchone()
         if category is None:
             raise CategoryNotFoundError(f"Custom category {name} no longer exists globally.")
         canonical_name = category[0]
@@ -102,6 +110,7 @@ def delete_category(name: str, draft: Estimate):
             f"current draft: {row.name} ({row.count} agent{'s' if row.count != 1 else ''})"
             for row in draft.agents
             if row.complexity.casefold() == key
+            or any(step.complexity and step.complexity.casefold() == key for step in row.steps)
         ]
         for estimate_id, estimate_name, body in db.execute("SELECT id, name, body FROM estimates"):
             try:
@@ -114,12 +123,11 @@ def delete_category(name: str, draft: Estimate):
                 f"saved estimate {estimate_name}: {row.name} ({row.count} agent{'s' if row.count != 1 else ''})"
                 for row in saved.agents
                 if row.complexity.casefold() == key
+                or any(step.complexity and step.complexity.casefold() == key for step in row.steps)
             )
         if references:
             shown = "; ".join(references[:5])
             remainder = f"; and {len(references) - 5} more" if len(references) > 5 else ""
-            raise CategoryInUseError(
-                f"Reassign agents before deleting {canonical_name}: {shown}{remainder}."
-            )
+            raise CategoryInUseError(f"Reassign agents before deleting {canonical_name}: {shown}{remainder}.")
         db.execute("DELETE FROM complexity_categories WHERE name_key = ?", (key,))
     return {"name": canonical_name}

@@ -61,20 +61,23 @@ class Price(Record):
         return self
 
 
-class Execution(Record):
+class ComplexityProfile(Record):
     calls: Amount = Decimal(1)
     input_tokens: Amount = Decimal(2000)
     output_tokens: Amount = Decimal(500)
     retry_rate: Amount = Decimal("0.02")
     cache_fraction: Ratio = Decimal(0)
     cache_write_fraction: Ratio = Decimal(0)
-    model_id: str = Field(default="", max_length=300)
 
     @model_validator(mode="after")
     def cache_partition(self):
         if self.cache_fraction + self.cache_write_fraction > 1:
             raise ValueError("Cached read and cache write fractions cannot exceed 100% of input combined.")
         return self
+
+
+class Execution(ComplexityProfile):
+    model_id: str = Field(default="", max_length=300)
 
 
 class Overrides(Record):
@@ -90,6 +93,7 @@ class Overrides(Record):
 class Step(Execution):
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=100)
     name: str = Field(default="Model call", min_length=1, max_length=120)
+    complexity: Complexity | None = None
     execution_probability: Ratio = Decimal(1)
     model_calls: list["ModelCall"] = Field(default_factory=list, max_length=100)
 
@@ -217,12 +221,12 @@ class AdditionalCost(Record):
 
 
 class Estimate(Record):
-    schema_version: Literal[7] = 7
+    schema_version: Literal[8] = 8
     defaults_version: Literal[1] = 1
     id: str = Field(default_factory=lambda: str(uuid4()), max_length=100)
     name: str = Field(default="Untitled agent suite", min_length=1, max_length=120)
     notes: str = Field(default="", max_length=10000)
-    profiles: dict[Complexity, Execution] = Field(max_length=53)
+    profiles: dict[Complexity, ComplexityProfile] = Field(max_length=53)
     agents: list[AgentRow] = Field(default_factory=list, max_length=1000)
     links: list[AgentLink] = Field(default_factory=list, max_length=10000)
     scenarios: list[Scenario] = Field(max_length=3, min_length=3)
@@ -233,7 +237,11 @@ class Estimate(Record):
     @model_validator(mode="before")
     @classmethod
     def migrate_previous(cls, value):
-        if isinstance(value, dict) and value.get("schema_version", 1) in (1, 2, 3, 4, 5, 6):
+        if not isinstance(value, dict) or value.get("schema_version", 1) not in (1, 2, 3, 4, 5, 6, 7):
+            return value
+        version = value.get("schema_version", 1)
+        agents = value.get("agents", [])
+        if version in (1, 2, 3, 4, 5, 6):
             used_names = set()
             agents = []
             for row in value.get("agents", []):
@@ -250,8 +258,32 @@ class Estimate(Record):
                         member["name"] = candidate
                         used_names.add(candidate.strip().casefold())
                 agents.append(migrated)
-            return {**value, "schema_version": 7, "links": value.get("links", []), "agents": agents}
-        return value
+        profiles = {}
+        legacy_models = {}
+        for name, profile in value.get("profiles", {}).items():
+            if isinstance(profile, dict):
+                profile = profile.copy()
+                legacy_models[name] = profile.pop("model_id", "")
+            profiles[name] = profile
+        migrated_agents = []
+        for row in agents:
+            if not isinstance(row, dict):
+                migrated_agents.append(row)
+                continue
+            row = row.copy()
+            overrides = dict(row.get("overrides") or {})
+            legacy_model = legacy_models.get(row.get("complexity"))
+            if not row.get("steps") and legacy_model and overrides.get("model_id") is None:
+                overrides["model_id"] = legacy_model
+            row["overrides"] = overrides
+            migrated_agents.append(row)
+        return {
+            **value,
+            "schema_version": 8,
+            "links": value.get("links", []),
+            "agents": migrated_agents,
+            "profiles": profiles,
+        }
 
     @model_validator(mode="after")
     def consistency(self):
@@ -285,6 +317,10 @@ class Estimate(Record):
             if len(step_ids) != len(row.steps):
                 raise ValueError(f"{row.name}: step IDs must be unique.")
             for step in row.steps:
+                if step.complexity is not None and step.complexity not in self.profiles:
+                    raise ValueError(
+                        f"{row.name} / {step.name}: add the {step.complexity} profile to this estimate first."
+                    )
                 groups = {}
                 if len({call.id for call in step.model_calls}) != len(step.model_calls):
                     raise ValueError(f"{row.name} / {step.name}: model-call IDs must be unique.")
@@ -400,11 +436,11 @@ class Estimate(Record):
         return self
 
 
-def default_profiles() -> dict[str, Execution]:
+def default_profiles() -> dict[str, ComplexityProfile]:
     return {
-        "simple": Execution(),
-        "medium": Execution(calls=4, input_tokens=6000, output_tokens=1000, retry_rate="0.05"),
-        "high": Execution(calls=10, input_tokens=15000, output_tokens=2000, retry_rate="0.10"),
+        "simple": ComplexityProfile(),
+        "medium": ComplexityProfile(calls=4, input_tokens=6000, output_tokens=1000, retry_rate="0.05"),
+        "high": ComplexityProfile(calls=10, input_tokens=15000, output_tokens=2000, retry_rate="0.10"),
     }
 
 

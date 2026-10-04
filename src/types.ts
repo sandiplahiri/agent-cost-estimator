@@ -2,18 +2,21 @@ export type Complexity = string;
 export type PredefinedComplexity = 'simple' | 'medium' | 'high';
 export type ScenarioName = 'Low' | 'Expected' | 'High';
 export type Numeric = string;
-export interface Execution {
+export interface ComplexityProfile {
   calls: Numeric;
   input_tokens: Numeric;
   output_tokens: Numeric;
   retry_rate: Numeric;
   cache_fraction: Numeric;
   cache_write_fraction: Numeric;
+}
+export interface Execution extends ComplexityProfile {
   model_id: string;
 }
 export interface Step extends Execution {
   id: string;
   name: string;
+  complexity?: Complexity | null;
   execution_probability: Numeric;
   model_calls: ModelCall[];
 }
@@ -120,12 +123,12 @@ export interface AdditionalCost {
   frequency: 'monthly' | 'one-time';
 }
 export interface Estimate {
-  schema_version: 7;
+  schema_version: 8;
   defaults_version: 1;
   id: string;
   name: string;
   notes: string;
-  profiles: Record<string, Execution>;
+  profiles: Record<string, ComplexityProfile>;
   agents: AgentRow[];
   links: AgentLink[];
   scenarios: Scenario[];
@@ -142,7 +145,7 @@ export interface Catalog {
 }
 export interface GlobalCategory {
   name: string;
-  profile: Execution;
+  profile: ComplexityProfile;
 }
 export interface Line {
   row_id: string;
@@ -197,6 +200,7 @@ export interface ScenarioResult {
     cost_per_invocation: Numeric;
   }[];
   harness_allocations: Record<string, Numeric>;
+  agent_costs: Record<string, { monthly_total: Numeric; per_agent_monthly: Numeric; complete: boolean }>;
   use_case_costs: Record<
     string,
     {
@@ -328,6 +332,7 @@ export const resizeMembers = (row: AgentRow, count: number): AgentIdentity[] => 
 };
 export const effective = (estimate: Estimate, row: AgentRow): Execution => ({
   ...estimate.profiles[row.complexity],
+  model_id: '',
   ...Object.fromEntries(Object.entries(row.overrides).filter(([, v]) => v != null)),
 });
 export const money = (value: string | number) =>

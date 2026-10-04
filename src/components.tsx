@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { X, Search } from 'lucide-react';
-import { type Execution, type Price, rateMoney } from './types';
+import { type ComplexityProfile, type Execution, type Price, rateMoney } from './types';
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -189,7 +189,7 @@ export function ExecutionFields({
   prices,
   showModel = true,
 }: {
-  value: Execution;
+  value: ComplexityProfile & { model_id?: string };
   onChange: (patch: Partial<Execution>) => void;
   prices: Record<string, Price>;
   showModel?: boolean;
@@ -199,7 +199,7 @@ export function ExecutionFields({
       {showModel && (
         <div className="span-2">
           <ModelPicker
-            value={value.model_id}
+            value={value.model_id ?? ''}
             prices={prices}
             onChange={(model_id) => onChange({ model_id })}
           />

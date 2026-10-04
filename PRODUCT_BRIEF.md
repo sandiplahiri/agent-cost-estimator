@@ -8,41 +8,56 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Later product decision (2026-10-01):** New inventory rows require users per agent per day and average invocations per user per agent per day. Total monthly invocations per agent is calculated and read-only. This supersedes the manual monthly entry described in the original discovery requirements below. Existing saved manual rows remain available as labeled legacy data until converted.
 
-**Follow-up decision:** Also derive total monthly invocations for all agents in each inventory group and roll them up by simple, medium, and high (complex) category. Group and category totals are read-only.
+**Earlier follow-up decision, superseded for category agent counts on 2026-10-04:** Derive total monthly invocations for all agents in each inventory group and roll them up by simple, medium, and high (complex) category. Group totals remain read-only; profile reporting now allocates step usage rather than treating categories as disjoint agent groups.
 
-**Follow-up decision:** Show total input-plus-output token consumption for each category per month and as an average per day over the 30-day planning month. Use Expected-scenario execution assumptions and count cached input and billable reasoning within their existing input/output categories.
+**Follow-up decision:** Show total input-plus-output token consumption for each step complexity profile per month and as an average per day over the 30-day planning month. Use Expected-scenario execution assumptions and count cached input and billable reasoning within their existing input/output categories.
 
-**Follow-up decision:** Show the Expected-scenario monthly LLM cost for each category as a token-type calculation. Separate uncached input, cached reads, cache writes, and output (including billable reasoning), and show the selected per-million rate for each model/tier. Category cost totals must reconcile to the suite's Expected LLM total; missing pricing remains visibly incomplete.
+**Follow-up decision:** Show the Expected-scenario monthly LLM cost for each step complexity profile as a token-type calculation. Separate uncached input, cached reads, cache writes, and output (including billable reasoning), and show the selected per-million rate for each model/tier. Profile cost totals must reconcile to the suite's Expected LLM total; missing pricing remains visibly incomplete.
 
-**Follow-up decision:** For each category, show each token type's average tokens and LLM cost per day alongside monthly tokens and cost. Daily amounts divide unrounded Expected-scenario monthly values by 30 planning days; mixed-model rates remain inspectable separately.
+**Follow-up decision:** For each step complexity profile, show each token type's average tokens and LLM cost per day alongside monthly tokens and cost. Daily amounts divide unrounded Expected-scenario monthly values by 30 planning days; mixed-model rates remain inspectable separately.
 
-**Follow-up decision:** Add a visible Expected-scenario monthly summary for simple, medium, and high categories and the entire suite. Each row shows input and output token counts, input and output LLM costs, and their totals. Input cost includes uncached input, cached reads, and cache writes; incomplete costs remain labeled.
+**Follow-up decision:** Add a visible Expected-scenario monthly summary for simple, medium, high, and custom step profiles and the entire suite. Each row shows input and output token counts, input and output LLM costs, and their totals. Input cost includes uncached input, cached reads, and cache writes; incomplete costs remain labeled.
 
 **Follow-up decision:** Model agent-to-agent work as explicit invocation links. A link records trigger probability and child invocations per trigger. A linked child uses derived volume in place of its entered direct volume; existing direct inputs are retained for recovery. Reject unbounded cycles. Keep normal model-call cycles and retries separate from child-agent invocations.
 
 **Follow-up confirmed decision (2026-10-03):** Put graph creation and agent-to-agent work in a dedicated **Agent suite graph** view in the left navigation. Do not embed the graph panel in Suite planner. Suite planner remains the inventory and budget review view; both views use the same estimate, preserve unsaved edits when switching, and share save/export actions. The graph view provides an action to add an agent when the graph is empty.
 
-**Follow-up confirmed decision (2026-10-03):** Simple, medium, and high remain the predefined complexity categories. Users may define additional complexity categories globally and assign agents to them. Each custom category needs a unique name, including against predefined category names. Custom categories participate in the same category usage and cost summaries as the predefined categories; the earlier three-category summary decisions extend to every defined category.
+**Follow-up confirmed decision (2026-10-03), amended 2026-10-04:** Simple, medium, and high remain the predefined complexity profiles. Users may define additional profiles globally and assign them to steps. Each custom profile needs a unique name, including against predefined names. Custom profiles participate in the same step usage and cost summaries as the predefined profiles.
 
-**Follow-up confirmed decision:** Users may delete a custom complexity category/profile only when no agent is assigned to it. A global deletion must account for assignments in the current draft and saved estimates. Predefined categories cannot be deleted. If a category is in use, block deletion and identify the assignments that need to be changed.
+**Follow-up confirmed decision, amended 2026-10-04:** A complexity profile has no business use case. Business use cases are defined for individual agents, including each member of a counted group. Assigning or changing a step's profile does not set or change its agent's business use case.
+
+**Follow-up confirmed decision (2026-10-04):** One agent invocation can complete a business use case through multiple steps. Each step can have its own model invocation and simple, medium, high, or custom complexity profile. A single agent invocation can therefore use several complexity profiles. The step's effective profile, model, and execution assumptions determine its cost; an agent-level profile is only an optional starting default for steps. Grouping agents by one complexity category is not a valid general accounting model. This supersedes the earlier requirements below to distribute all agents into complexity groups, sum agent counts by category, or assign a single category to each agent. Keep agent identity, use case, and workload separate from step complexity.
+
+**Follow-up confirmed decision (2026-10-04):** Add **Agent inventory** to the left navigation. List each individual agent with its name, business use case summary, step count, distinct calling-agent count, distinct called-agent count, users per agent per day, and invocations per user per agent per day. Caller and callee counts are derived from links and read-only. Open one agent at a time to edit its name, use case, ordered steps and their model/profile assumptions, and direct daily workload inputs. Editing a member of a counted group must affect only that member; closing without applying must leave the group unchanged. Derived-volume agents may edit retained direct inputs for recovery, with a clear indication that incoming links still determine current volume.
+
+**Follow-up confirmed decision (2026-10-04):** Label the second Agent inventory column **Use Case Name** and display the actual use-case name. Add **Total Cost** for each agent. This is the Expected-scenario monthly cost of that agent's own model calls and tools plus its share of the harness. Split a counted group's cost evenly among its members while they share assumptions. Called agents have their own rows so their cost is counted once. Suite-level additional costs and fixed harness that cannot be allocated at zero volume remain in the suite total. Mark missing-price or missing-volume values incomplete and label known subtotals partial.
+
+**Follow-up confirmed decision:** In the inventory's **Edit agent** panel, label the use-case title **Business use case name**. Do not show an agent-level Complexity control or a separate Agent identities section; the agent's name and use-case description are already editable at the top, and its ID is not edited in this panel. Replace the Execution assumptions section with an ordered **Steps** list. Each step shows its name, model name, and complexity profile, with detailed execution inputs available within that step.
+
+**Follow-up confirmed decision:** Remove the Model field from every category in the **Complexity profiles** pane, including the new custom category form. Select models on agent steps or agent-specific execution editors. New custom profiles must not silently copy a model from their starting category. Preserve model choices already saved in older estimates so their previous calculations remain reproducible.
+
+**Follow-up confirmed decision (2026-10-04):** Complexity profile definitions contain only execution behavior: calls, tokens, retry attempts, and cache fractions. A model is selected independently for each aggregate agent execution or detailed step/model call that uses a profile. A profile has no implicit or default model, and several executions using the same profile may choose different models. Older estimates that inherited a profile model migrate that choice to the affected aggregate agents without changing their saved pricing snapshot or cost.
+
+**Follow-up confirmed decision, amended 2026-10-04:** Users may delete a custom complexity profile only when no step or optional agent default references it. A global deletion must account for the current draft and saved estimates. Predefined profiles cannot be deleted. If a profile is in use, block deletion and identify the references that need to be changed.
 
 ## Confirmed requirements
 
 - Support cost estimates for a single agent through a suite of agents.
 - Let users begin with an initial set of estimation assumptions and progressively fine-tune those assumptions as they learn more about the agents and workload.
 - Tie each agent to a business use case.
-- Give every agent in a newly defined suite its own unique, editable name and ID plus a short, editable business use case description. Counted category groups must retain these properties for every member; generated descriptions must clearly indicate when the real use case still needs definition.
-- Provide simple, medium, and high as predefined complexity categories. Allow users to define additional, globally available complexity categories with unique names and assign agents to them. All categories broadly characterize token consumption, not business use cases or domains.
-- Allow deletion of a custom complexity category/profile only when it has no assigned agents, including in saved estimates. Preserve predefined categories and explain any blocked deletion.
+- Give every agent in a newly defined suite its own unique, editable name and ID plus a short, editable business use case description. Each member of a counted group retains these individual properties; generated descriptions must clearly indicate when the real use case still needs definition.
+- Provide simple, medium, and high as predefined complexity profiles. Allow users to define additional, globally available profiles with unique names and assign them to individual use-case steps. Profiles characterize step execution assumptions and have no business use case of their own. An optional agent-level default may initialize steps but must not force all of an agent's steps into one profile or overwrite its business use case.
+- Allow deletion of a custom complexity profile only when no current or saved estimate references it, including step assignments and optional agent defaults. Preserve predefined profiles and identify references that block deletion.
+- Let each agent's business use case have multiple steps, each with its own effective complexity profile and model invocation assumptions. Different steps in one invocation may use different profiles and models.
 - Run as a local web application initially.
 - Focus on detailed LLM spending; allow separate additional cost items.
 - Support major model providers.
 - Produce an Excel deliverable. No markup or selling-price calculation.
 - Support low, expected, and high scenarios with explicit parameter changes.
 - Accept monthly invocation counts entered manually for each agent.
-- Provide quick entry using total agent count, counts assigned to simple/medium/high complexity, and monthly invocations per agent within each group.
+- Provide quick entry for agent counts and workload by agent or by reusable agent definition. Reusing a definition must preserve each member's identity and complete step mix; complexity alone is insufficient to define a group.
 - Allow individual overrides and spreadsheet-based agent definitions.
-- Define every complexity category using concrete execution behavior, with editable model choices and execution parameters.
+- Define every complexity profile using concrete, editable step execution assumptions. Select a model independently for each step's invocation.
 - Start with aggregate execution assumptions; support optional detailed workflows for expensive or uncertain portions.
 - Provide a reset-all-parameters feature.
 - Measuring live agents is a future feature.
@@ -51,9 +66,9 @@ This brief records the discovery interview. Confirmed requirements are distingui
 ## Proposed initial experience
 
 1. Create a named estimate and enter the total number of agents, or import a spreadsheet.
-2. Distribute agents across predefined or globally defined custom complexity groups. Group counts must sum to the total.
-3. Select a provider/model and monthly invocations per agent for each group.
-4. Review editable execution assumptions and optionally customize individual agents.
+2. Define each agent's business use case and ordered steps, optionally using a reusable agent definition for counted members.
+3. Set workload per agent or reusable group. Select each step's complexity profile and provider/model independently.
+4. Review effective step assumptions and optionally customize individual agents.
 5. Compare low, expected, and high scenarios and inspect what changed.
 6. Review suite totals and cost contributors, add separate cost items, and export Excel.
 
@@ -73,7 +88,7 @@ These values are illustrative planning assumptions, not measured industry benchm
 | Additional model-call attempts from retries | 2% | 5% | 10% |
 | Assumed prompt-cache savings | None | None | None |
 
-Tiers are suggestions, not model identities. Every priced group must resolve to a specific provider/model and pricing record. Model changes preserve execution assumptions unless the architect explicitly edits them. Workload volume remains independent of complexity.
+Profiles are suggestions, not model identities. Every priced model invocation in a step must resolve to a specific provider/model and pricing record. Model changes preserve execution assumptions unless the architect explicitly edits them. Agent workload volume remains independent of step complexity.
 
 Input includes instructions, messages/history, retrieval content, tool definitions, and tool results actually included in each call. Aggregate averages represent context growth across the invocation. Tool/revision cycles belong in the normal call count, not the retry rate.
 
@@ -83,7 +98,7 @@ The additional-attempt rate means expected extra attempts divided by baseline mo
 
 ## Calculation and accounting
 
-For a group with a single model and uniform token pricing:
+For an aggregate agent definition with one step, one model, and uniform token pricing, the simplified formula is:
 
 ```text
 monthly_invocations = agent_count * monthly_invocations_per_agent
@@ -94,6 +109,8 @@ monthly_llm_cost = (monthly_input_tokens * input_price_per_million
                  + monthly_output_tokens * output_price_per_million) / 1_000_000
 suite_llm_cost = sum(group_and_individual_llm_costs)
 ```
+
+For a detailed use case, calculate each step's expected model usage and price using that step's effective profile and model. Weight conditional steps and model invocations exactly once, sum the step costs for one agent invocation, then multiply by that agent's monthly invocation volume. Roll up all agents once for the suite total. A reusable group may multiply an identical step mix by its member count; an individual exception replaces that member's share. Category token and cost summaries allocate each step's contribution to its effective profile and reconcile to the suite total. An agent that uses several profiles appears in several category usage/cost breakdowns, but remains one agent with one invocation volume; category agent counts must not be added as if they partitioned the suite.
 
 Use more specific calculations when provider pricing requires cached reads/writes, context-length tiers, batch rates, or other billable categories. Evaluate per-request pricing thresholds before multiplying by monthly volume. Do not silently apply the simple formula to unsupported pricing schemes.
 
@@ -115,7 +132,7 @@ Architects supply these mappings explicitly. The app does not infer business log
 
 Every estimate has an expected baseline and low/high scenario overrides. Show both the effective values and differences from the baseline. These are planning scenarios, not statistical confidence intervals.
 
-To initialize illustrative scenarios, preserve agent counts, selected models, monthly invocation volumes, and retry rates. Set low-scenario input/output tokens per call to 75% of baseline and high-scenario input/output tokens per call to 150%. Label these as editable starter assumptions, not calibrated bounds.
+To initialize illustrative scenarios, preserve agent counts, step structure, selected models, monthly invocation volumes, and retry rates. Set low-scenario input/output tokens per call to 75% of baseline and high-scenario input/output tokens per call to 150%. Label these as editable starter assumptions, not calibrated bounds.
 
 Architects may additionally change invocation volumes, call counts, models, retries, caching assumptions, and applicable additional costs. Expected call counts may be fractional averages. Token-size changes alone do not guarantee low/high cost ordering after model or pricing-tier changes; flag inconsistent scenario ordering for review.
 
@@ -138,14 +155,14 @@ Sources reviewed during discovery:
 
 ## Spreadsheet import and Excel export
 
-Provide a downloadable import template. Proposed fields: agent/group name, agent ID for individual rows, business use case description, agent count, token-consumption category, monthly invocations per agent, provider/model, and optional execution overrides. Named individual rows have count one. Counted group rows generate an editable identity for each member. Imported group rows and individual exceptions must have explicit ownership to avoid duplication.
+Provide a downloadable import template. Proposed fields: agent/group name, agent ID for individual rows, business use case description, agent count, monthly invocations per agent, step ID/order/name, step complexity profile, provider/model per step, and optional step execution overrides. Named individual rows have count one. Counted group rows generate an editable identity and the same initial step definition for each member. Imported group rows and individual exceptions must have explicit ownership to avoid duplication. A single agent may occupy multiple step rows without increasing agent count or workload.
 
 Validate imports with row/column-specific errors and a preview before applying changes. Exported user text must remain literal text rather than accidentally becoming Excel formulas.
 
 Proposed workbook sheets:
 
 - Summary: monthly scenario totals, annualized totals at unchanged monthly usage, and additional costs shown separately.
-- Agents: group/agent counts, invocation volumes, effective assumptions, token totals, and costs.
+- Agents and steps: unique agent/group counts, invocation volumes, each step's effective profile/model/assumptions, token totals, and costs. Profile rollups allocate step usage and costs without duplicating agents.
 - Scenarios: explicit overrides and effective parameter values.
 - Profiles: starter profiles and customized defaults.
 - Pricing: provider/model rates, source, retrieval date, and overrides.

@@ -96,7 +96,7 @@ def import_template():
             "Agent identity",
             "A count-one row may provide agent_id; otherwise a unique ID is generated. Counted groups generate one named, identified member per agent. Edit individual identities in the app. A missing description is labeled pending definition.",
         ),
-        ("model_id", "Exact catalog or custom model ID. Blank inherits the profile model."),
+        ("model_id", "Exact catalog or custom model ID for this agent. Blank leaves pricing incomplete."),
         (
             "Units",
             "users per agent/day; invocations per user per agent/day; calls per invocation; tokens per call; rates are fractions, e.g. 0.02.",

@@ -23,10 +23,7 @@ test('global custom category is assignable and reconciles through save, import a
 
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByLabel('Additional attempt rate', { exact: true }).first().fill('0');
-  await page.getByRole('button', { name: 'Model: Select model', exact: true }).first().click();
-  const picker = page.getByRole('dialog', { name: 'Choose a model' });
-  await picker.getByLabel('Search models').fill('Category Fixture');
-  await picker.getByRole('button', { name: /^Category Fixture / }).click();
+  await expect(page.locator('.profile-card').getByRole('button', { name: /^Model:/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Add custom category' }).click();
   const categoryDialog = page.getByRole('dialog', { name: 'Add custom complexity category' });
@@ -34,9 +31,15 @@ test('global custom category is assignable and reconciles through save, import a
   await categoryDialog.getByLabel('Model calls / invocation').fill('2');
   await categoryDialog.getByLabel('Input tokens / call').fill('1000');
   await categoryDialog.getByLabel('Output tokens / call').fill('500');
+  await expect(categoryDialog.getByRole('button', { name: /^Model:/ })).toHaveCount(0);
   await categoryDialog.getByRole('button', { name: 'Create category' }).click();
   await expect(categoryDialog).not.toBeVisible();
   await expect(page.locator('.profile-card')).toHaveCount(4);
+  await expect(page.locator('.profile-card').getByRole('button', { name: /^Model:/ })).toHaveCount(0);
+  const globalCategories = await (await request.get('/api/categories')).json();
+  expect(
+    globalCategories.find((category: { name: string }) => category.name === 'Research intensive').profile,
+  ).not.toHaveProperty('model_id');
 
   const duplicate = await request.post('/api/categories', {
     data: {
@@ -79,6 +82,14 @@ test('global custom category is assignable and reconciles through save, import a
   await quick.getByLabel('Simple users per agent per day *').fill('1');
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
+  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  const modelEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
+  await page
+    .getByRole('dialog', { name: 'Choose a model' })
+    .getByRole('button', { name: /^Category Fixture / })
+    .click();
+  await modelEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.48/mo');
 
   await page.getByRole('button', { name: 'Edit Simple agents' }).click();
@@ -115,7 +126,10 @@ test('global custom category is assignable and reconciles through save, import a
   const savedId = savedList.find((item: { name: string }) => item.name === 'Custom category fixture').id;
   const fixture = await (await request.get(`/api/estimates/${savedId}`)).json();
   await fs.writeFile(path.join(directory, 'estimate-fixture.json'), JSON.stringify(fixture, null, 2));
-  expect(fixture.schema_version).toBe(7);
+  expect(fixture.schema_version).toBe(8);
+  expect(
+    Object.values(fixture.profiles).every((profile) => !Object.hasOwn(profile as object, 'model_id')),
+  ).toBe(true);
   expect(fixture.profiles['Research intensive'].calls).toBe('2');
   expect(
     fixture.agents.filter((row: { complexity: string }) => row.complexity === 'Research intensive'),
@@ -242,6 +256,8 @@ test('global custom category is assignable and reconciles through save, import a
         savedSnapshotReopened: true,
         workbookRecalculated: true,
         importPreviewAccepted: true,
+        profileModelControlAbsent: true,
+        profilesContainNoModel: true,
         failures: [],
       },
       null,

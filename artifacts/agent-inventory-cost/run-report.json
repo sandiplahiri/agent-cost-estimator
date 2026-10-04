@@ -1,0 +1,22 @@
+{
+  "command": "npx playwright test e2e/agent-inventory.spec.ts",
+  "pricing": "Synthetic USD 2/M input and USD 8/M output",
+  "assumptions": "Two agents, 30 invocations each/month, 1000 input and 100 output tokens/call, USD 0.50 tool/invocation, USD 6 fixed plus USD 0.10/invocation harness, USD 5 suite extra",
+  "expected": {
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168
+  },
+  "actual": {
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "workbookSuite": 47.168
+  },
+  "unpricedModelPartial": true,
+  "failures": []
+}

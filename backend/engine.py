@@ -146,6 +146,7 @@ def line_item(
     probability=Decimal(1),
     step_id=None,
     role="",
+    complexity=None,
 ):
     model_id = scenario.model_id if scenario.model_id is not None else execution.model_id
     volume = current_volume["per_agent"]
@@ -233,7 +234,7 @@ def line_item(
         "step_id": step_id,
         "role": role,
         "execution_probability": probability,
-        "complexity": row.complexity,
+        "complexity": complexity or row.complexity,
         "count": row.count,
         "invocations": volume,
         "base_invocations": base_volume["per_agent"],
@@ -272,7 +273,15 @@ def calculate(estimate: Estimate):
     base_volumes, base_links = resolve_volumes(estimate)
     category_invocations = {}
     for complexity in estimate.profiles:
-        rows = [row for row in estimate.agents if row.complexity == complexity]
+        rows = [
+            row
+            for row in estimate.agents
+            if (
+                any((step.complexity or row.complexity) == complexity for step in row.steps)
+                if row.steps
+                else row.complexity == complexity
+            )
+        ]
         category_invocations[complexity] = {
             "total": sum((base_volumes[row.id]["total"] for row in rows), ZERO),
             "complete": all(base_volumes[row.id]["complete"] for row in rows),
@@ -304,6 +313,7 @@ def calculate(estimate: Estimate):
                                     step.execution_probability * call.probability,
                                     step.id,
                                     call.role,
+                                    step.complexity,
                                 )
                             )
                     else:
@@ -318,6 +328,7 @@ def calculate(estimate: Estimate):
                                 scenario_volumes[row.id],
                                 step.execution_probability,
                                 step.id,
+                                complexity=step.complexity,
                             )
                         )
             else:
@@ -392,6 +403,26 @@ def calculate(estimate: Estimate):
             )
             for row in estimate.agents
         }
+        model_cost_by_row = {row.id: ZERO for row in estimate.agents}
+        tool_cost_by_row = {row.id: ZERO for row in estimate.agents}
+        monthly_complete_by_row = {
+            row.id: scenario_volumes[row.id]["complete"] for row in estimate.agents
+        }
+        for line in lines:
+            model_cost_by_row[line["row_id"]] += line["cost"] or ZERO
+            monthly_complete_by_row[line["row_id"]] &= not line["issues"]
+        for item in tool_lines:
+            tool_cost_by_row[item["row_id"]] += item["monthly_cost"]
+        agent_costs = {}
+        for row in estimate.agents:
+            monthly_total = (
+                model_cost_by_row[row.id] + tool_cost_by_row[row.id] + harness_allocations[row.id]
+            )
+            agent_costs[row.id] = {
+                "monthly_total": monthly_total,
+                "per_agent_monthly": monthly_total / Decimal(row.count) if row.count else ZERO,
+                "complete": monthly_complete_by_row[row.id],
+            }
         row_complete = {
             row.id: all(not line["unit_issues"] for line in lines if line["row_id"] == row.id)
             and scenario_volumes[row.id]["complete"]
@@ -495,6 +526,7 @@ def calculate(estimate: Estimate):
                 "lines": lines,
                 "tool_lines": tool_lines,
                 "harness_allocations": harness_allocations,
+                "agent_costs": agent_costs,
                 "use_case_costs": use_case_costs,
                 "vendor_costs": sorted(vendor_costs.values(), key=lambda item: -item["monthly_cost"]),
                 "harness_drivers": {"invocations": total_invocations, "step_executions": step_executions},

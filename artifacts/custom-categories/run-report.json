@@ -20,5 +20,7 @@
   "savedSnapshotReopened": true,
   "workbookRecalculated": true,
   "importPreviewAccepted": true,
+  "profileModelControlAbsent": true,
+  "profilesContainNoModel": true,
   "failures": []
 }

@@ -1,0 +1,30 @@
+{
+  "command": "npx playwright test e2e/agent-inventory.spec.ts",
+  "pricing": "Synthetic Fixture model: USD 2/M input, USD 8/M output; Fixture review model: USD 1/M input, USD 4/M output; 1,000 input and 100 output tokens per call; 30 planning days",
+  "expected": {
+    "baselineMonthlyLlm": 2.856,
+    "editedMonthlyLlm": 5.124,
+    "agentCount": 4,
+    "researchCallers": 2,
+    "perAgentMonthlyUsd": {
+      "Planner A tuned": 2.52,
+      "Planner B": 0.84,
+      "Research": 1.26,
+      "Reviewer": 0.504
+    }
+  },
+  "actual": {
+    "baselineMonthlyLlm": 2.856,
+    "editedMonthlyLlm": 5.124,
+    "workbookMonthlyLlm": 5.124,
+    "agentCount": 4,
+    "researchCallers": 2,
+    "perAgentMonthlyUsd": {
+      "Planner B": 0.84,
+      "Research": 1.26,
+      "Reviewer": 0.504,
+      "Planner A tuned": 2.52
+    }
+  },
+  "failures": []
+}

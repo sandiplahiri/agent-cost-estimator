@@ -6,7 +6,9 @@ from uuid import uuid4
 from .models import AgentRow, Estimate
 
 
-def split_agent(estimate: Estimate, row_id: str, individual: AgentRow | None = None) -> tuple[Estimate, str]:
+def split_agent(
+    estimate: Estimate, row_id: str, individual: AgentRow | None = None, member_id: str | None = None
+) -> tuple[Estimate, str]:
     source = next((row for row in estimate.agents if row.id == row_id), None)
     if source is None:
         raise ValueError("Choose an existing agent group to customize.")
@@ -14,14 +16,20 @@ def split_agent(estimate: Estimate, row_id: str, individual: AgentRow | None = N
         raise ValueError(f"{source.name}: at least two agents are required to customize one member.")
     if individual is not None and individual.id != source.id:
         raise ValueError("The customized agent must come from the selected group.")
+    if member_id is not None and not any(member.id == member_id for member in source.members):
+        raise ValueError("Choose an agent that belongs to this group.")
 
     next_estimate = estimate.model_copy(deep=True)
     group = next(row for row in next_estimate.agents if row.id == row_id)
     original_count = group.count
     group.count -= 1
-    member = group.members.pop()
+    member_index = next(
+        (index for index, member in enumerate(group.members) if member.id == member_id),
+        len(group.members) - 1,
+    )
+    member = group.members.pop(member_index)
     if individual is not None:
-        member = individual.members[-1]
+        member = next((item for item in individual.members if item.id == member.id), member)
     copy = group.model_copy(deep=True)
     copy.id = str(uuid4())
     copy.name = member.name
@@ -32,10 +40,16 @@ def split_agent(estimate: Estimate, row_id: str, individual: AgentRow | None = N
         for field in (
             "description",
             "use_case_name",
+            "use_case_description",
             "complexity",
             "overrides",
             "steps",
             "tool_costs",
+            "users_per_day",
+            "invocations_per_user_per_agent_per_day",
+            "invocations",
+            "volume_source",
+            "prior_volume_source",
         ):
             setattr(copy, field, getattr(individual, field))
 

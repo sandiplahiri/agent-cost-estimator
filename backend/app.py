@@ -19,7 +19,7 @@ from .models import (
     AgentRow,
     Amount,
     Estimate,
-    Execution,
+    ComplexityProfile,
     Record,
     category_name,
     default_profiles,
@@ -113,7 +113,7 @@ def categories():
 
 class CategoryRequest(Record):
     name: str = Field(min_length=1, max_length=80)
-    profile: Execution
+    profile: ComplexityProfile
 
 
 @app.post("/api/categories")
@@ -157,12 +157,15 @@ class SplitRequest(Record):
     estimate: Estimate
     row_id: str = Field(min_length=1, max_length=100)
     individual: AgentRow | None = None
+    member_id: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 @app.post("/api/agents/split")
 def split_agent_api(request: SplitRequest):
     try:
-        updated, individual_id = split_agent(request.estimate, request.row_id, request.individual)
+        updated, individual_id = split_agent(
+            request.estimate, request.row_id, request.individual, request.member_id
+        )
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return JSONResponse(

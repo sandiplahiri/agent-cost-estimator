@@ -1,0 +1,13 @@
+{
+  "command": "npx playwright test e2e/profile-model-decoupling.spec.ts",
+  "pricingFixture": "Fixture A USD 2/M input and USD 8/M output; Fixture B USD 1/M input and USD 4/M output",
+  "assumptions": "30 calls per agent per month; 1000 input and 100 output tokens per call; no retries or cache",
+  "expectedUsd": 0.126,
+  "actualUsd": 0.126,
+  "workbookUsd": 0.126,
+  "legacyModelMigrated": true,
+  "sharedProfileUsesIndependentModels": true,
+  "browserDraftMigrated": true,
+  "profileModelRejected": true,
+  "failures": []
+}

@@ -23,10 +23,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
 
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByLabel('Additional attempt rate', { exact: true }).first().fill('0');
-  await page.getByRole('button', { name: 'Model: Select model', exact: true }).first().click();
-  const picker = page.getByRole('dialog', { name: 'Choose a model' });
-  await picker.getByLabel('Search models').fill('Deletion Fixture');
-  await picker.getByRole('button', { name: /^Deletion Fixture / }).click();
+  await expect(page.locator('.profile-card').getByRole('button', { name: /^Model:/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Add custom category' }).click();
   const addDialog = page.getByRole('dialog', { name: 'Add custom complexity category' });
   await addDialog.getByLabel('Custom category name').fill('Archive heavy');
@@ -46,6 +43,14 @@ test('custom category deletion is blocked by draft and saved agents, then remove
   await quick.getByLabel('Simple users per agent per day *').fill('1');
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
+  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  const modelEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
+  await page
+    .getByRole('dialog', { name: 'Choose a model' })
+    .getByRole('button', { name: /^Deletion Fixture / })
+    .click();
+  await modelEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');
   await page.getByRole('button', { name: 'Edit Simple agents' }).click();
   const editor = page.getByRole('dialog', { name: 'Configure agent group' });

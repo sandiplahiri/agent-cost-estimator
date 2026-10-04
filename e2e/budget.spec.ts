@@ -44,7 +44,15 @@ async function chooseModel(page: Page, locator: ReturnType<Page['getByRole']>, n
   await locator.click();
   const picker = page.getByRole('dialog', { name: 'Choose a model' });
   await picker.getByLabel('Search models').fill(name);
-  await picker.getByRole('button', { name: new RegExp(`^${name} `) }).click();
+  await picker.locator('.model-choice').filter({ hasText: name }).first().click();
+}
+
+async function assignGroupModel(page: Page, groupName: string, modelName = 'Fixture A') {
+  await page.getByRole('button', { name: `Edit ${groupName}` }).click();
+  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  await chooseModel(page, editor.getByRole('button', { name: /^Model:/ }), modelName);
+  await editor.getByRole('button', { name: 'Apply changes' }).click();
+  await expect(editor).not.toBeVisible();
 }
 
 async function setup(page: Page) {
@@ -52,8 +60,6 @@ async function setup(page: Page) {
   await expect(page.getByRole('heading', { name: 'Your agent suite, budgeted.' })).toBeVisible();
   await page.getByLabel('Estimate name').fill('Mortgage fixture');
   await addModel(page);
-  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
-  await chooseModel(page, page.getByRole('button', { name: 'Model: Select model', exact: true }).first());
   await page.getByRole('button', { name: /Suite planner/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
@@ -66,6 +72,7 @@ async function setup(page: Page) {
     .getByLabel('Simple invocations per user per agent per day *')
     .fill('33.3333333333333333333333333333');
   await quick.getByRole('button', { name: 'Create suite' }).click();
+  await assignGroupModel(page, 'Simple agents');
   await expect(page.getByTestId('cost-expected')).toHaveText('$16.32/mo');
   const derived = page.getByLabel('Simple agents total monthly invocations per agent');
   await expect(derived).toHaveText('≈1,000');
@@ -335,7 +342,6 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
     custom: true,
     unsupported: [],
   };
-  fixture.profiles.simple.model_id = 'Graph Fixture';
   fixture.agents = [
     {
       id: 'planner',
@@ -347,7 +353,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       prior_volume_source: null,
       users_per_day: '10',
       invocations_per_user_per_agent_per_day: '1',
-      overrides: {},
+      overrides: { model_id: 'Graph Fixture' },
       steps: [],
     },
     {
@@ -360,7 +366,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       prior_volume_source: null,
       users_per_day: '1',
       invocations_per_user_per_agent_per_day: '1',
-      overrides: {},
+      overrides: { model_id: 'Graph Fixture' },
       steps: [],
     },
     {
@@ -373,7 +379,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       prior_volume_source: null,
       users_per_day: '1',
       invocations_per_user_per_agent_per_day: '1',
-      overrides: {},
+      overrides: { model_id: 'Graph Fixture' },
       steps: [],
     },
   ];
@@ -381,11 +387,19 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   schemaTwo.id = 'schema-two-graph-migration';
   schemaTwo.name = 'Previous schema fixture';
   schemaTwo.schema_version = 2;
+  schemaTwo.profiles.simple.model_id = 'Graph Fixture';
+  schemaTwo.agents.forEach((row: { overrides: { model_id?: string } }) => delete row.overrides.model_id);
   delete schemaTwo.links;
   schemaTwo.agents.forEach((row: { prior_volume_source?: string | null }) => delete row.prior_volume_source);
   expect((await request.post('/api/estimates', { data: schemaTwo })).ok()).toBe(true);
   const migrated = await (await request.get('/api/estimates/schema-two-graph-migration')).json();
-  expect(migrated.schema_version).toBe(7);
+  expect(migrated.schema_version).toBe(8);
+  expect(migrated.profiles.simple).not.toHaveProperty('model_id');
+  expect(
+    migrated.agents.every(
+      (row: { overrides: { model_id: string } }) => row.overrides.model_id === 'Graph Fixture',
+    ),
+  ).toBe(true);
   expect(migrated.links).toEqual([]);
   const migratedResult = await (await request.post('/api/calculate', { data: migrated })).json();
   expect(
@@ -592,8 +606,9 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
     'volume_source',
     'users_per_day',
     'invocations_per_user_per_agent_per_day',
+    'model_id',
   ]);
-  replacementSheet.addRow(['Direct replacement', 'simple', 1, 'daily_users', 1, 1]);
+  replacementSheet.addRow(['Direct replacement', 'simple', 1, 'daily_users', 1, 1, 'Graph Fixture']);
   const replacementFile = path.join(artifacts, 'agent-graph-replacement.xlsx');
   await replacement.xlsx.writeFile(replacementFile);
   await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
@@ -664,10 +679,6 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
 test('Daily users derive per-agent monthly volume across all complexity groups', async ({ page }) => {
   await setup(page);
   await page.getByLabel('Estimate name').fill('Daily volume fixture');
-  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
-  await chooseModel(page, page.getByRole('button', { name: 'Model: Select model', exact: true }).first());
-  await chooseModel(page, page.getByRole('button', { name: 'Model: Select model', exact: true }).first());
-  await page.getByRole('button', { name: /Suite planner/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('4');
@@ -684,6 +695,9 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
     await quick.getByLabel(`${category} invocations per user per agent per day *`).fill(perUser);
   }
   await quick.getByRole('button', { name: 'Create suite' }).click();
+  await assignGroupModel(page, 'Simple agents');
+  await assignGroupModel(page, 'Medium agents');
+  await assignGroupModel(page, 'High agents');
 
   await page.getByLabel('Simple agents users per day').fill('');
   await expect(page.locator('.agent-table tbody tr').first()).toContainText('Incomplete');
@@ -944,8 +958,9 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
     'volume_source',
     'users_per_day',
     'invocations_per_user_per_agent_per_day',
+    'model_id',
   ]);
-  agents.addRow(['Imported daily', 'simple', 1, 'daily_users', 2, 3]);
+  agents.addRow(['Imported daily', 'simple', 1, 'daily_users', 2, 3, 'Fixture A']);
   await inputWorkbook.xlsx.writeFile(inputFile);
   await page.getByLabel('Import agent spreadsheet').setInputFiles(inputFile);
   const dailyPreview = page.getByRole('dialog', { name: 'Review spreadsheet import' });
@@ -976,6 +991,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await editor.getByLabel('Agent name').fill('Another simple group');
   await editor.getByLabel('Users per agent per day *').fill('1');
   await editor.getByLabel('Invocations per user per agent per day *').fill('1');
+  await chooseModel(page, editor.getByRole('button', { name: 'Model: Select model' }));
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByLabel('Another simple group total monthly invocations all agents')).toHaveText('30');
   await expect(page.getByTestId('category-invocations-simple')).toHaveText('210');
@@ -1244,7 +1260,6 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
     retry_rate: '0',
     cache_fraction: '0.25',
     cache_write_fraction: '0.25',
-    model_id: 'Tier Fixture',
   };
   fixture.agents = [
     {
@@ -1253,7 +1268,7 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
       complexity: 'simple',
       count: 1,
       invocations: '10',
-      overrides: {},
+      overrides: { model_id: 'Tier Fixture' },
       steps: [],
     },
   ];
@@ -1434,12 +1449,8 @@ test('Bundled cache-hit pricing is used in the browser and exported workbook', a
   expect(Number(model.output)).toBeCloseTo(0.28, 8);
   expect(Number(model.cache_read)).toBeCloseTo(0.014, 8);
   await setup(page);
+  await assignGroupModel(page, 'Simple agents', 'deepseek/deepseek-coder');
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
-  await chooseModel(
-    page,
-    page.getByRole('button', { name: 'Model: Fixture A', exact: true }).first(),
-    'deepseek/deepseek-coder',
-  );
   await page.getByLabel('Cached read fraction', { exact: true }).first().fill('0.5');
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.60/mo');
   await expect(page.locator('.scenario-card.featured')).not.toContainText('Incomplete');
@@ -1472,12 +1483,6 @@ test('Gemini cache-write gap identifies the missing rate and recovers when unuse
   expect(price.cache_write).toBeNull();
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
-  await page.getByRole('button', { name: 'Model: Select model', exact: true }).first().click();
-  const picker = page.getByRole('dialog', { name: 'Choose a model' });
-  await picker.getByLabel('Search models').fill(modelId);
-  await picker.getByText(modelId, { exact: true }).click();
-  await page.getByRole('button', { name: /Suite planner/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('1');
@@ -1489,6 +1494,7 @@ test('Gemini cache-write gap identifies the missing rate and recovers when unuse
     .getByLabel('Simple invocations per user per agent per day *')
     .fill('33.3333333333333333333333333333');
   await quick.getByRole('button', { name: 'Create suite' }).click();
+  await assignGroupModel(page, 'Simple agents', modelId);
   await expect(page.getByTestId('cost-expected')).toHaveText('$3.44/mo');
 
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();

@@ -1,14 +1,14 @@
 {
   "schema_version": 8,
   "defaults_version": 1,
-  "id": "639b9b9c-16b7-4285-93b4-b5a12d92cbef",
-  "name": "Custom category fixture",
+  "id": "profile-migration-1791140131023",
+  "name": "Profile model migration fixture",
   "notes": "",
   "profiles": {
     "simple": {
       "calls": "1",
-      "input_tokens": "2000",
-      "output_tokens": "500",
+      "input_tokens": "1000",
+      "output_tokens": "100",
       "retry_rate": "0",
       "cache_fraction": "0",
       "cache_write_fraction": "0"
@@ -40,16 +40,16 @@
   },
   "agents": [
     {
-      "id": "7542484a-1920-41ab-954f-367b4f319a9e",
-      "name": "Simple agents",
+      "id": "Agent A",
+      "name": "Agent A",
       "description": "",
-      "use_case_name": "",
-      "use_case_description": "",
+      "use_case_name": "Agent A",
+      "use_case_description": "Fixed profile migration fixture",
       "members": [
         {
-          "id": "d4d37538-c198-4e52-b943-40655bf87853",
-          "name": "Simple agent 1",
-          "business_use_case_description": "Business use case pending description"
+          "id": "Agent A-member",
+          "name": "Agent A",
+          "business_use_case_description": "Fixture"
         }
       ],
       "complexity": "simple",
@@ -66,77 +66,25 @@
         "retry_rate": null,
         "cache_fraction": null,
         "cache_write_fraction": null,
-        "model_id": "Category Fixture"
+        "model_id": "Fixture A"
       },
       "steps": [],
       "tool_costs": []
     },
     {
-      "id": "e8ec7c95-429a-4c6d-8f9b-94e2b29e7d85",
-      "name": "Medium agents",
+      "id": "Agent B",
+      "name": "Agent B",
       "description": "",
-      "use_case_name": "",
-      "use_case_description": "",
-      "members": [],
-      "complexity": "medium",
-      "count": 0,
-      "invocations": "0",
-      "volume_source": "daily_users",
-      "prior_volume_source": null,
-      "users_per_day": "0",
-      "invocations_per_user_per_agent_per_day": "0",
-      "overrides": {
-        "calls": null,
-        "input_tokens": null,
-        "output_tokens": null,
-        "retry_rate": null,
-        "cache_fraction": null,
-        "cache_write_fraction": null,
-        "model_id": null
-      },
-      "steps": [],
-      "tool_costs": []
-    },
-    {
-      "id": "9a898c20-7396-462e-812a-eec53deeca99",
-      "name": "High agents",
-      "description": "",
-      "use_case_name": "",
-      "use_case_description": "",
-      "members": [],
-      "complexity": "high",
-      "count": 0,
-      "invocations": "0",
-      "volume_source": "daily_users",
-      "prior_volume_source": null,
-      "users_per_day": "0",
-      "invocations_per_user_per_agent_per_day": "0",
-      "overrides": {
-        "calls": null,
-        "input_tokens": null,
-        "output_tokens": null,
-        "retry_rate": null,
-        "cache_fraction": null,
-        "cache_write_fraction": null,
-        "model_id": null
-      },
-      "steps": [],
-      "tool_costs": []
-    },
-    {
-      "id": "d37dc99b-e13a-429d-b3d4-6e62b4545d4d",
-      "name": "Simple agent 2",
-      "description": "",
-      "use_case_name": "",
-      "use_case_description": "",
+      "use_case_name": "Agent B",
+      "use_case_description": "Fixed profile migration fixture",
       "members": [
         {
-          "id": "ee2a3270-28d1-454f-ab95-2c2f5f978ec0",
-          "name": "Simple agent 2",
-          "business_use_case_description": "Business use case pending description"
+          "id": "Agent B-member",
+          "name": "Agent B",
+          "business_use_case_description": "Fixture"
         }
       ],
-      "complexity": "Research intensive",
+      "complexity": "simple",
       "count": 1,
       "invocations": "0",
       "volume_source": "daily_users",
@@ -150,7 +98,39 @@
         "retry_rate": null,
         "cache_fraction": null,
         "cache_write_fraction": null,
-        "model_id": "Category Fixture"
+        "model_id": "Fixture B"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "Unselected agent",
+      "name": "Unselected agent",
+      "description": "",
+      "use_case_name": "Unselected agent",
+      "use_case_description": "Fixed profile migration fixture",
+      "members": [
+        {
+          "id": "Unselected agent-member",
+          "name": "Unselected agent",
+          "business_use_case_description": "Fixture"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": ""
       },
       "steps": [],
       "tool_costs": []
@@ -187,10 +167,10 @@
     }
   ],
   "prices": {
-    "Category Fixture": {
-      "id": "Category Fixture",
-      "provider": "Custom",
-      "source_type": "custom",
+    "Fixture A": {
+      "id": "Fixture A",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
       "channel": "",
       "region": "",
       "currency": "USD",
@@ -204,8 +184,30 @@
       "tiers": [],
       "max_input": null,
       "max_output": null,
-      "source": "Architect-supplied custom rates",
-      "retrieved_at": "2026-10-04T18:56:42.731Z",
+      "source": "Versioned E2E fixture",
+      "retrieved_at": "2026-10-04",
+      "custom": true,
+      "unsupported": []
+    },
+    "Fixture B": {
+      "id": "Fixture B",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "1",
+      "output": "4",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Versioned E2E fixture",
+      "retrieved_at": "2026-10-04",
       "custom": true,
       "unsupported": []
     }

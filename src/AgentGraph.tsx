@@ -389,11 +389,7 @@ export function AgentGraph({
                           )
                         : [step.model_id || 'Unselected model'],
                     )
-                  : [
-                      row.overrides.model_id ||
-                        estimate.profiles[row.complexity].model_id ||
-                        'Unselected model',
-                    ];
+                  : [row.overrides.model_id || 'Unselected model'];
                 return (
                   <button
                     key={row.id}

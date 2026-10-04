@@ -21,10 +21,12 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
+  UsersRound,
   X,
 } from 'lucide-react';
 import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './components';
 import { AgentEditor } from './AgentEditor';
+import { AgentInventory } from './AgentInventory';
 import { CustomPrice } from './CustomPrice';
 import { CostImpact } from './CostImpact';
 import { AgentGraph, type GraphAgentDrafts } from './AgentGraph';
@@ -42,17 +44,18 @@ import {
   pendingUseCase,
   type AgentRow,
   type Catalog,
+  type ComplexityProfile,
   type Estimate,
-  type Execution,
   type GlobalCategory,
   type Price,
   type Results,
   type Scenario,
 } from './types';
 
-type Tab = 'suite' | 'graph' | 'profiles' | 'scenarios' | 'pricing' | 'harness' | 'extras';
+type Tab = 'suite' | 'inventory' | 'graph' | 'profiles' | 'scenarios' | 'pricing' | 'harness' | 'extras';
 const tabs = [
   { id: 'suite' as Tab, label: 'Suite planner', icon: LayoutDashboard },
+  { id: 'inventory' as Tab, label: 'Agent inventory', icon: UsersRound },
   { id: 'graph' as Tab, label: 'Agent suite graph', icon: Network },
   { id: 'profiles' as Tab, label: 'Complexity profiles', icon: SlidersHorizontal },
   { id: 'scenarios' as Tab, label: 'Scenarios', icon: GitBranch },
@@ -96,7 +99,6 @@ const costLabel = (total: string, complete: boolean, format = money) =>
 
 function withSnapshots(next: Estimate, available: Record<string, Price>) {
   const modelIds = [
-    ...Object.values(next.profiles).map((p) => p.model_id),
     ...next.agents.flatMap((r) => [
       r.overrides.model_id,
       ...r.steps.flatMap((s) => [s.model_id, ...s.model_calls.map((c) => c.model_id)]),
@@ -110,7 +112,22 @@ function withSnapshots(next: Estimate, available: Record<string, Price>) {
 function migrateDraft(raw: Estimate): Estimate {
   const next = clone(raw);
   const legacy = Number(next.schema_version) < 6;
-  next.schema_version = 7;
+  if (Number(next.schema_version) < 8) {
+    const legacyModels: Record<string, string> = {};
+    for (const [name, profile] of Object.entries(next.profiles)) {
+      const previous = profile as ComplexityProfile & { model_id?: string };
+      legacyModels[name] = previous.model_id || '';
+      delete previous.model_id;
+    }
+    for (const row of next.agents) {
+      const previous = legacyModels[row.complexity];
+      if (!row.steps?.length && previous && row.overrides?.model_id == null) {
+        row.overrides ??= {};
+        row.overrides.model_id = previous;
+      }
+    }
+  }
+  next.schema_version = 8;
   next.links ??= [];
   next.harness ??= {
     name: 'Agent harness',
@@ -169,7 +186,7 @@ export default function App() {
   const [globalCategories, setGlobalCategories] = useState<GlobalCategory[]>([]);
   const [categoryName, setCategoryName] = useState('');
   const [categoryBase, setCategoryBase] = useState('simple');
-  const [categoryProfile, setCategoryProfile] = useState<Execution | null>(null);
+  const [categoryProfile, setCategoryProfile] = useState<ComplexityProfile | null>(null);
   const [categoryError, setCategoryError] = useState('');
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
@@ -188,6 +205,7 @@ export default function App() {
     'quick' | 'reset' | 'saved' | 'custom' | 'category' | 'deleteCategory' | 'import' | 'refresh' | null
   >(null);
   const [editing, setEditing] = useState<AgentRow | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [graphSelectedId, setGraphSelectedId] = useState<string | null>(null);
   const [graphAgentDrafts, setGraphAgentDrafts] = useState<GraphAgentDrafts>({});
   const [undo, setUndo] = useState<Estimate | null>(null);
@@ -227,7 +245,11 @@ export default function App() {
   );
   const categoryKeys = estimate ? Object.keys(estimate.profiles) : complexities;
   const deletingAssignments = deletingCategory
-    ? estimate?.agents.filter((row) => row.complexity.toLowerCase() === deletingCategory.toLowerCase()) || []
+    ? estimate?.agents.filter(
+        (row) =>
+          row.complexity.toLowerCase() === deletingCategory.toLowerCase() ||
+          row.steps.some((step) => step.complexity?.toLowerCase() === deletingCategory.toLowerCase()),
+      ) || []
     : [];
   const deletingGlobalCategory = globalCategories.some(
     (category) => category.name.toLowerCase() === deletingCategory?.toLowerCase(),
@@ -243,7 +265,11 @@ export default function App() {
     const name = deletingCategory;
     const base = estimateRef.current;
     if (!name || !base) return;
-    const assignments = base.agents.filter((row) => row.complexity.toLowerCase() === name.toLowerCase());
+    const assignments = base.agents.filter(
+      (row) =>
+        row.complexity.toLowerCase() === name.toLowerCase() ||
+        row.steps.some((step) => step.complexity?.toLowerCase() === name.toLowerCase()),
+    );
     if (assignments.length) {
       setDeleteCategoryError(
         `Reassign agents before deleting ${name}: ${assignments.map((row) => row.name).join(', ')}.`,
@@ -369,13 +395,14 @@ export default function App() {
     setIsSaved(false);
     setError('');
   }
-  async function customizeOne(draft: AgentRow) {
+  async function customizeOne(draft: AgentRow, memberId?: string) {
     const base = estimateRef.current;
     if (!base) throw new Error('The estimate is still loading.');
     const split = await api<{ estimate: Estimate; individual_id: string }>('/agents/split', {
       estimate: base,
       row_id: draft.id,
       individual: draft,
+      member_id: memberId,
     });
     if (estimateRef.current !== base)
       throw new Error('The estimate changed. Review the group and try again.');
@@ -387,6 +414,23 @@ export default function App() {
       'One agent is now independent. Group count, invocation links, and total workload are preserved until you change its assumptions.',
     );
     return split.individual_id;
+  }
+  function openInventoryAgent(row: AgentRow, memberId: string) {
+    if (row.count === 1) {
+      setEditingMemberId(null);
+      setEditing(clone(row));
+      return;
+    }
+    const member = row.members.find((item) => item.id === memberId);
+    if (!member) return;
+    setEditingMemberId(memberId);
+    setEditing({
+      ...clone(row),
+      name: member.name,
+      use_case_description: member.business_use_case_description,
+      members: [clone(member)],
+      count: 1,
+    });
   }
   function startNewAgent() {
     const current = estimateRef.current;
@@ -410,7 +454,15 @@ export default function App() {
       overrides: {},
       tool_costs: [],
       steps: [
-        { ...clone(profile), id: id(), name: 'Main step', execution_probability: '1', model_calls: [] },
+        {
+          ...clone(profile),
+          model_id: '',
+          id: id(),
+          name: 'Main step',
+          complexity: 'simple',
+          execution_probability: '1',
+          model_calls: [],
+        },
       ],
     });
   }
@@ -589,6 +641,7 @@ export default function App() {
   const filteredRows = estimate.agents.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
   const title = {
     suite: 'Your agent suite, budgeted.',
+    inventory: 'Know every agent in your suite.',
     graph: 'Build your agent suite graph.',
     profiles: 'Make complexity concrete.',
     scenarios: 'Explore the what-ifs.',
@@ -709,7 +762,9 @@ export default function App() {
               <p>
                 {tab === 'graph'
                   ? 'Create agents, configure their work, and connect the calls between them.'
-                  : 'Turn execution assumptions into a customer-ready spending estimate.'}
+                  : tab === 'inventory'
+                    ? 'Review and edit one agent at a time, including its use case, steps, and daily workload.'
+                    : 'Turn execution assumptions into a customer-ready spending estimate.'}
               </p>
             </div>
             <div className="estimate-name">
@@ -839,6 +894,16 @@ export default function App() {
               {w}
             </div>
           ))}
+
+          {tab === 'inventory' && (
+            <AgentInventory
+              estimate={estimate}
+              expected={expected}
+              onEdit={openInventoryAgent}
+              onAdd={startNewAgent}
+              busy={!!busy}
+            />
+          )}
 
           {tab === 'suite' && (
             <div className="suite-workspace">
@@ -1643,6 +1708,7 @@ export default function App() {
                     <ExecutionFields
                       value={estimate.profiles[c]}
                       prices={available}
+                      showModel={false}
                       onChange={(patch) =>
                         update((n) => {
                           Object.assign(n.profiles[c], patch);
@@ -2268,8 +2334,43 @@ export default function App() {
           row={editing}
           estimate={estimate}
           prices={available}
-          onClose={() => setEditing(null)}
+          singleAgent={tab === 'inventory'}
+          pendingGroupMember={Boolean(editingMemberId)}
+          onClose={() => {
+            setEditing(null);
+            setEditingMemberId(null);
+          }}
           onSave={async (row) => {
+            if (editingMemberId) {
+              const base = estimateRef.current;
+              const source = base?.agents.find((item) => item.id === row.id);
+              if (!base || !source || !source.members.some((item) => item.id === editingMemberId))
+                throw new Error('The agent group changed. Reopen this agent and try again.');
+              const individual = {
+                ...clone(source),
+                ...row,
+                count: source.count,
+                members: source.members.map((member) =>
+                  member.id === editingMemberId ? clone(row.members[0]) : member,
+                ),
+              };
+              const split = await api<{ estimate: Estimate; individual_id: string }>('/agents/split', {
+                estimate: base,
+                row_id: source.id,
+                individual,
+                member_id: editingMemberId,
+              });
+              if (estimateRef.current !== base)
+                throw new Error('The estimate changed. Reopen this agent and try again.');
+              withSnapshots(split.estimate, available);
+              await api('/calculate', split.estimate);
+              setUndo(clone(base));
+              setEstimate(split.estimate);
+              setIsSaved(false);
+              setEditing(null);
+              setEditingMemberId(null);
+              return;
+            }
             const next = clone(estimate);
             const index = next.agents.findIndex((r) => r.id === row.id);
             if (index >= 0) next.agents[index] = row;
@@ -2279,6 +2380,7 @@ export default function App() {
             setEstimate(next);
             setIsSaved(false);
             setEditing(null);
+            setEditingMemberId(null);
           }}
           onRemove={() => {
             if (
@@ -2334,6 +2436,7 @@ export default function App() {
             <ExecutionFields
               value={categoryProfile}
               prices={available}
+              showModel={false}
               onChange={(patch) => setCategoryProfile({ ...categoryProfile, ...patch })}
             />
           )}
@@ -2517,7 +2620,7 @@ export default function App() {
                     const starter =
                       defaults.profiles[c] ||
                       globalCategories.find((category) => category.name === c)?.profile;
-                    if (starter) n.profiles[c] = { ...clone(starter), model_id: n.profiles[c].model_id };
+                    if (starter) n.profiles[c] = clone(starter);
                   }
                   if (clearOverrides) {
                     n.agents.forEach((r) => {

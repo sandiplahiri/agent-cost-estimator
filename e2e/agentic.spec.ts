@@ -339,7 +339,6 @@ test('Linked group members become independently editable without changing graph 
     retry_rate: '0',
     cache_fraction: '0',
     cache_write_fraction: '0',
-    model_id: 'Fixture A',
   };
   estimate.prices = {
     'Fixture A': {
@@ -386,7 +385,7 @@ test('Linked group members become independently editable without changing graph 
     prior_volume_source: source === 'derived' ? 'daily_users' : null,
     users_per_day: source === 'derived' ? '0' : '1',
     invocations_per_user_per_agent_per_day: source === 'derived' ? '0' : '10',
-    overrides: {},
+    overrides: { model_id: 'Fixture A' },
     steps: [],
     tool_costs: [],
   });
@@ -585,14 +584,18 @@ test('Linked group members become independently editable without changing graph 
   const verified = await (await request.post('/api/calculate', { data: savedDraft })).json();
   expect(Number(verified.scenarios[1].llm_cost)).toBeCloseTo(3.792, 9);
   expect(Number(verified.scenarios[1].volumes.reviewer.total)).toBe(240);
-  expect(savedDraft.profiles.simple.model_id).toBe('Fixture A');
+  expect(savedDraft.profiles.simple).not.toHaveProperty('model_id');
   expect(
     savedDraft.agents.find((agent: { name: string }) => agent.name === 'Research tuned').overrides.model_id,
   ).toBe('Fixture B');
+  const remainingResearchOverrides = savedDraft.agents.find(
+    (agent: { id: string }) => agent.id === 'research',
+  ).overrides;
+  expect(remainingResearchOverrides.model_id).toBe('Fixture A');
   expect(
-    Object.values(savedDraft.agents.find((agent: { id: string }) => agent.id === 'research').overrides).every(
-      (value) => value === null,
-    ),
+    Object.entries(remainingResearchOverrides)
+      .filter(([key]) => key !== 'model_id')
+      .every(([, value]) => value === null),
   ).toBe(true);
   await fs.writeFile(path.join(outputDir, 'customized.json'), JSON.stringify(savedDraft, null, 2));
   const workbookResponse = await request.post('/api/export', { data: savedDraft });
