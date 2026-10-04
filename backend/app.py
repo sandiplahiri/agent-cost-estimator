@@ -12,8 +12,19 @@ from pydantic import Field, ValidationError, model_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import pricing, store, workbook
+from .customize import split_agent
 from .engine import calculate
-from .models import Amount, Estimate, Record, default_profiles, default_scenarios
+from .models import (
+    PREDEFINED_COMPLEXITIES,
+    AgentRow,
+    Amount,
+    Estimate,
+    Execution,
+    Record,
+    category_name,
+    default_profiles,
+    default_scenarios,
+)
 
 app = FastAPI(title="Agent Ledger", docs_url="/api/docs")
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
@@ -90,13 +101,76 @@ def refresh():
 
 @app.get("/api/new")
 def new():
-    return Estimate(profiles=default_profiles(), scenarios=default_scenarios())
+    profiles = default_profiles()
+    profiles.update({item["name"]: item["profile"] for item in store.list_categories()})
+    return Estimate(profiles=profiles, scenarios=default_scenarios())
+
+
+@app.get("/api/categories")
+def categories():
+    return store.list_categories()
+
+
+class CategoryRequest(Record):
+    name: str = Field(min_length=1, max_length=80)
+    profile: Execution
+
+
+@app.post("/api/categories")
+def create_category(request: CategoryRequest):
+    try:
+        name = category_name(request.name)
+        if name.casefold() in PREDEFINED_COMPLEXITIES:
+            raise ValueError("Choose a name different from simple, medium, and high.")
+        return store.add_category(name, request.profile)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+class DeleteCategoryRequest(Record):
+    name: str = Field(min_length=1, max_length=80)
+    estimate: Estimate
+
+
+@app.post("/api/categories/delete")
+def delete_category(request: DeleteCategoryRequest):
+    try:
+        name = category_name(request.name)
+        if name.casefold() in PREDEFINED_COMPLEXITIES:
+            raise HTTPException(422, "Predefined complexity categories cannot be deleted.")
+        return store.delete_category(name, request.estimate)
+    except store.CategoryNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except store.CategoryInUseError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @app.post("/api/calculate")
 def calculate_api(estimate: Estimate):
     # Decimal must stay strings through JSON, not become binary floats.
     return JSONResponse(jsonable_encoder(calculate(estimate), custom_encoder={Decimal: str}))
+
+
+class SplitRequest(Record):
+    estimate: Estimate
+    row_id: str = Field(min_length=1, max_length=100)
+    individual: AgentRow | None = None
+
+
+@app.post("/api/agents/split")
+def split_agent_api(request: SplitRequest):
+    try:
+        updated, individual_id = split_agent(request.estimate, request.row_id, request.individual)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return JSONResponse(
+        jsonable_encoder(
+            {"estimate": updated.model_dump(), "individual_id": individual_id},
+            custom_encoder={Decimal: str},
+        )
+    )
 
 
 SensitivityField = Literal[

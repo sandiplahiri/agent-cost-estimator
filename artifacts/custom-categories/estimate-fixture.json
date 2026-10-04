@@ -1,0 +1,227 @@
+{
+  "schema_version": 7,
+  "defaults_version": 1,
+  "id": "ee38aa3b-e2be-4b4c-a49b-84cd6e96a4a1",
+  "name": "Custom category fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": "Category Fixture"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": ""
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": ""
+    },
+    "Research intensive": {
+      "calls": "2",
+      "input_tokens": "1000",
+      "output_tokens": "500",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": "Category Fixture"
+    }
+  },
+  "agents": [
+    {
+      "id": "8956b06b-c919-4605-8090-79bec98cfb1a",
+      "name": "Simple agents",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "b6837f00-f73b-4494-b093-a33d4c7d07ad",
+          "name": "Simple agent 1",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "689c9363-38bb-411b-9a4d-946a0ea2edac",
+      "name": "Medium agents",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [],
+      "complexity": "medium",
+      "count": 0,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "18f90d0c-22cd-4582-bbf6-45aa17032bf4",
+      "name": "High agents",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [],
+      "complexity": "high",
+      "count": 0,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "baa02f3a-986f-4516-90b2-8a62f201d2ab",
+      "name": "Simple agent 2",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "Business use case pending description",
+      "members": [
+        {
+          "id": "0097cb1e-f6e0-4cb1-aba0-0133e697dc3f",
+          "name": "Simple agent 2",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "Research intensive",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [],
+      "tool_costs": []
+    }
+  ],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Category Fixture": {
+      "id": "Category Fixture",
+      "provider": "Custom",
+      "source_type": "custom",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Architect-supplied custom rates",
+      "retrieved_at": "2026-10-04T01:29:12.897Z",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

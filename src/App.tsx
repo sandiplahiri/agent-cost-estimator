@@ -12,6 +12,7 @@ import {
   GitBranch,
   LayoutDashboard,
   LoaderCircle,
+  Network,
   Plus,
   RotateCcw,
   Save,
@@ -26,9 +27,10 @@ import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './component
 import { AgentEditor } from './AgentEditor';
 import { CustomPrice } from './CustomPrice';
 import { CostImpact } from './CostImpact';
-import { AgentGraph } from './AgentGraph';
+import { AgentGraph, type GraphAgentDrafts } from './AgentGraph';
 import {
   api,
+  categoryClass,
   complexities,
   effective,
   displayVolume,
@@ -36,20 +38,26 @@ import {
   money,
   number,
   rateMoney,
+  resizeMembers,
+  pendingUseCase,
   type AgentRow,
   type Catalog,
   type Estimate,
+  type Execution,
+  type GlobalCategory,
   type Price,
   type Results,
   type Scenario,
 } from './types';
 
-type Tab = 'suite' | 'profiles' | 'scenarios' | 'pricing' | 'extras';
+type Tab = 'suite' | 'graph' | 'profiles' | 'scenarios' | 'pricing' | 'harness' | 'extras';
 const tabs = [
   { id: 'suite' as Tab, label: 'Suite planner', icon: LayoutDashboard },
+  { id: 'graph' as Tab, label: 'Agent suite graph', icon: Network },
   { id: 'profiles' as Tab, label: 'Complexity profiles', icon: SlidersHorizontal },
   { id: 'scenarios' as Tab, label: 'Scenarios', icon: GitBranch },
   { id: 'pricing' as Tab, label: 'Model pricing', icon: Coins },
+  { id: 'harness' as Tab, label: 'Agent harness', icon: Blocks },
   { id: 'extras' as Tab, label: 'Additional costs', icon: Plus },
 ];
 const descriptions = {
@@ -57,6 +65,21 @@ const descriptions = {
   medium: 'Retrieval, tools & synthesis',
   high: 'Planning, iteration & revision',
 };
+function uniqueAgentName(base: string, estimate: Estimate): string {
+  base = base.slice(0, 110);
+  const used = new Set(
+    estimate.agents
+      .flatMap((row) => [row.name, ...row.members.map((member) => member.name)])
+      .map((name) => name.trim().toLowerCase()),
+  );
+  let name = base;
+  let suffix = 2;
+  while (used.has(name.trim().toLowerCase())) {
+    name = `${base} (${suffix})`;
+    suffix += 1;
+  }
+  return name;
+}
 const tokenTypeLabels = {
   input: 'Uncached input',
   cache_read: 'Cached input read',
@@ -74,11 +97,68 @@ const costLabel = (total: string, complete: boolean, format = money) =>
 function withSnapshots(next: Estimate, available: Record<string, Price>) {
   const modelIds = [
     ...Object.values(next.profiles).map((p) => p.model_id),
-    ...next.agents.flatMap((r) => [r.overrides.model_id, ...r.steps.map((s) => s.model_id)]),
+    ...next.agents.flatMap((r) => [
+      r.overrides.model_id,
+      ...r.steps.flatMap((s) => [s.model_id, ...s.model_calls.map((c) => c.model_id)]),
+    ]),
     ...next.scenarios.map((s) => s.model_id),
   ];
   for (const key of modelIds)
     if (key && !next.prices[key] && available[key]) next.prices[key] = clone(available[key]);
+  return next;
+}
+function migrateDraft(raw: Estimate): Estimate {
+  const next = clone(raw);
+  const legacy = Number(next.schema_version) < 6;
+  next.schema_version = 7;
+  next.links ??= [];
+  next.harness ??= {
+    name: 'Agent harness',
+    harness_type: 'none',
+    fixed_monthly: '0',
+    per_invocation: '0',
+    per_step_execution: '0',
+    allocation: 'by_invocations',
+    include_in_cost_per_use_case: true,
+  };
+  next.agents = next.agents.map((row) => ({
+    ...row,
+    description: row.description ?? '',
+    use_case_name: row.use_case_name ?? '',
+    use_case_description: row.use_case_description ?? '',
+    members: row.members ?? resizeMembers({ ...row, members: [] }, row.count),
+    tool_costs: row.tool_costs ?? [],
+    steps: row.steps.map((step) => ({
+      ...step,
+      id: step.id ?? id(),
+      execution_probability: step.execution_probability ?? '1',
+      model_calls: step.model_calls ?? [],
+    })),
+    volume_source: row.volume_source ?? 'manual',
+    prior_volume_source: row.prior_volume_source ?? null,
+    users_per_day: row.users_per_day ?? null,
+    invocations_per_user_per_agent_per_day: row.invocations_per_user_per_agent_per_day ?? null,
+  }));
+  if (legacy) {
+    const used = new Set<string>();
+    for (const row of next.agents) {
+      for (const member of row.members) {
+        let name = member.name;
+        let suffix = 2;
+        while (used.has(name.trim().toLowerCase())) {
+          name = `${member.name.slice(0, 110)} (${suffix})`;
+          suffix += 1;
+        }
+        member.name = name;
+        used.add(name.trim().toLowerCase());
+      }
+    }
+  }
+  next.links = next.links.map((link) => ({
+    ...link,
+    step_id: link.step_id ?? null,
+    branch_event_id: link.branch_event_id ?? null,
+  }));
   return next;
 }
 
@@ -86,6 +166,15 @@ export default function App() {
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [defaults, setDefaults] = useState<Estimate | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [globalCategories, setGlobalCategories] = useState<GlobalCategory[]>([]);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryBase, setCategoryBase] = useState('simple');
+  const [categoryProfile, setCategoryProfile] = useState<Execution | null>(null);
+  const [categoryError, setCategoryError] = useState('');
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+  const [deleteCategoryError, setDeleteCategoryError] = useState('');
+  const [deleteCategoryBusy, setDeleteCategoryBusy] = useState(false);
   const [result, setResult] = useState<Results | null>(null);
   const [tab, setTab] = useState<Tab>('suite');
   const [error, setError] = useState('');
@@ -95,10 +184,12 @@ export default function App() {
   const [calculating, setCalculating] = useState(false);
   const [saved, setSaved] = useState<{ id: string; name: string; updated: string }[]>([]);
   const [isSaved, setIsSaved] = useState(false);
-  const [modal, setModal] = useState<'quick' | 'reset' | 'saved' | 'custom' | 'import' | 'refresh' | null>(
-    null,
-  );
+  const [modal, setModal] = useState<
+    'quick' | 'reset' | 'saved' | 'custom' | 'category' | 'deleteCategory' | 'import' | 'refresh' | null
+  >(null);
   const [editing, setEditing] = useState<AgentRow | null>(null);
+  const [graphSelectedId, setGraphSelectedId] = useState<string | null>(null);
+  const [graphAgentDrafts, setGraphAgentDrafts] = useState<GraphAgentDrafts>({});
   const [undo, setUndo] = useState<Estimate | null>(null);
   const [clearOverrides, setClearOverrides] = useState(true);
   const [quick, setQuick] = useState({
@@ -121,42 +212,108 @@ export default function App() {
   } | null>(null);
   const [search, setSearch] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const jsonFileRef = useRef<HTMLInputElement>(null);
   const estimateRef = useRef(estimate);
   useLayoutEffect(() => {
     estimateRef.current = estimate;
   }, [estimate]);
+  useEffect(() => {
+    setGraphSelectedId(null);
+    setGraphAgentDrafts({});
+  }, [estimate?.id]);
   const available = useMemo(
     () => ({ ...(catalog?.prices || emptyPrices), ...(estimate?.prices || emptyPrices) }),
     [catalog, estimate?.prices],
   );
+  const categoryKeys = estimate ? Object.keys(estimate.profiles) : complexities;
+  const deletingAssignments = deletingCategory
+    ? estimate?.agents.filter((row) => row.complexity.toLowerCase() === deletingCategory.toLowerCase()) || []
+    : [];
+  const deletingGlobalCategory = globalCategories.some(
+    (category) => category.name.toLowerCase() === deletingCategory?.toLowerCase(),
+  );
+
+  function openDeleteCategory(name: string) {
+    setDeletingCategory(name);
+    setDeleteCategoryError('');
+    setModal('deleteCategory');
+  }
+
+  async function deleteCustomCategory() {
+    const name = deletingCategory;
+    const base = estimateRef.current;
+    if (!name || !base) return;
+    const assignments = base.agents.filter((row) => row.complexity.toLowerCase() === name.toLowerCase());
+    if (assignments.length) {
+      setDeleteCategoryError(
+        `Reassign agents before deleting ${name}: ${assignments.map((row) => row.name).join(', ')}.`,
+      );
+      return;
+    }
+    setDeleteCategoryBusy(true);
+    setDeleteCategoryError('');
+    try {
+      if (deletingGlobalCategory) {
+        await api('/categories/delete', { name, estimate: base });
+        setGlobalCategories((current) =>
+          current.filter((category) => category.name.toLowerCase() !== name.toLowerCase()),
+        );
+        setDefaults((current) => {
+          if (!current) return current;
+          const next = clone(current);
+          delete next.profiles[name];
+          return next;
+        });
+        setUndo(null);
+      } else {
+        if (estimateRef.current !== base)
+          throw new Error('The draft changed. Review the category and try again.');
+        if (!base.profiles[name]) throw new Error('This profile is no longer in the current draft.');
+        setUndo(clone(base));
+      }
+      const removedFromDraft = estimateRef.current === base && Boolean(base.profiles[name]);
+      if (removedFromDraft) {
+        const next = clone(base);
+        delete next.profiles[name];
+        setEstimate(next);
+        setIsSaved(false);
+      }
+      setModal(null);
+      setNotice(
+        deletingGlobalCategory
+          ? removedFromDraft
+            ? `${name} was deleted globally and removed from this draft. Saved unused profile snapshots remain unchanged.`
+            : estimateRef.current === base
+              ? `${name} was deleted globally. This draft had no matching profile.`
+              : `${name} was deleted globally. The draft changed during deletion; review its category profile before saving.`
+          : `${name} was removed from this draft. Save to update this estimate.`,
+      );
+    } catch (cause) {
+      setDeleteCategoryError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setDeleteCategoryBusy(false);
+    }
+  }
 
   async function initialize() {
     try {
       setBusy('Loading');
-      const [base, currentCatalog, stored] = await Promise.all([
+      const [base, currentCatalog, stored, categories] = await Promise.all([
         api<Estimate>('/new'),
         api<Catalog>('/catalog'),
         api<typeof saved>('/estimates'),
+        api<GlobalCategory[]>('/categories'),
       ]);
-      setDefaults(base);
+      const startingEstimate = withSnapshots(base, currentCatalog.prices);
+      setDefaults(startingEstimate);
       setCatalog(currentCatalog);
       setSaved(stored);
+      setGlobalCategories(categories);
       let draft: Estimate | null = null;
       try {
         const text = localStorage.getItem('agent-ledger-draft-v1');
         if (text) {
-          const parsed = JSON.parse(text);
-          if (parsed.schema_version === 1 || parsed.schema_version === 2) {
-            parsed.schema_version = 3;
-            parsed.links = [];
-            parsed.agents = parsed.agents.map((row: AgentRow) => ({
-              ...row,
-              volume_source: row.volume_source ?? 'manual',
-              prior_volume_source: row.prior_volume_source ?? null,
-              users_per_day: row.users_per_day ?? null,
-              invocations_per_user_per_agent_per_day: row.invocations_per_user_per_agent_per_day ?? null,
-            }));
-          }
+          const parsed = migrateDraft(JSON.parse(text));
           await api<Results>('/calculate', parsed);
           draft = parsed;
         }
@@ -165,7 +322,7 @@ export default function App() {
           'The previous browser draft could not be restored. Saved estimates are available in Open estimate.',
         );
       }
-      setEstimate(draft || base);
+      setEstimate(draft || startingEstimate);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -212,6 +369,102 @@ export default function App() {
     setIsSaved(false);
     setError('');
   }
+  async function customizeOne(draft: AgentRow) {
+    const base = estimateRef.current;
+    if (!base) throw new Error('The estimate is still loading.');
+    const split = await api<{ estimate: Estimate; individual_id: string }>('/agents/split', {
+      estimate: base,
+      row_id: draft.id,
+      individual: draft,
+    });
+    if (estimateRef.current !== base)
+      throw new Error('The estimate changed. Review the group and try again.');
+    setUndo(clone(base));
+    setEstimate(split.estimate);
+    setIsSaved(false);
+    setEditing(split.estimate.agents.find((row) => row.id === split.individual_id) || null);
+    setNotice(
+      'One agent is now independent. Group count, invocation links, and total workload are preserved until you change its assumptions.',
+    );
+    return split.individual_id;
+  }
+  function startNewAgent() {
+    const current = estimateRef.current;
+    const profile = current?.profiles.simple;
+    if (!profile) return;
+    const name = uniqueAgentName('New agent', current);
+    setEditing({
+      id: id(),
+      name,
+      description: '',
+      use_case_name: '',
+      use_case_description: '',
+      members: [{ id: id(), name, business_use_case_description: pendingUseCase }],
+      complexity: 'simple',
+      count: 1,
+      invocations: '0',
+      volume_source: 'daily_users',
+      prior_volume_source: null,
+      users_per_day: '0',
+      invocations_per_user_per_agent_per_day: '0',
+      overrides: {},
+      tool_costs: [],
+      steps: [
+        { ...clone(profile), id: id(), name: 'Main step', execution_probability: '1', model_calls: [] },
+      ],
+    });
+  }
+  function copyAgent(row: AgentRow) {
+    const base = estimateRef.current;
+    if (!base) return;
+    const copyName = uniqueAgentName(`${row.members[0]?.name || row.name} (copy)`, base);
+    const copy = {
+      ...clone(row),
+      id: id(),
+      name: copyName,
+      members: [
+        {
+          id: id(),
+          name: copyName,
+          business_use_case_description: row.members[0]?.business_use_case_description || pendingUseCase,
+        },
+      ],
+      count: 1,
+      volume_source: 'daily_users' as const,
+      prior_volume_source: null,
+      users_per_day: '0',
+      invocations_per_user_per_agent_per_day: '0',
+      steps: row.steps.map((step) => ({
+        ...clone(step),
+        id: id(),
+        model_calls: step.model_calls.map((call) => ({ ...clone(call), id: id() })),
+      })),
+      tool_costs: row.tool_costs.map((tool) => ({ ...clone(tool), id: id() })),
+    };
+    const stepIds = new Map(row.steps.map((step, index) => [step.id, copy.steps[index].id]));
+    copy.tool_costs = copy.tool_costs.map((tool) => ({
+      ...tool,
+      step_id: tool.step_id ? stepIds.get(tool.step_id) || null : null,
+    }));
+    setUndo(clone(base));
+    update((next) => {
+      next.agents.push(copy);
+      next.links.push(
+        ...base.links
+          .filter((link) => link.parent_id === row.id)
+          .map((link) => ({
+            ...clone(link),
+            id: id(),
+            parent_id: copy.id,
+            step_id: link.step_id ? stepIds.get(link.step_id) || null : null,
+          })),
+      );
+    });
+    setEditing(copy);
+    setNotice(
+      'Copied agent starts with zero direct use cases. Attach it or enter usage to include it in the budget.',
+    );
+  }
   async function perform(label: string, action: () => Promise<void>) {
     setBusy(label);
     setError('');
@@ -253,6 +506,27 @@ export default function App() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setNotice('Excel workbook exported with assumptions and pricing snapshot.');
+    });
+  }
+  function exportJson() {
+    if (!estimate) return;
+    const blob = new Blob([JSON.stringify(estimate, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${estimate.name.replace(/[^a-z0-9-]/gi, '-').slice(0, 70) || 'agent-suite'}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function importJson(file: File) {
+    await perform('Reading JSON', async () => {
+      if (file.size > 6_000_000) throw new Error('JSON estimate must be smaller than 6 MB.');
+      const parsed = migrateDraft(JSON.parse(await file.text()));
+      await api<Results>('/calculate', parsed);
+      setUndo(clone(estimate!));
+      setEstimate(parsed);
+      setIsSaved(false);
+      setNotice('JSON estimate loaded with its saved pricing snapshot. Undo restores your previous draft.');
     });
   }
   async function previewImport(file: File) {
@@ -315,9 +589,11 @@ export default function App() {
   const filteredRows = estimate.agents.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
   const title = {
     suite: 'Your agent suite, budgeted.',
+    graph: 'Build your agent suite graph.',
     profiles: 'Make complexity concrete.',
     scenarios: 'Explore the what-ifs.',
     pricing: 'Know the price behind the plan.',
+    harness: 'Budget the shared agent runtime.',
     extras: 'Account for the whole picture.',
   }[tab];
 
@@ -346,6 +622,7 @@ export default function App() {
             <button
               key={t.id}
               className={tab === t.id ? 'nav-item active' : 'nav-item'}
+              aria-label={t.label}
               onClick={() => setTab(t.id)}
             >
               <t.icon size={18} />
@@ -422,14 +699,18 @@ export default function App() {
           </div>
         </header>
 
-        <main>
+        <main className={tab === 'graph' ? 'graph-page' : undefined}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
                 LLM COST PLANNER <span>USD</span>
               </div>
               <h1>{title}</h1>
-              <p>Turn execution assumptions into a customer-ready spending estimate.</p>
+              <p>
+                {tab === 'graph'
+                  ? 'Create agents, configure their work, and connect the calls between them.'
+                  : 'Turn execution assumptions into a customer-ready spending estimate.'}
+              </p>
             </div>
             <div className="estimate-name">
               <Field label="Estimate name">
@@ -508,6 +789,12 @@ export default function App() {
                       `Input ${scenario.input_factor}× · Output ${scenario.output_factor}× · Volume ${scenario.volume_factor}×`
                     )}
                   </p>
+                  {data && (
+                    <p>
+                      Suite total (models + tools + harness + extras):{' '}
+                      <strong>{costLabel(data.monthly_total, data.complete)}</strong>
+                    </p>
+                  )}
                   <div className="card-bottom">
                     <span>
                       {name === 'Expected'
@@ -554,7 +841,7 @@ export default function App() {
           ))}
 
           {tab === 'suite' && (
-            <>
+            <div className="suite-workspace">
               <section className="panel suite-panel">
                 <div className="section-heading">
                   <div>
@@ -568,6 +855,12 @@ export default function App() {
                       <FileSpreadsheet size={15} />
                       Template
                     </a>
+                    <button className="button subtle" onClick={exportJson}>
+                      Export JSON
+                    </button>
+                    <button className="button subtle" onClick={() => jsonFileRef.current?.click()}>
+                      Import JSON
+                    </button>
                     <button className="button subtle" onClick={() => fileRef.current?.click()}>
                       <Upload size={15} />
                       Import
@@ -590,6 +883,18 @@ export default function App() {
                     e.target.value = '';
                   }}
                 />
+                <input
+                  ref={jsonFileRef}
+                  type="file"
+                  accept=".json,application/json"
+                  aria-label="Import JSON estimate"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void importJson(file);
+                    e.target.value = '';
+                  }}
+                />
                 {estimate.agents.length > 0 ? (
                   <>
                     <div className="inventory-toolbar">
@@ -606,7 +911,17 @@ export default function App() {
                         onClick={() =>
                           setEditing({
                             id: id(),
-                            name: 'New agent group',
+                            name: uniqueAgentName('New agent group', estimate),
+                            description: '',
+                            use_case_name: '',
+                            use_case_description: '',
+                            members: [
+                              {
+                                id: id(),
+                                name: uniqueAgentName('New agent group', estimate),
+                                business_use_case_description: pendingUseCase,
+                              },
+                            ],
                             complexity: 'simple',
                             count: 1,
                             invocations: '0',
@@ -616,6 +931,7 @@ export default function App() {
                             invocations_per_user_per_agent_per_day: null,
                             overrides: {},
                             steps: [],
+                            tool_costs: [],
                           })
                         }
                       >
@@ -662,7 +978,9 @@ export default function App() {
                                     {row.name}
                                   </button>
                                   <div className="row-meta">
-                                    <span className={`complexity ${row.complexity}`}>{row.complexity}</span>
+                                    <span className={`complexity ${categoryClass(row.complexity)}`}>
+                                      {row.complexity}
+                                    </span>
                                     {row.steps.length > 0 ? (
                                       <small>{row.steps.length} detailed steps</small>
                                     ) : (
@@ -682,7 +1000,10 @@ export default function App() {
                                     onFocus={(e) => e.currentTarget.select()}
                                     onChange={(e) =>
                                       update((n) => {
-                                        n.agents.find((r) => r.id === row.id)!.count = Number(e.target.value);
+                                        const target = n.agents.find((r) => r.id === row.id)!;
+                                        const count = Number(e.target.value);
+                                        target.members = resizeMembers(target, count);
+                                        target.count = count;
                                       })
                                     }
                                   />
@@ -779,6 +1100,13 @@ export default function App() {
                                 </td>
                                 <td>
                                   <button
+                                    className="text-button"
+                                    aria-label={`Copy ${row.name}`}
+                                    onClick={() => copyAgent(row)}
+                                  >
+                                    Copy
+                                  </button>
+                                  <button
                                     className={`inline-model ${!execution.model_id && !row.steps.length ? 'unselected' : ''}`}
                                     onClick={() => setEditing(clone(row))}
                                   >
@@ -820,7 +1148,7 @@ export default function App() {
                     </div>
                     {filteredRows.length === 0 && <p className="empty-inline">No matching agents.</p>}
                     <div className="category-volume-grid" aria-label="Monthly invocations by complexity">
-                      {complexities.map((complexity) => {
+                      {categoryKeys.map((complexity) => {
                         const volume = result?.category_invocations[complexity];
                         const tokens = result?.category_tokens[complexity];
                         return (
@@ -876,7 +1204,7 @@ export default function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {complexities.map((complexity) => {
+                            {categoryKeys.map((complexity) => {
                               const tokens = result?.category_tokens[complexity];
                               const costs = result?.category_costs[complexity];
                               return (
@@ -960,7 +1288,7 @@ export default function App() {
                       </p>
                     </section>
                     <div className="category-cost-grid" aria-label="Token cost calculation by category">
-                      {complexities.map((complexity) => {
+                      {categoryKeys.map((complexity) => {
                         const breakdown = result?.category_costs[complexity];
                         const categoryTokens = result?.category_tokens[complexity];
                         return (
@@ -1129,18 +1457,85 @@ export default function App() {
                   </div>
                 )}
               </section>
-              <AgentGraph
-                estimate={estimate}
-                result={result}
-                onApply={(next, base, message) => {
-                  if (estimateRef.current !== base)
-                    throw new Error('The estimate changed. Preview the link again.');
-                  setUndo(clone(base));
-                  setEstimate(next);
-                  setIsSaved(false);
-                  setNotice(message);
-                }}
-              />
+              {expected && estimate.agents.length > 0 && (
+                <section className="panel" aria-label="Cost per completed use case">
+                  <div className="section-heading">
+                    <div>
+                      <h2>Cost per completed use case</h2>
+                      <p>
+                        One agent invocation completes one use case. Loaded cost includes expected child work
+                        {estimate.harness.include_in_cost_per_use_case ? ' and allocated harness' : ''}.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="table-scroll">
+                    <table className="agent-table">
+                      <thead>
+                        <tr>
+                          <th>AGENT</th>
+                          <th>USE CASE</th>
+                          <th>COMPLETIONS / MONTH</th>
+                          <th>DIRECT / COMPLETION</th>
+                          <th>HARNESS / COMPLETION</th>
+                          <th>LOADED / COMPLETION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {estimate.agents.map((row) => {
+                          const item = expected.use_case_costs[row.id];
+                          return (
+                            <tr key={row.id}>
+                              <td>{row.name}</td>
+                              <td>{item?.name}</td>
+                              <td>{item ? displayVolume(item.monthly_invocations) : '—'}</td>
+                              <td>{item ? money(item.direct_cost_per_completion) : '—'}</td>
+                              <td>{item ? money(item.harness_per_completion) : '—'}</td>
+                              <td>
+                                {item ? costLabel(item.loaded_cost_per_completion, item.complete) : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+              {expected && expected.vendor_costs.length > 0 && (
+                <section className="panel" aria-label="Vendor spend breakdown">
+                  <div className="section-heading">
+                    <div>
+                      <h2>Model spend by vendor</h2>
+                      <p>
+                        Expected monthly model cost from the saved price snapshot, including any entered
+                        currency conversion.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="table-scroll">
+                    <table className="agent-table">
+                      <thead>
+                        <tr>
+                          <th>VENDOR</th>
+                          <th>SOURCE</th>
+                          <th>CHANNEL</th>
+                          <th>MONTHLY MODEL COST</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {expected.vendor_costs.map((entry, index) => (
+                          <tr key={`${entry.provider}-${entry.channel}-${index}`}>
+                            <td>{entry.provider}</td>
+                            <td>{entry.source_type.replaceAll('_', ' ')}</td>
+                            <td>{entry.channel || '—'}</td>
+                            <td>{costLabel(entry.monthly_cost, entry.complete)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
               <CostImpact estimate={estimate} result={result} />
               <section className="panel assumption-note">
                 <div className="section-heading">
@@ -1166,7 +1561,31 @@ export default function App() {
                   Review complexity profiles <ArrowUpRight size={14} />
                 </button>
               </section>
-            </>
+            </div>
+          )}
+
+          {tab === 'graph' && (
+            <AgentGraph
+              estimate={estimate}
+              result={result}
+              prices={available}
+              selectedId={graphSelectedId}
+              setSelectedId={setGraphSelectedId}
+              agentDrafts={graphAgentDrafts}
+              setAgentDrafts={setGraphAgentDrafts}
+              onEditAgent={(row) => setEditing(clone(row))}
+              onCustomize={(row) => customizeOne(clone(row))}
+              onAddAgent={startNewAgent}
+              onCopyAgent={copyAgent}
+              onApply={(next, base, message) => {
+                if (estimateRef.current !== base)
+                  throw new Error('The estimate changed. Preview the link again.');
+                setUndo(clone(base));
+                setEstimate(next);
+                setIsSaved(false);
+                setNotice(message);
+              }}
+            />
           )}
 
           {tab === 'profiles' && (
@@ -1176,24 +1595,51 @@ export default function App() {
                   <h2>Execution profiles</h2>
                   <p>Shared defaults for each complexity. Individual overrides take precedence.</p>
                 </div>
-                <button className="button subtle" onClick={() => setModal('reset')}>
-                  <RotateCcw size={15} />
-                  Reset parameters
-                </button>
+                <div className="button-row">
+                  <button
+                    className="button subtle"
+                    onClick={() => {
+                      setCategoryName('');
+                      setCategoryBase('simple');
+                      setCategoryProfile(clone(estimate.profiles.simple));
+                      setCategoryError('');
+                      setModal('category');
+                    }}
+                  >
+                    <Plus size={15} />
+                    Add custom category
+                  </button>
+                  <button className="button subtle" onClick={() => setModal('reset')}>
+                    <RotateCcw size={15} />
+                    Reset parameters
+                  </button>
+                </div>
               </div>
               <div className="profile-grid">
-                {complexities.map((c) => (
+                {categoryKeys.map((c) => (
                   <article className="profile-card" key={c}>
                     <div className="profile-title">
-                      <span className={`complexity ${c}`}>{c}</span>
-                      <span>
-                        {estimate.agents
-                          .filter((r) => r.complexity === c)
-                          .reduce((sum, r) => sum + r.count, 0)}{' '}
-                        agents
-                      </span>
+                      <span className={`complexity ${categoryClass(c)}`}>{c}</span>
+                      <div className="profile-meta">
+                        <span>
+                          {estimate.agents
+                            .filter((r) => r.complexity === c)
+                            .reduce((sum, r) => sum + r.count, 0)}{' '}
+                          agents
+                        </span>
+                        {!complexities.includes(c as (typeof complexities)[number]) && (
+                          <button
+                            className="text-button"
+                            aria-label={`Delete ${c}`}
+                            onClick={() => openDeleteCategory(c)}
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <h3>{descriptions[c]}</h3>
+                    <h3>{descriptions[c as keyof typeof descriptions] || 'Custom execution profile'}</h3>
                     <ExecutionFields
                       value={estimate.profiles[c]}
                       prices={available}
@@ -1206,6 +1652,45 @@ export default function App() {
                   </article>
                 ))}
               </div>
+              {globalCategories.some(
+                (category) =>
+                  !Object.keys(estimate.profiles).some(
+                    (name) => name.toLowerCase() === category.name.toLowerCase(),
+                  ),
+              ) && (
+                <div className="panel-footnote">
+                  <CircleHelp size={16} />
+                  <span>
+                    Available globally for this estimate:{' '}
+                    {globalCategories
+                      .filter(
+                        (category) =>
+                          !Object.keys(estimate.profiles).some(
+                            (name) => name.toLowerCase() === category.name.toLowerCase(),
+                          ),
+                      )
+                      .map((category) => (
+                        <span className="global-category-actions" key={category.name}>
+                          <button
+                            className="text-button"
+                            disabled={categoryKeys.length >= 53}
+                            onClick={() => {
+                              update((next) => {
+                                next.profiles[category.name] = clone(category.profile);
+                              });
+                              setNotice(`${category.name} is now available to agents in this estimate.`);
+                            }}
+                          >
+                            Use {category.name}
+                          </button>
+                          <button className="text-button" onClick={() => openDeleteCategory(category.name)}>
+                            Delete {category.name}
+                          </button>
+                        </span>
+                      ))}
+                  </span>
+                </div>
+              )}
               <div className="panel-footnote">
                 <CircleHelp size={16} />
                 Cache writes use the selected short-duration/base rate. Add cache storage charges separately.
@@ -1402,6 +1887,109 @@ export default function App() {
             </section>
           )}
 
+          {tab === 'harness' && (
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <h2>Shared agent harness</h2>
+                  <p>
+                    One suite-level cost entry for orchestration, runtime, hosting, and operations. Monthly
+                    totals allocate by agent invocations.
+                  </p>
+                </div>
+              </div>
+              <div className="form-grid two">
+                <Field label="Harness name">
+                  <input
+                    value={estimate.harness.name}
+                    onChange={(e) =>
+                      update((n) => {
+                        n.harness.name = e.target.value;
+                      })
+                    }
+                  />
+                </Field>
+                <Field label="Harness type">
+                  <select
+                    value={estimate.harness.harness_type}
+                    onChange={(e) =>
+                      update((n) => {
+                        n.harness.harness_type = e.target.value as Estimate['harness']['harness_type'];
+                      })
+                    }
+                  >
+                    <option value="none">None (explicitly no cost)</option>
+                    <option value="managed_platform">Managed platform</option>
+                    <option value="self_built">Self-built</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </Field>
+                <Numeric
+                  label="Fixed platform fee (USD/month)"
+                  value={estimate.harness.fixed_monthly}
+                  onChange={(v) =>
+                    update((n) => {
+                      n.harness.fixed_monthly = v;
+                    })
+                  }
+                />
+                <Numeric
+                  label="USD per agent invocation"
+                  value={estimate.harness.per_invocation}
+                  onChange={(v) =>
+                    update((n) => {
+                      n.harness.per_invocation = v;
+                    })
+                  }
+                />
+                <Numeric
+                  label="USD per step execution"
+                  value={estimate.harness.per_step_execution}
+                  onChange={(v) =>
+                    update((n) => {
+                      n.harness.per_step_execution = v;
+                    })
+                  }
+                />
+                <Field label="Cost per completed use case">
+                  <select
+                    value={estimate.harness.include_in_cost_per_use_case ? 'include' : 'exclude'}
+                    onChange={(e) =>
+                      update((n) => {
+                        n.harness.include_in_cost_per_use_case = e.target.value === 'include';
+                      })
+                    }
+                  >
+                    <option value="include">Include allocated harness</option>
+                    <option value="exclude">Exclude harness</option>
+                  </select>
+                </Field>
+              </div>
+              <p className="muted small">
+                The fixed fee remains in the suite total at zero volume. Allocation changes unit economics
+                only.
+              </p>
+              <div className="totals-grid">
+                <div>
+                  <span>Monthly harness</span>
+                  <strong>{expected ? money(expected.harness_cost) : '—'}</strong>
+                </div>
+                <div>
+                  <span>Monthly invocations</span>
+                  <strong>{expected ? number(expected.harness_drivers.invocations) : '—'}</strong>
+                </div>
+                <div>
+                  <span>Monthly step executions</span>
+                  <strong>{expected ? number(expected.harness_drivers.step_executions) : '—'}</strong>
+                </div>
+                <div>
+                  <span>Suite total</span>
+                  <strong>{expected ? costLabel(expected.monthly_total, expected.complete) : '—'}</strong>
+                </div>
+              </div>
+            </section>
+          )}
+
           {tab === 'extras' && (
             <section className="panel">
               <div className="section-heading">
@@ -1495,8 +2083,20 @@ export default function App() {
                   <strong>{expected ? money(expected.llm_cost) : '—'}</strong>
                 </div>
                 <div>
+                  <span>Monthly tools</span>
+                  <strong>{expected ? money(expected.tool_cost) : '—'}</strong>
+                </div>
+                <div>
+                  <span>Monthly harness</span>
+                  <strong>{expected ? money(expected.harness_cost) : '—'}</strong>
+                </div>
+                <div>
                   <span>Additional monthly</span>
                   <strong>{money(result?.recurring || 0)}</strong>
+                </div>
+                <div>
+                  <span>Total monthly suite</span>
+                  <strong>{expected ? costLabel(expected.monthly_total, expected.complete) : '—'}</strong>
                 </div>
                 <div>
                   <span>First month, incl. one-time</span>
@@ -1616,6 +2216,7 @@ export default function App() {
                 ![quick.total, quick.simple, quick.medium, quick.high].every(
                   (v) => Number.isInteger(v) && v >= 0 && v <= 100000,
                 ) ||
+                quick.total > 5000 ||
                 complexities.some(
                   (c) =>
                     quick[c] > 0 &&
@@ -1630,6 +2231,14 @@ export default function App() {
                   n.agents = complexities.map((c) => ({
                     id: id(),
                     name: `${c[0].toUpperCase() + c.slice(1)} agents`,
+                    description: '',
+                    use_case_name: '',
+                    use_case_description: '',
+                    members: Array.from({ length: quick[c] }, (_, index) => ({
+                      id: id(),
+                      name: `${c[0].toUpperCase() + c.slice(1)} agent ${index + 1}`,
+                      business_use_case_description: pendingUseCase,
+                    })),
                     complexity: c,
                     count: quick[c],
                     invocations: '0',
@@ -1639,6 +2248,7 @@ export default function App() {
                     invocations_per_user_per_agent_per_day: quick[c] > 0 ? quick.daily[c].perUser : '0',
                     overrides: {},
                     steps: [],
+                    tool_costs: [],
                   }));
                   n.links = [];
                 });
@@ -1683,22 +2293,142 @@ export default function App() {
             });
             setEditing(null);
           }}
-          onSplit={(draft) => {
-            if (estimate.links.some((link) => link.parent_id === draft.id || link.child_id === draft.id)) {
-              setError('Remove this agent’s links before splitting the group.');
-              return;
-            }
-            const child = { ...clone(draft), id: id(), name: `${draft.name} · individual`, count: 1 };
-            setUndo(clone(estimate));
-            update((n) => {
-              const parent = n.agents.find((r) => r.id === editing.id)!;
-              parent.count -= 1;
-              n.agents.push(child);
-            });
-            setEditing(child);
-            setNotice('One agent separated from the group. Total agent count is unchanged.');
+          onSplit={async (draft) => {
+            await customizeOne(draft);
           }}
         />
+      )}
+
+      {modal === 'category' && (
+        <Modal title="Add custom complexity category" onClose={() => setModal(null)}>
+          <p className="muted small">
+            The new category is available throughout this local app. Its starter execution profile is copied
+            into each estimate that uses it; edits to one estimate's profile stay with that estimate.
+          </p>
+          <div className="form-grid">
+            <Field label="Custom category name">
+              <input
+                value={categoryName}
+                maxLength={80}
+                onChange={(event) => setCategoryName(event.target.value)}
+                placeholder="e.g. Research intensive"
+              />
+            </Field>
+            <Field label="Start from category">
+              <select
+                value={categoryBase}
+                onChange={(event) => {
+                  setCategoryBase(event.target.value);
+                  setCategoryProfile(clone(estimate.profiles[event.target.value]));
+                }}
+              >
+                {categoryKeys.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          {categoryProfile && (
+            <ExecutionFields
+              value={categoryProfile}
+              prices={available}
+              onChange={(patch) => setCategoryProfile({ ...categoryProfile, ...patch })}
+            />
+          )}
+          {categoryError && (
+            <p className="invalid-text" role="alert">
+              {categoryError}
+            </p>
+          )}
+          <div className="modal-actions">
+            <button className="button subtle" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button
+              className="button dark"
+              disabled={categoryBusy || !categoryName.trim()}
+              onClick={async () => {
+                const name = categoryName.trim();
+                if (categoryKeys.some((category) => category.toLowerCase() === name.toLowerCase())) {
+                  setCategoryError('Category names must be unique, ignoring case.');
+                  return;
+                }
+                if (categoryKeys.length >= 53) {
+                  setCategoryError('This estimate already has the maximum number of categories.');
+                  return;
+                }
+                const base = estimateRef.current;
+                const profile = categoryProfile;
+                if (!base || !profile) {
+                  setCategoryError('Choose an available category to copy.');
+                  return;
+                }
+                setCategoryBusy(true);
+                setCategoryError('');
+                try {
+                  const created = await api<GlobalCategory>('/categories', {
+                    name,
+                    profile: clone(profile),
+                  });
+                  setGlobalCategories((current) => [...current, created]);
+                  setDefaults((current) => {
+                    if (!current) return current;
+                    const next = clone(current);
+                    next.profiles[created.name] = clone(created.profile);
+                    return withSnapshots(next, catalog?.prices || emptyPrices);
+                  });
+                  if (estimateRef.current === base)
+                    update((next) => {
+                      next.profiles[created.name] = clone(created.profile);
+                    });
+                  setModal(null);
+                  setNotice(`${created.name} was created globally. Its assumptions can be edited here.`);
+                } catch (cause) {
+                  setCategoryError(cause instanceof Error ? cause.message : String(cause));
+                } finally {
+                  setCategoryBusy(false);
+                }
+              }}
+            >
+              Create category
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {modal === 'deleteCategory' && deletingCategory && (
+        <Modal title={`Delete ${deletingCategory}`} onClose={() => setModal(null)}>
+          <p>
+            {deletingGlobalCategory
+              ? 'Delete this global starter from new estimates and remove its unused profile from this draft. Saved estimates keep their existing snapshots.'
+              : 'Remove this historical custom profile from the current draft. Save the estimate to persist the change.'}
+          </p>
+          {deletingAssignments.length > 0 && (
+            <p className="invalid-text" role="alert">
+              Reassign these agents before deleting {deletingCategory}:{' '}
+              {deletingAssignments.map((row) => `${row.name} (${row.count})`).join(', ')}.
+            </p>
+          )}
+          {deleteCategoryError && (
+            <p className="invalid-text" role="alert">
+              {deleteCategoryError}
+            </p>
+          )}
+          <div className="modal-actions">
+            <button className="button subtle" onClick={() => setModal(null)}>
+              Cancel
+            </button>
+            <button
+              className="button dark"
+              disabled={deleteCategoryBusy || deletingAssignments.length > 0}
+              onClick={() => void deleteCustomCategory()}
+            >
+              Delete category
+            </button>
+          </div>
+        </Modal>
       )}
 
       {modal === 'custom' && (
@@ -1755,9 +2485,9 @@ export default function App() {
       {modal === 'reset' && (
         <Modal title="Reset execution parameters" onClose={() => setModal(null)}>
           <p>
-            Restore all three profiles to the starter calls, token sizes, retry rates and cache assumptions.
-            Model choices, agent names/counts, workload inputs, agent links, custom rates and additional costs
-            are preserved.
+            Restore predefined and globally defined category profiles to their starter calls, token sizes,
+            retry rates and cache assumptions. Model choices, agent names/counts, workload inputs, agent
+            links, custom rates and additional costs are preserved.
           </p>
           <label className="checkbox-field">
             <input
@@ -1783,8 +2513,12 @@ export default function App() {
               onClick={() => {
                 setUndo(clone(estimate));
                 update((n) => {
-                  for (const c of complexities)
-                    n.profiles[c] = { ...clone(defaults.profiles[c]), model_id: n.profiles[c].model_id };
+                  for (const c of Object.keys(n.profiles)) {
+                    const starter =
+                      defaults.profiles[c] ||
+                      globalCategories.find((category) => category.name === c)?.profile;
+                    if (starter) n.profiles[c] = { ...clone(starter), model_id: n.profiles[c].model_id };
+                  }
                   if (clearOverrides) {
                     n.agents.forEach((r) => {
                       r.overrides = r.overrides.model_id != null ? { model_id: r.overrides.model_id } : {};

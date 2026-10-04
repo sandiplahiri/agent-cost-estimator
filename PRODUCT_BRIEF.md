@@ -20,8 +20,20 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up decision:** Model agent-to-agent work as explicit invocation links. A link records trigger probability and child invocations per trigger. A linked child uses derived volume in place of its entered direct volume; existing direct inputs are retained for recovery. Reject unbounded cycles. Keep normal model-call cycles and retries separate from child-agent invocations.
 
+**Follow-up confirmed decision (2026-10-03):** Put graph creation and agent-to-agent work in a dedicated **Agent suite graph** view in the left navigation. Do not embed the graph panel in Suite planner. Suite planner remains the inventory and budget review view; both views use the same estimate, preserve unsaved edits when switching, and share save/export actions. The graph view provides an action to add an agent when the graph is empty.
+
+**Follow-up confirmed decision (2026-10-03):** Simple, medium, and high remain the predefined complexity categories. Users may define additional complexity categories globally and assign agents to them. Each custom category needs a unique name, including against predefined category names. Custom categories participate in the same category usage and cost summaries as the predefined categories; the earlier three-category summary decisions extend to every defined category.
+
+**Follow-up confirmed decision:** Users may delete a custom complexity category/profile only when no agent is assigned to it. A global deletion must account for assignments in the current draft and saved estimates. Predefined categories cannot be deleted. If a category is in use, block deletion and identify the assignments that need to be changed.
+
 ## Confirmed requirements
 
+- Support cost estimates for a single agent through a suite of agents.
+- Let users begin with an initial set of estimation assumptions and progressively fine-tune those assumptions as they learn more about the agents and workload.
+- Tie each agent to a business use case.
+- Give every agent in a newly defined suite its own unique, editable name and ID plus a short, editable business use case description. Counted category groups must retain these properties for every member; generated descriptions must clearly indicate when the real use case still needs definition.
+- Provide simple, medium, and high as predefined complexity categories. Allow users to define additional, globally available complexity categories with unique names and assign agents to them. All categories broadly characterize token consumption, not business use cases or domains.
+- Allow deletion of a custom complexity category/profile only when it has no assigned agents, including in saved estimates. Preserve predefined categories and explain any blocked deletion.
 - Run as a local web application initially.
 - Focus on detailed LLM spending; allow separate additional cost items.
 - Support major model providers.
@@ -30,7 +42,7 @@ This brief records the discovery interview. Confirmed requirements are distingui
 - Accept monthly invocation counts entered manually for each agent.
 - Provide quick entry using total agent count, counts assigned to simple/medium/high complexity, and monthly invocations per agent within each group.
 - Allow individual overrides and spreadsheet-based agent definitions.
-- Define complexity using concrete execution behavior, with editable model choices and execution parameters.
+- Define every complexity category using concrete execution behavior, with editable model choices and execution parameters.
 - Start with aggregate execution assumptions; support optional detailed workflows for expensive or uncertain portions.
 - Provide a reset-all-parameters feature.
 - Measuring live agents is a future feature.
@@ -39,7 +51,7 @@ This brief records the discovery interview. Confirmed requirements are distingui
 ## Proposed initial experience
 
 1. Create a named estimate and enter the total number of agents, or import a spreadsheet.
-2. Distribute agents across complexity groups. Group counts must sum to the total.
+2. Distribute agents across predefined or globally defined custom complexity groups. Group counts must sum to the total.
 3. Select a provider/model and monthly invocations per agent for each group.
 4. Review editable execution assumptions and optionally customize individual agents.
 5. Compare low, expected, and high scenarios and inspect what changed.
@@ -97,7 +109,7 @@ monthly_agent_invocations = business_events_per_month
                           * invocations_per_participating_event
 ```
 
-Architects supply these mappings explicitly. The app does not infer business logic from a domain label.
+Architects supply these mappings explicitly. The app does not infer business logic from a domain label. This optional volume calculation is separate from the required association between each agent and its business use case.
 
 ## Proposed scenarios
 
@@ -126,7 +138,7 @@ Sources reviewed during discovery:
 
 ## Spreadsheet import and Excel export
 
-Provide a downloadable import template. Proposed fields: agent/group name, optional domain/use case, agent count, complexity profile, monthly invocations per agent, provider/model, and optional execution overrides. Named individual rows have count one. Imported group rows and individual exceptions must have explicit ownership to avoid duplication.
+Provide a downloadable import template. Proposed fields: agent/group name, agent ID for individual rows, business use case description, agent count, token-consumption category, monthly invocations per agent, provider/model, and optional execution overrides. Named individual rows have count one. Counted group rows generate an editable identity for each member. Imported group rows and individual exceptions must have explicit ownership to avoid duplication.
 
 Validate imports with row/column-specific errors and a preview before applying changes. Exported user text must remain literal text rather than accidentally becoming Excel formulas.
 

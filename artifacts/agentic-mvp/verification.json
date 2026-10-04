@@ -1,0 +1,41 @@
+{
+  "command": "npm run test:e2e",
+  "fixture": "Architect-authored prices, not provider benchmarks; input.json",
+  "expected": {
+    "completions": 100,
+    "childCompletions": 50,
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.675,
+    "total": 13.305,
+    "loadedPerRoot": 0.13305
+  },
+  "actual": {
+    "completions": 100,
+    "childCompletions": 50,
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.675,
+    "total": 13.305,
+    "loadedPerRoot": 0.13305
+  },
+  "exported": {
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.675,
+    "total": 13.305
+  },
+  "checks": [
+    "calculate",
+    "validation",
+    "FX conversion",
+    "cycle path",
+    "save/open",
+    "UI unit economics",
+    "copy without volume",
+    "model probability edit",
+    "model row add with zero probability",
+    "JSON snapshot round trip",
+    "Excel formula recalculation"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "command": "npx playwright test e2e/agent-identities.spec.ts",
+  "fixture": "Two simple agents, one user per agent per day, one invocation per user per day, 30 planning days",
+  "expected": {
+    "memberCount": 2,
+    "monthlyInvocations": 60,
+    "workbookIdentityRows": 2
+  },
+  "actual": {
+    "memberCount": 2,
+    "monthlyInvocations": 60,
+    "workbookIdentityRows": 2
+  },
+  "duplicateIdRejected": true,
+  "duplicateNameRejected": true,
+  "legacyMigrationNamesUnique": true,
+  "failures": []
+}

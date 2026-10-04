@@ -1,0 +1,299 @@
+{
+  "schema_version": 7,
+  "defaults_version": 1,
+  "id": "agentic-fixture-1791077307337",
+  "name": "Agentic fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": ""
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": ""
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0",
+      "model_id": ""
+    }
+  },
+  "agents": [
+    {
+      "id": "router",
+      "name": "Resolve inquiry",
+      "description": "",
+      "use_case_name": "Resolve inquiry",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "router",
+          "name": "Resolve inquiry",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "3.33333333333333333333333333333333333333333333333333",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [
+        {
+          "calls": "0",
+          "input_tokens": "0",
+          "output_tokens": "0",
+          "retry_rate": "0",
+          "cache_fraction": "0",
+          "cache_write_fraction": "0",
+          "model_id": "",
+          "id": "classify",
+          "name": "Classify",
+          "execution_probability": "1",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "100",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "Fixture A",
+              "id": "primary",
+              "role": "reasoning",
+              "probability": "1",
+              "exclusive_group": ""
+            }
+          ]
+        },
+        {
+          "calls": "0",
+          "input_tokens": "0",
+          "output_tokens": "0",
+          "retry_rate": "0",
+          "cache_fraction": "0",
+          "cache_write_fraction": "0",
+          "model_id": "",
+          "id": "verify",
+          "name": "Verify",
+          "execution_probability": "0.25",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "200",
+              "output_tokens": "50",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "Fixture A",
+              "id": "optional",
+              "role": "reasoning",
+              "probability": "0.5",
+              "exclusive_group": ""
+            }
+          ]
+        }
+      ],
+      "tool_costs": [
+        {
+          "id": "search-tool",
+          "name": "Search API",
+          "unit_cost": "0.1",
+          "expected_units_per_invocation": "1",
+          "probability": "0.5",
+          "step_id": "verify"
+        }
+      ]
+    },
+    {
+      "id": "specialist",
+      "name": "Research documents",
+      "description": "",
+      "use_case_name": "Research documents",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "specialist",
+          "name": "Research documents",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [
+        {
+          "calls": "0",
+          "input_tokens": "0",
+          "output_tokens": "0",
+          "retry_rate": "0",
+          "cache_fraction": "0",
+          "cache_write_fraction": "0",
+          "model_id": "",
+          "id": "research",
+          "name": "Research",
+          "execution_probability": "1",
+          "model_calls": [
+            {
+              "calls": "2",
+              "input_tokens": "500",
+              "output_tokens": "100",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "Fixture B",
+              "id": "research-call",
+              "role": "reasoning",
+              "probability": "1",
+              "exclusive_group": ""
+            }
+          ]
+        }
+      ],
+      "tool_costs": []
+    }
+  ],
+  "links": [
+    {
+      "id": "delegation",
+      "parent_id": "router",
+      "child_id": "specialist",
+      "trigger_probability": "1",
+      "invocations_per_trigger": "2",
+      "branch_group": "",
+      "branch_event_id": null,
+      "step_id": "verify",
+      "low": {
+        "trigger_probability": null,
+        "invocations_per_trigger": null
+      },
+      "high": {
+        "trigger_probability": null,
+        "invocations_per_trigger": null
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Fixture A": {
+      "id": "Fixture A",
+      "provider": "Fixture vendor A",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Versioned architect fixture",
+      "retrieved_at": "2026-10-02",
+      "custom": true,
+      "unsupported": []
+    },
+    "Fixture B": {
+      "id": "Fixture B",
+      "provider": "Fixture vendor B",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "1",
+      "output": "4",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Versioned architect fixture",
+      "retrieved_at": "2026-10-02",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Shared runtime",
+    "harness_type": "managed_platform",
+    "fixed_monthly": "10",
+    "per_invocation": "0.01",
+    "per_step_execution": "0.001",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

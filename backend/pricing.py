@@ -10,7 +10,7 @@ from urllib.request import urlopen
 from .models import Price, Tier
 
 CATALOG_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
-NORMALIZER_VERSION = 2
+NORMALIZER_VERSION = 3
 PRICE_KEYS = {
     "input": "input_cost_per_token",
     "output": "output_cost_per_token",
@@ -58,6 +58,12 @@ def normalize(raw: dict, source: str) -> dict:
             price = Price(
                 id=model_id,
                 provider=info.get("litellm_provider") or model_id.split("/")[0],
+                source_type=(
+                    "cloud_marketplace"
+                    if info.get("litellm_provider") in ("bedrock", "azure", "vertex_ai")
+                    else "vendor_api"
+                ),
+                channel=info.get("litellm_provider") or "",
                 **base_rates,
                 tiers=tiers,
                 max_input=info.get("max_input_tokens"),

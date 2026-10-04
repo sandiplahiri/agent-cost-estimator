@@ -1,0 +1,21 @@
+{
+  "command": "npx playwright test e2e/category-deletion.spec.ts",
+  "pricing": "USD 2/M input and USD 8/M output; 30 invocations/month; no retries",
+  "expected": {
+    "beforeCustomUsd": 0.36,
+    "afterSimpleUsd": 0.24
+  },
+  "actual": {
+    "beforeCustomUsd": 0.36,
+    "afterSimpleWorkbookUsd": 0.24
+  },
+  "draftAssignmentBlocked": true,
+  "savedAssignmentBlocked": true,
+  "predefinedBlocked": true,
+  "globalStarterRemoved": true,
+  "savedUnusedSnapshotPreserved": true,
+  "historicalLocalProfileRemovedOnSave": true,
+  "repeatedDeletionRejected": true,
+  "workbookRecalculated": true,
+  "failures": []
+}

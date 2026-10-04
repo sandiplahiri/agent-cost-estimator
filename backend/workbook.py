@@ -30,6 +30,8 @@ IMPORT_COLUMNS = [
     "invocations",
     *OVERRIDE_COLUMNS,
     *VOLUME_COLUMNS,
+    "agent_id",
+    "business_use_case_description",
 ]
 
 
@@ -68,13 +70,31 @@ def import_template():
     ws = wb.active
     ws.title = "Agents"
     literal(ws, IMPORT_COLUMNS)
-    literal(ws, ["Document classification", "simple", 1, 0, *([""] * 7), "daily_users", 1, 1])
+    literal(
+        ws,
+        [
+            "Document classification",
+            "simple",
+            1,
+            0,
+            *([""] * 7),
+            "daily_users",
+            1,
+            1,
+            "",
+            "Classifies incoming documents",
+        ],
+    )
     notes = wb.create_sheet("Instructions")
     literal(notes, ["Field", "Meaning"])
     for key, value in [
         (
             "Required",
-            "New rows: name, complexity, count, volume_source=daily_users, users_per_day, and invocations_per_user_per_agent_per_day. Zero is valid; blanks are missing.",
+            "New rows: name, complexity, count, volume_source=daily_users, users_per_day, and invocations_per_user_per_agent_per_day. Zero is valid; blanks are missing. Supply business_use_case_description when known; blanks are labeled pending definition.",
+        ),
+        (
+            "Agent identity",
+            "A count-one row may provide agent_id; otherwise a unique ID is generated. Counted groups generate one named, identified member per agent. Edit individual identities in the app. A missing description is labeled pending definition.",
         ),
         ("model_id", "Exact catalog or custom model ID. Blank inherits the profile model."),
         (
@@ -93,6 +113,10 @@ def import_template():
         (
             "Ownership",
             "Each row is a disjoint direct-volume group. This import replaces the current agent list and its links after preview. Derived links must be rebuilt in the app.",
+        ),
+        (
+            "Complexity",
+            "Use simple, medium, high, or a custom complexity category already attached to the current estimate. Categories classify token consumption, not business use cases.",
         ),
         ("Safety", "Values only: formulas, macros and external links are not supported. Maximum 1,000 rows."),
     ]:
@@ -149,6 +173,22 @@ def read_import(data: bytes):
             if source == "daily_users" and "invocations" not in values:
                 values["invocations"] = 0
             overrides = {k: values.pop(k) for k in list(values) if k in OVERRIDE_COLUMNS}
+            agent_id = values.pop("agent_id", None)
+            business_description = values.pop("business_use_case_description", None)
+            if agent_id and values.get("count") != 1:
+                errors.append(f"Row {index}, agent_id: provide an ID only when count is 1.")
+                continue
+            if business_description:
+                values["use_case_description"] = business_description
+            if agent_id:
+                values["members"] = [
+                    {
+                        "id": str(agent_id),
+                        "name": str(values["name"]),
+                        "business_use_case_description": business_description
+                        or "Business use case pending description",
+                    }
+                ]
             try:
                 agents.append(AgentRow(**values, overrides=overrides).model_dump(mode="json"))
             except ValidationError as exc:
@@ -157,6 +197,12 @@ def read_import(data: bytes):
                 )
         if not agents and not errors:
             errors.append("No agent rows found.")
+        member_ids = [member["id"] for row in agents for member in row["members"]]
+        member_names = [member["name"].strip().casefold() for row in agents for member in row["members"]]
+        if len(member_ids) != len(set(member_ids)):
+            errors.append("Agent IDs must be unique across imported rows.")
+        if len(member_names) != len(set(member_names)):
+            errors.append("Agent names must be unique across imported rows.")
     finally:
         wb.close()
     return {"agents": agents if not errors else [], "errors": errors}
@@ -178,6 +224,8 @@ def export_estimate(estimate: Estimate):
             "First month USD",
             "First year USD",
             "Status",
+            "Tool monthly USD",
+            "Harness monthly USD",
         ],
     )
     calc = wb.create_sheet("Calculations")
@@ -217,6 +265,10 @@ def export_estimate(estimate: Estimate):
         "Uncached input tokens/month",
         "Cached read tokens/month",
         "Cache write tokens/month",
+        "Raw calls/occurrence after scenario",
+        "Step x model probability",
+        "Step ID",
+        "Model role",
     ]
     literal(calc, columns)
     for s in result["scenarios"]:
@@ -263,10 +315,15 @@ def export_estimate(estimate: Estimate):
                     None,
                     None,
                     None,
+                    float(line["raw_calls_per_invocation"]),
+                    float(line["execution_probability"]),
+                    line["step_id"],
+                    line["role"],
                 ],
             )
             r = calc.max_row
             formulas = {
+                "G": f"AJ{r}*AK{r}",
                 "Q": f"E{r}*F{r}*G{r}*(1+H{r})",
                 "R": f"Q{r}*I{r}",
                 "S": f"Q{r}*J{r}",
@@ -301,11 +358,13 @@ def export_estimate(estimate: Estimate):
                 None,
                 None,
                 "Complete" if s["complete"] else "INCOMPLETE — known costs only",
+                None,
+                None,
             ],
         )
         r = summary.max_row
         summary[f"B{r}"] = f"=SUM(Calculations!X{start}:X{end})" if end >= start else "=0"
-        summary[f"D{r}"] = f"=B{r}+C{r}"
+        summary[f"D{r}"] = f"=B{r}+C{r}+I{r}+J{r}"
         summary[f"F{r}"] = f"=D{r}+E{r}"
         summary[f"G{r}"] = f"=D{r}*12+E{r}"
 
@@ -330,8 +389,17 @@ def export_estimate(estimate: Estimate):
                     if row.invocations_per_user_per_agent_per_day is not None
                     else None
                 ),
+                row.members[0].id if row.count == 1 else "",
+                row.members[0].business_use_case_description if row.count == 1 else "",
             ],
         )
+    identities = wb.create_sheet("Agent identities")
+    literal(identities, ["Group ID", "Group name", "Agent ID", "Agent name", "Business use case description"])
+    for row in estimate.agents:
+        for member in row.members:
+            literal(
+                identities, [row.id, row.name, member.id, member.name, member.business_use_case_description]
+            )
     volume = wb.create_sheet("Volume")
     literal(
         volume,
@@ -394,6 +462,7 @@ def export_estimate(estimate: Estimate):
             "Link ID",
             "Parent row ID",
             "Child row ID",
+            "Step execution probability",
         ],
     )
     row_names = {row.id: row.name for row in estimate.agents}
@@ -415,14 +484,124 @@ def export_estimate(estimate: Estimate):
                     link.id,
                     link.parent_id,
                     link.child_id,
+                    float(contribution["step_probability"]),
                 ],
             )
             r = links.max_row
-            links[f"H{r}"] = f"=E{r}*F{r}*G{r}"
+            links[f"H{r}"] = f"=E{r}*F{r}*G{r}*M{r}"
+    tools = wb.create_sheet("Tool costs")
+    literal(
+        tools,
+        [
+            "Scenario",
+            "Agent",
+            "Tool",
+            "Monthly invocations",
+            "Step probability",
+            "Tool probability",
+            "Units/invocation",
+            "USD/unit",
+            "Monthly USD",
+            "Step ID",
+        ],
+    )
+    harness = wb.create_sheet("Harness")
+    literal(
+        harness,
+        [
+            "Scenario",
+            "Harness type",
+            "Name",
+            "Fixed USD/month",
+            "Invocations/month",
+            "USD/invocation",
+            "Step executions/month",
+            "USD/step",
+            "Monthly USD",
+            "Allocation",
+            "Include in use-case cost",
+        ],
+    )
+    for scenario in result["scenarios"]:
+        for item in scenario["tool_lines"]:
+            literal(
+                tools,
+                [
+                    scenario["name"],
+                    item["agent"],
+                    item["name"],
+                    float(scenario["volumes"][item["row_id"]]["total"]),
+                    float(item["step_probability"]),
+                    float(item["probability"]),
+                    float(item["expected_units_per_invocation"]),
+                    float(item["unit_cost"]),
+                    None,
+                    item["step_id"],
+                ],
+            )
+            r = tools.max_row
+            tools[f"I{r}"] = f"=D{r}*E{r}*F{r}*G{r}*H{r}"
+        literal(
+            harness,
+            [
+                scenario["name"],
+                estimate.harness.harness_type,
+                estimate.harness.name,
+                float(estimate.harness.fixed_monthly),
+                float(scenario["harness_drivers"]["invocations"]),
+                float(estimate.harness.per_invocation),
+                float(scenario["harness_drivers"]["step_executions"]),
+                float(estimate.harness.per_step_execution),
+                None,
+                estimate.harness.allocation,
+                estimate.harness.include_in_cost_per_use_case,
+            ],
+        )
+        r = harness.max_row
+        harness[f"I{r}"] = f'=IF(B{r}="none",0,D{r}+E{r}*F{r}+G{r}*H{r})'
+        summary_row = ["Low", "Expected", "High"].index(scenario["name"]) + 2
+        summary[f"I{summary_row}"] = (
+            f"=SUMIF('Tool costs'!A2:A{tools.max_row},A{summary_row},'Tool costs'!I2:I{tools.max_row})"
+            if tools.max_row >= 2
+            else "=0"
+        )
+        summary[f"J{summary_row}"] = f"=Harness!I{r}"
+    use_cases = wb.create_sheet("Use cases")
+    literal(
+        use_cases,
+        [
+            "Scenario",
+            "Agent",
+            "Use case",
+            "Monthly completions",
+            "Direct USD/completion",
+            "Harness USD/completion",
+            "Loaded USD/completion",
+            "Status",
+            "Calculation path",
+        ],
+    )
+    for scenario in result["scenarios"]:
+        for row in estimate.agents:
+            item = scenario["use_case_costs"][row.id]
+            literal(
+                use_cases,
+                [
+                    scenario["name"],
+                    row.name,
+                    item["name"],
+                    float(item["monthly_invocations"]),
+                    float(item["direct_cost_per_completion"]),
+                    float(item["harness_per_completion"]),
+                    float(item["loaded_cost_per_completion"]),
+                    "Complete" if item["complete"] else "INCOMPLETE — known costs only",
+                    "Precomputed DAG rollup; inputs and direct calculations in other sheets",
+                ],
+            )
     categories = wb.create_sheet("Category totals")
     literal(categories, ["Complexity", "Total monthly invocations all agents"])
     last_volume_row = volume.max_row
-    for complexity in ("simple", "medium", "high"):
+    for complexity in estimate.profiles:
         literal(categories, [complexity, None])
         r = categories.max_row
         categories[f"B{r}"] = (
@@ -443,7 +622,7 @@ def export_estimate(estimate: Estimate):
         ],
     )
     last_calc_row = calc.max_row
-    for complexity in ("simple", "medium", "high"):
+    for complexity in estimate.profiles:
         literal(category_usage, [complexity, None, None, None, None, float(PLANNING_DAYS_PER_MONTH)])
         r = category_usage.max_row
         for col, token_col in (("B", "R"), ("C", "S")):
@@ -471,7 +650,7 @@ def export_estimate(estimate: Estimate):
             "Planning days/month",
         ],
     )
-    for complexity in ("simple", "medium", "high"):
+    for complexity in estimate.profiles:
         first = category_costs.max_row + 1
         status = (
             "Complete"
@@ -535,7 +714,7 @@ def export_estimate(estimate: Estimate):
             "Status",
         ],
     )
-    for index, complexity in enumerate(("simple", "medium", "high")):
+    for index, complexity in enumerate(estimate.profiles):
         category_row = index + 2
         first_cost_row = index * 5 + 2
         status = (
@@ -577,15 +756,22 @@ def export_estimate(estimate: Estimate):
         [
             "Model ID",
             "Provider",
-            "Input USD/M",
-            "Output USD/M",
-            "Cache read USD/M",
-            "Cache write USD/M",
+            "Input original currency/M",
+            "Output original currency/M",
+            "Cache read original currency/M",
+            "Cache write original currency/M",
             "Source",
             "Retrieved at",
             "Custom",
             "Tier details",
             "Unsupported",
+            "Source type",
+            "Channel",
+            "Region",
+            "Original currency",
+            "USD per currency unit",
+            "FX source",
+            "FX retrieval date",
         ],
     )
     for p in estimate.prices.values():
@@ -603,6 +789,13 @@ def export_estimate(estimate: Estimate):
                 p.custom,
                 "; ".join(t.model_dump_json() for t in p.tiers),
                 ", ".join(p.unsupported),
+                p.source_type,
+                p.channel,
+                p.region,
+                p.currency,
+                float(p.fx_to_usd),
+                p.fx_source,
+                p.fx_retrieved_at,
             ],
         )
     notes = wb.create_sheet("Read me")
@@ -649,7 +842,7 @@ def export_estimate(estimate: Estimate):
         ),
         (
             "Scope",
-            "Text tokens, including total billable reasoning in output. Cache writes use supplied rates. Tools, cache storage, multimodal charges require additional items/custom rates.",
+            "Text tokens, including total billable reasoning in output. Cache writes use supplied rates. Per-agent tool rows and the simple suite harness are separate. Cache storage, multimodal charges, and advanced platform billing require additional items/custom rates.",
         ),
         (
             "Scenarios",
@@ -657,7 +850,15 @@ def export_estimate(estimate: Estimate):
         ),
         (
             "Detailed workflows",
-            "Each step appears in Calculations and replaces the aggregate. The Agents sheet is an aggregate import template, not a lossless backup of detailed steps.",
+            "Each model row appears in Calculations and replaces the aggregate. Column G is raw calls in AJ multiplied by step x model probability in AK; edit AJ/AK to recalculate. The Agents sheet is an aggregate import template, not a lossless backup of detailed steps.",
+        ),
+        (
+            "Tools, harness, and use cases",
+            "Tool costs and Harness feed the Summary recurring total through formulas. Use cases stores the precomputed fully loaded DAG cost per completion; edit the graph in the app and re-export. A fixed harness charge stays in the suite total even at zero workload.",
+        ),
+        (
+            "Original currency and FX",
+            "Pricing records original-currency rates and the user-supplied USD conversion snapshot. Calculations stores the selected effective USD rates; changing FX in Pricing does not update Calculations until re-export.",
         ),
         ("Version", f"Schema {estimate.schema_version}; defaults {estimate.defaults_version}"),
     ]:

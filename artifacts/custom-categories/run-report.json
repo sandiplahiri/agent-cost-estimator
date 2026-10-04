@@ -1,0 +1,24 @@
+{
+  "command": "npx playwright test e2e/custom-categories.spec.ts",
+  "fixture": "Fixed custom model USD 2/M input and USD 8/M output; 30 invocations/agent/month; no retries or cache",
+  "expected": {
+    "simpleUsd": 0.24,
+    "customUsd": 0.36,
+    "suiteUsd": 0.6,
+    "customTokens": 90000
+  },
+  "actual": {
+    "simpleUsd": 0.24,
+    "customUsd": 0.36,
+    "suiteUsd": 0.6,
+    "customTokens": 90000
+  },
+  "duplicateNamesRejected": true,
+  "missingCategoryRejected": true,
+  "olderEstimateOptedIn": true,
+  "resetAndUndoVerified": true,
+  "savedSnapshotReopened": true,
+  "workbookRecalculated": true,
+  "importPreviewAccepted": true,
+  "failures": []
+}

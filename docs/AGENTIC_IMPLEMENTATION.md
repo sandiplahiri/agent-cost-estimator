@@ -1,0 +1,29 @@
+# Agentic feature implementation status
+
+The [feature definition](features/agentic-system-cost-modeler.md) is a draft roadmap with M1, M2, M3, and future work. This file records what the local app currently implements. Illustrative fixture prices and execution profiles are planning inputs, not measured benchmarks.
+
+## Delivered
+
+- Version 5 estimates retain use-case names, ordered steps, per-step execution probabilities, model rows with independent or exclusive probabilities, model-specific call and token profiles, step-scoped tool costs, and step-scoped agent links. Split members of an exclusive child branch share a branch event so its probability is counted once. Older estimates migrate without repricing.
+- Decimal expected-value calculation uses one local price snapshot for UI, saved estimates, scenarios, JSON, and Excel. Agent invocations propagate once through a validated DAG. A failed cycle reports its path; missing prices remain incomplete.
+- Fully loaded cost per completed use case includes expected child work. The suite result separates model, tool, harness, and additional costs. A single explicit harness supports fixed monthly, per-invocation, and per-step charges, allocated by invocations for unit-economics display.
+- The agent editor supports copying and reordering steps, editing per-step model probabilities and tool costs, and copying an agent with independent fields and outgoing links. Copies begin with zero direct workload and no incoming links. A linked group can be split into one independently editable member while incoming and outgoing work are partitioned without changing totals.
+- A dedicated **Agent suite graph** view in the left navigation places agent nodes by dependency depth and shows use cases, step summaries, complexity, workload, and model cost. The Suite planner retains the inventory and budget breakdowns without embedding the graph. Selecting an individual node opens inline controls for its use case, complexity, direct workload, model, and basic execution assumptions; validation applies the change to that row alone. An unapplied inspector draft survives tab navigation within the same estimate. Changing individual complexity freezes its effective aggregate model and execution values as row overrides. Group nodes distinguish editing all members from splitting one for individual customization. Detailed step and model rows use the workflow editor. The adjacent link editor previews all scenario changes before applying them.
+- Custom price snapshots retain source type, channel, region, original currency, and a user-entered sourced USD conversion. The app displays expected model spend by vendor. LiteLLM remains an offline catalog adapter unless refresh is explicitly requested.
+- Versioned JSON import/export preserves the complete estimate. The Excel workbook includes formula-driven model, tool, and harness totals, plus a traceable precomputed use-case DAG rollup. The existing spreadsheet import remains an aggregate inventory workflow.
+
+## Remaining PRD scope
+
+- **M1 presentation and convenience:** direct drag-to-connect, canvas zoom/minimap, template library, copy options/subtree/cross-project copy, a changes-from-source diff, richer cost charts, and a searchable catalog manager are not implemented. The canvas uses an automatic dependency layout with selectable nodes and an accessible link inspector.
+- **M1/M2 calculation extensions:** workspace complexity multipliers, step-specific complexity, context carryover, separate reasoning and multimodal billing, per-request fees, self-hosted/provisioned capacity, monthly volume tiers, growth, and harness capacity/storage/labor/scaffold components are not implemented. Unsupported catalog billing rules remain visibly incomplete; use custom prices or separate additional costs only when the resulting approximation is acceptable.
+- **M2/M3 analysis:** call-tree explorer, Sankey, model swaps, ROI/value, Monte Carlo uncertainty, sensitivity tornado, scale curve, PDF, and share links are not implemented. Low/Expected/High are explicit planning scenarios, not confidence intervals.
+- A copied agent has no persisted source comparison. JSON import accepts this app's versioned estimate schema. The workbook precomputes derived graph volumes and loaded use-case costs; edit the graph in the app and re-export to recalculate them.
+
+## Calculation choices
+
+The app retains the existing 30-day planning month and profile execution defaults from `PRODUCT_BRIEF.md`. Explicit model rows in detailed steps replace aggregate profile calls; each row's expected calls are `step probability × model probability × calls per occurrence × scenario calls factor × (1 + additional attempt rate)`. Tool costs use their own probability and step probability. Step-scoped child links use the step probability once, before child fan-out. Exclusive groups validate their probability sum but use the same linear expected-cost arithmetic as independent rows. Correlation and execution-level sampling are outside the current model.
+
+Harness cost is `fixed monthly + per invocation × all agent invocations + per step × all step executions`. Its fixed fee remains in the suite total even at zero workload. Allocation by invocations changes unit costs only. A use-case cost is complete only when its own and descendant model pricing and volumes are complete. Vendor and per-use-case known subtotals are labeled partial when pricing is missing.
+Direct cost per completion is calculated from each model and tool row before monthly volume is applied, so a newly copied agent can show hypothetical unit economics while contributing zero to the monthly suite bill.
+
+The [calculation failure modes](AGENTIC_CALCULATION_FAILURE_MODES.md), [customization failure modes](AGENT_CUSTOMIZATION_FAILURE_MODES.md), and [E2E artifacts](../artifacts/agent-customization/verification.json) record independently calculated acceptance fixtures.
