@@ -1,7 +1,7 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "defaults_version": 1,
-  "id": "linked-customization-1791077309507",
+  "id": "linked-customization-1791140930275",
   "name": "Linked customization fixture",
   "notes": "",
   "profiles": {
@@ -11,8 +11,7 @@
       "output_tokens": "100",
       "retry_rate": "0",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "cache_write_fraction": "0"
     },
     "medium": {
       "calls": "4",
@@ -20,8 +19,7 @@
       "output_tokens": "1000",
       "retry_rate": "0.05",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     },
     "high": {
       "calls": "10",
@@ -29,8 +27,7 @@
       "output_tokens": "2000",
       "retry_rate": "0.10",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     }
   },
   "agents": [
@@ -47,7 +44,9 @@
       "prior_volume_source": null,
       "users_per_day": "1",
       "invocations_per_user_per_agent_per_day": "10",
-      "overrides": {},
+      "overrides": {
+        "model_id": "Fixture A"
+      },
       "steps": [],
       "tool_costs": []
     },
@@ -64,7 +63,9 @@
       "prior_volume_source": "daily_users",
       "users_per_day": "0",
       "invocations_per_user_per_agent_per_day": "0",
-      "overrides": {},
+      "overrides": {
+        "model_id": "Fixture A"
+      },
       "steps": [],
       "tool_costs": []
     },
@@ -81,7 +82,9 @@
       "prior_volume_source": "daily_users",
       "users_per_day": "0",
       "invocations_per_user_per_agent_per_day": "0",
-      "overrides": {},
+      "overrides": {
+        "model_id": "Fixture A"
+      },
       "steps": [],
       "tool_costs": []
     }

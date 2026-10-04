@@ -72,7 +72,7 @@ test('global custom category is assignable and reconciles through save, import a
   });
   expect(reserved.status()).toBe(422);
 
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');

@@ -54,7 +54,7 @@ import {
 
 type Tab = 'suite' | 'inventory' | 'graph' | 'profiles' | 'scenarios' | 'pricing' | 'harness' | 'extras';
 const tabs = [
-  { id: 'suite' as Tab, label: 'Suite planner', icon: LayoutDashboard },
+  { id: 'suite' as Tab, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory' as Tab, label: 'Agent inventory', icon: UsersRound },
   { id: 'graph' as Tab, label: 'Agent suite graph', icon: Network },
   { id: 'profiles' as Tab, label: 'Complexity profiles', icon: SlidersHorizontal },
@@ -1522,50 +1522,6 @@ export default function App() {
                   </div>
                 )}
               </section>
-              {expected && estimate.agents.length > 0 && (
-                <section className="panel" aria-label="Cost per completed use case">
-                  <div className="section-heading">
-                    <div>
-                      <h2>Cost per completed use case</h2>
-                      <p>
-                        One agent invocation completes one use case. Loaded cost includes expected child work
-                        {estimate.harness.include_in_cost_per_use_case ? ' and allocated harness' : ''}.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="table-scroll">
-                    <table className="agent-table">
-                      <thead>
-                        <tr>
-                          <th>AGENT</th>
-                          <th>USE CASE</th>
-                          <th>COMPLETIONS / MONTH</th>
-                          <th>DIRECT / COMPLETION</th>
-                          <th>HARNESS / COMPLETION</th>
-                          <th>LOADED / COMPLETION</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {estimate.agents.map((row) => {
-                          const item = expected.use_case_costs[row.id];
-                          return (
-                            <tr key={row.id}>
-                              <td>{row.name}</td>
-                              <td>{item?.name}</td>
-                              <td>{item ? displayVolume(item.monthly_invocations) : '—'}</td>
-                              <td>{item ? money(item.direct_cost_per_completion) : '—'}</td>
-                              <td>{item ? money(item.harness_per_completion) : '—'}</td>
-                              <td>
-                                {item ? costLabel(item.loaded_cost_per_completion, item.complete) : '—'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              )}
               {expected && expected.vendor_costs.length > 0 && (
                 <section className="panel" aria-label="Vendor spend breakdown">
                   <div className="section-heading">

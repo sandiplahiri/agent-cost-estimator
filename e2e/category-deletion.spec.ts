@@ -33,7 +33,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
   await addDialog.getByRole('button', { name: 'Create category' }).click();
   await expect(page.locator('.profile-card')).toHaveCount(4);
 
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('1');
@@ -99,7 +99,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
     .getByRole('dialog', { name: 'Saved estimates' })
     .getByRole('button', { name: /Category deletion fixture/ })
     .click();
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Edit Simple agents' }).click();
   await editor.getByLabel('Complexity').selectOption('simple');
   await editor.getByRole('button', { name: 'Apply changes' }).click();

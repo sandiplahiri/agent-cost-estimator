@@ -20,7 +20,9 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up decision:** Model agent-to-agent work as explicit invocation links. A link records trigger probability and child invocations per trigger. A linked child uses derived volume in place of its entered direct volume; existing direct inputs are retained for recovery. Reject unbounded cycles. Keep normal model-call cycles and retries separate from child-agent invocations.
 
-**Follow-up confirmed decision (2026-10-03):** Put graph creation and agent-to-agent work in a dedicated **Agent suite graph** view in the left navigation. Do not embed the graph panel in Suite planner. Suite planner remains the inventory and budget review view; both views use the same estimate, preserve unsaved edits when switching, and share save/export actions. The graph view provides an action to add an agent when the graph is empty.
+**Follow-up confirmed decision (2026-10-03), amended 2026-10-04:** Put graph creation and agent-to-agent work in a dedicated **Agent suite graph** view in the left navigation. Do not embed the graph panel in Dashboard. Dashboard remains the inventory and budget review view; both views use the same estimate, preserve unsaved edits when switching, and share save/export actions. The graph view provides an action to add an agent when the graph is empty.
+
+**Follow-up confirmed decision (2026-10-04):** Rename the Suite planner navigation item to **Dashboard**. Remove the **Cost per completed use case** panel from Dashboard. Keep its calculation available to saved results and the Excel **Use cases** sheet; removing the panel does not change suite totals or agent inventory costs.
 
 **Follow-up confirmed decision (2026-10-03), amended 2026-10-04:** Simple, medium, and high remain the predefined complexity profiles. Users may define additional profiles globally and assign them to steps. Each custom profile needs a unique name, including against predefined names. Custom profiles participate in the same step usage and cost summaries as the predefined profiles.
 

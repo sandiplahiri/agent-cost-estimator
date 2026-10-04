@@ -18,4 +18,4 @@ Recorded before changing split behavior and the graph editor. E2E verification u
 | Editing the graph inspector changes a detailed workflow through unused aggregate overrides | The inspector directs detailed model and step editing to the workflow editor; inline execution fields edit only the effective aggregate call or sole simple step. |
 | Choosing a new model in the graph loses its price snapshot | The selected catalog price is copied into the estimate before validation and saved with that agent change. |
 | A failed or stale inspector save discards entered work | Validation occurs before applying the candidate estimate; errors stay in the inspector with its draft intact. |
-| Switching to Suite planner discards an unapplied agent edit | The graph's selected agent and inspector draft live above the tab views and reappear when returning to the graph for the same estimate. |
+| Switching to Dashboard discards an unapplied agent edit | The graph's selected agent and inspector draft live above the tab views and reappear when returning to the graph for the same estimate. |

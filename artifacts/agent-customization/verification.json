@@ -26,7 +26,7 @@
     "reviewerMonthly": 240
   },
   "navigation": {
-    "checked": "Graph absent from Suite planner, present on Agent suite graph view, absent after return",
+    "checked": "Graph absent from Dashboard, present on Agent suite graph view, absent after return",
     "screenshots": [
       "graph-workspace.png",
       "graph-before.png",

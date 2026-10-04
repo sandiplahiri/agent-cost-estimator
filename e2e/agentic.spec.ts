@@ -211,7 +211,6 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     .first()
     .click();
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
-  await expect(page.getByRole('region', { name: 'Cost per completed use case' })).toContainText('$0.13');
   const jsonDownloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export JSON' }).click();
   const jsonFile = path.join(artifactDir, 'agentic-export.json');
@@ -221,7 +220,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   expect(exportedJson.agents[0].steps[1].model_calls[0].probability).toBe('0.5');
   await page.getByRole('button', { name: 'Agent harness' }).click();
   await expect(page.getByText('$11.68', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Copy Resolve inquiry' }).click();
   await expect(page.getByRole('dialog', { name: 'Configure agent group' })).toBeVisible();
   await page
@@ -229,14 +228,17 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     .getByRole('button', { name: 'Apply changes' })
     .click();
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
-  await expect(page.getByRole('region', { name: 'Cost per completed use case' })).toContainText(
-    'Resolve inquiry (copy)',
+  const copyDraft = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
   );
-  await expect(
-    page
-      .getByRole('region', { name: 'Cost per completed use case' })
-      .getByRole('row', { name: /Resolve inquiry \(copy\)/ }),
-  ).toContainText('$0.06');
+  const copyResult = await (await request.post('/api/calculate', { data: copyDraft })).json();
+  const copiedAgent = copyDraft.agents.find(
+    (agent: { name: string }) => agent.name === 'Resolve inquiry (copy)',
+  );
+  expect(copiedAgent).toBeTruthy();
+  expect(
+    Number(copyResult.scenarios[1].use_case_costs[copiedAgent.id].loaded_cost_per_completion),
+  ).toBeCloseTo(0.06, 2);
   await page.getByRole('button', { name: 'Edit Resolve inquiry', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Configure agent group' });
   await editor.getByLabel('Model invocation probability (0–1)').nth(1).fill('0');
@@ -290,7 +292,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     path.join(artifactDir, 'verification.json'),
     JSON.stringify(
       {
-        command: 'npm run test:e2e',
+        command: 'npx playwright test e2e/agentic.spec.ts',
         fixture: 'Architect-authored prices, not provider benchmarks; input.json',
         expected: independent,
         actual: {
@@ -309,8 +311,8 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
           'FX conversion',
           'cycle path',
           'save/open',
-          'UI unit economics',
-          'copy without volume',
+          'calculated unit economics',
+          'copy without volume and loaded cost',
           'model probability edit',
           'model row add with zero probability',
           'JSON snapshot round trip',
@@ -539,7 +541,7 @@ test('Linked group members become independently editable without changing graph 
   await graph.getByRole('button', { name: 'Select agent Research tuned' }).click();
   const settings = graph.locator('.graph-agent-settings');
   await settings.getByLabel('Output tokens / call').fill('225');
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(graph).toBeHidden();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await expect(settings.getByLabel('Output tokens / call')).toHaveValue('225');
@@ -572,12 +574,9 @@ test('Linked group members become independently editable without changing graph 
   );
   await expect(graph.getByRole('button', { name: 'Select agent Research group' })).toContainText('$0.84 LLM');
   await graph.screenshot({ path: path.join(outputDir, 'graph-inspector-after.png') });
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(graph).toBeHidden();
   await page.screenshot({ path: path.join(outputDir, 'suite-without-graph.png'), fullPage: true });
-  await expect(page.getByRole('region', { name: 'Cost per completed use case' })).toContainText(
-    'Research tuned',
-  );
   const savedDraft = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
   );
@@ -657,7 +656,7 @@ test('Linked group members become independently editable without changing graph 
           reviewerMonthly: Number(verified.scenarios[1].volumes.reviewer.total),
         },
         navigation: {
-          checked: 'Graph absent from Suite planner, present on Agent suite graph view, absent after return',
+          checked: 'Graph absent from Dashboard, present on Agent suite graph view, absent after return',
           screenshots: [
             'graph-workspace.png',
             'graph-before.png',

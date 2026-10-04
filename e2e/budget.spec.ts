@@ -60,7 +60,7 @@ async function setup(page: Page) {
   await expect(page.getByRole('heading', { name: 'Your agent suite, budgeted.' })).toBeVisible();
   await page.getByLabel('Estimate name').fill('Mortgage fixture');
   await addModel(page);
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');
@@ -176,7 +176,7 @@ test('Budget, explicit scenarios, save/reopen, Excel formulas, reset and undo', 
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$24.48/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$73.44/mo');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.screenshot({ path: path.join(artifacts, 'suite-desktop.png'), fullPage: true });
   expect(browserErrors).toEqual([]);
   records.push({
@@ -212,7 +212,7 @@ test('Cost drivers and sensitivity preview keep the estimate and workbook unchan
     .locator('.scenario-editor-grid article')
     .filter({ has: page.getByRole('heading', { name: 'Expected', exact: true }) });
   await expectedEditor.getByLabel('Invocation volume ×').fill('2');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$32.64/mo');
   const scenarioImpact = page.getByRole('region', { name: 'Cost drivers and impact' });
   await scenarioImpact.getByLabel('Assumption to change').selectOption('users_per_day');
@@ -225,7 +225,7 @@ test('Cost drivers and sensitivity preview keep the estimate and workbook unchan
   const scenarioPreview = await scenarioImpact.getByRole('status').innerText();
   await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
   await expectedEditor.getByLabel('Invocation volume ×').fill('1');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$16.32/mo');
 
   await page.getByRole('button', { name: 'Edit Simple agents', exact: true }).click();
@@ -284,7 +284,7 @@ test('Cost drivers and sensitivity preview keep the estimate and workbook unchan
   const rankedDrivers = await impact.locator('.impact-driver').allInnerTexts();
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByLabel('Cached read fraction', { exact: true }).first().fill('0.5');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toContainText('Incomplete');
   const incompleteImpact = page.getByRole('region', { name: 'Cost drivers and impact' });
   await incompleteImpact.getByLabel('Assumption to change').selectOption('output_tokens');
@@ -431,7 +431,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   await expect(page.getByTestId('cost-expected')).toHaveText('$3.18/mo');
   await graph.getByRole('button', { name: 'Apply link change' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$5.63/mo');
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(graph).toBeHidden();
   await expect(page.getByLabel('Researcher total monthly invocations per agent')).toHaveText('180');
   await expect(page.getByLabel('Researcher total monthly invocations all agents')).toHaveText('360');
@@ -446,14 +446,14 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
   await expect(page.getByTestId('cost-low')).toHaveText('$3.03/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$11.93/mo');
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByTestId('category-invocations-simple')).toHaveText('735');
   await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
   const expectedScenarioEditor = page
     .locator('.scenario-editor-grid article')
     .filter({ has: page.getByRole('heading', { name: 'Expected', exact: true }) });
   await expectedScenarioEditor.getByLabel('Invocation volume ×').fill('2');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$12.00/mo');
   await expect(page.getByLabel('Researcher total monthly invocations all agents')).toHaveText('360');
   const doubled = await page.evaluate(() =>
@@ -468,7 +468,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   ).toBeCloseTo(720, 8);
   await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
   await expectedScenarioEditor.getByLabel('Invocation volume ×').fill('1');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
 
   const savedGraph = await page.evaluate(() =>
@@ -592,7 +592,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
     .getByRole('button', { name: 'Remove link' })
     .click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$5.63/mo');
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByLabel('Reviewer users per day')).toBeEnabled();
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
@@ -611,7 +611,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   replacementSheet.addRow(['Direct replacement', 'simple', 1, 'daily_users', 1, 1, 'Graph Fixture']);
   const replacementFile = path.join(artifacts, 'agent-graph-replacement.xlsx');
   await replacement.xlsx.writeFile(replacementFile);
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await page.getByLabel('Import agent spreadsheet').setInputFiles(replacementFile);
   const importPreview = page.getByRole('dialog', { name: 'Review spreadsheet import' });
   await expect(importPreview).toContainText('2 agent links will be removed');
@@ -1019,7 +1019,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   });
 
   await addModel(page, 'Fixture B', '4', '10');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Edit Another simple group' }).click();
   const mixedEditor = page.getByRole('dialog', { name: 'Configure agent group' });
   await chooseModel(page, mixedEditor.getByRole('button', { name: 'Model: Fixture A' }), 'Fixture B');
@@ -1128,7 +1128,7 @@ test('Individual overrides, zero output, detailed replacement and incomplete pri
   await expect(page.getByRole('button', { name: 'Select agent Simple agent 2' })).toContainText(
     'Incomplete LLM cost',
   );
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page.locator('.count-chip')).toHaveText('2 agents');
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('button', { name: 'Export Excel', exact: true })).toBeVisible();
@@ -1181,7 +1181,7 @@ test('Spreadsheet import, literal text export, invalid import recovery and unpri
   await expect(page.getByTestId('cost-expected')).toHaveText('$16.32/mo');
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByLabel('Cached read fraction', { exact: true }).first().fill('0.8');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   sheet.getCell('F2').value = 1;
   const cacheFixture = new ExcelJS.Workbook();
   const cacheSheet = cacheFixture.addWorksheet('Agents');
@@ -1196,7 +1196,7 @@ test('Spreadsheet import, literal text export, invalid import recovery and unpri
   await cachePreview.getByRole('button', { name: 'Cancel' }).click();
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByLabel('Cached read fraction', { exact: true }).first().fill('0');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$16.32/mo');
   sheet.getCell('E2').value = 'unknown/provider-model';
   const unknown = path.join(artifacts, 'unpriced-import.xlsx');
@@ -1503,7 +1503,7 @@ test('Gemini cache-write gap identifies the missing rate and recovers when unuse
   await page.getByLabel('Cache write fraction', { exact: true }).first().fill('0.25');
   await expect(page.getByTestId('cost-expected')).toContainText('Incomplete');
   await expect(page.getByRole('alert')).toContainText('Missing cache write price');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('category-cost-simple')).toHaveText('Incomplete');
   await expect(page.getByTestId('monthly-summary-simple-input-tokens')).toContainText('2,040,000');
   await expect(page.getByTestId('monthly-summary-simple-input-cost')).toHaveText('Incomplete');
@@ -1569,7 +1569,7 @@ test('Typing into prefilled numeric fields replaces their values', async ({ page
   await expect(page.getByTestId('cost-expected')).toHaveText('$20.40/mo');
   const enteredTokens = await inputTokens.inputValue();
 
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByLabel('Simple agents invocations per user per agent per day').fill('1');
   const users = page.getByLabel('Simple agents users per day');
   await users.click();

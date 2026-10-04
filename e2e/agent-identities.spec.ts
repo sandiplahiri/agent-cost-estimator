@@ -11,7 +11,7 @@ test('suite members receive editable identities that survive save and Excel expo
   await fs.mkdir(directory, { recursive: true });
   await page.goto('/');
   await page.getByLabel('Estimate name').fill('Identity fixture');
-  await page.getByRole('button', { name: /Suite planner/ }).click();
+  await page.getByRole('button', { name: /Dashboard/ }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');
@@ -25,7 +25,7 @@ test('suite members receive editable identities that survive save and Excel expo
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await page.getByRole('button', { name: 'Select agent Medium agents' }).click();
   await expect(page.getByText('This group has no agents. Edit the group to add members.')).toBeVisible();
-  await page.getByRole('button', { name: 'Suite planner', exact: true }).click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
 
   await page.getByRole('button', { name: 'Edit Simple agents' }).click();
   const editor = page.getByRole('dialog', { name: 'Configure agent group' });

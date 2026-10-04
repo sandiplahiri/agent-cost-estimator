@@ -1,5 +1,5 @@
 {
-  "command": "npm run test:e2e",
+  "command": "npx playwright test e2e/agentic.spec.ts",
   "fixture": "Architect-authored prices, not provider benchmarks; input.json",
   "expected": {
     "completions": 100,
@@ -31,8 +31,8 @@
     "FX conversion",
     "cycle path",
     "save/open",
-    "UI unit economics",
-    "copy without volume",
+    "calculated unit economics",
+    "copy without volume and loaded cost",
     "model probability edit",
     "model row add with zero probability",
     "JSON snapshot round trip",

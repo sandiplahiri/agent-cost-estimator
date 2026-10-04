@@ -1,7 +1,7 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "defaults_version": 1,
-  "id": "agentic-fixture-1791077307337",
+  "id": "agentic-fixture-1791140928001",
   "name": "Agentic fixture",
   "notes": "",
   "profiles": {
@@ -11,8 +11,7 @@
       "output_tokens": "500",
       "retry_rate": "0.02",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     },
     "medium": {
       "calls": "4",
@@ -20,8 +19,7 @@
       "output_tokens": "1000",
       "retry_rate": "0.05",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     },
     "high": {
       "calls": "10",
@@ -29,8 +27,7 @@
       "output_tokens": "2000",
       "retry_rate": "0.10",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     }
   },
   "agents": [
@@ -74,6 +71,7 @@
           "model_id": "",
           "id": "classify",
           "name": "Classify",
+          "complexity": null,
           "execution_probability": "1",
           "model_calls": [
             {
@@ -101,6 +99,7 @@
           "model_id": "",
           "id": "verify",
           "name": "Verify",
+          "complexity": null,
           "execution_probability": "0.25",
           "model_calls": [
             {
@@ -170,6 +169,7 @@
           "model_id": "",
           "id": "research",
           "name": "Research",
+          "complexity": null,
           "execution_probability": "1",
           "model_calls": [
             {

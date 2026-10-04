@@ -1,7 +1,7 @@
 {
-  "schema_version": 7,
+  "schema_version": 8,
   "defaults_version": 1,
-  "id": "linked-customization-1791077309507",
+  "id": "linked-customization-1791140930275",
   "name": "Linked customization fixture",
   "notes": "",
   "profiles": {
@@ -11,8 +11,7 @@
       "output_tokens": "100",
       "retry_rate": "0",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": "Fixture A"
+      "cache_write_fraction": "0"
     },
     "medium": {
       "calls": "4",
@@ -20,8 +19,7 @@
       "output_tokens": "1000",
       "retry_rate": "0.05",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     },
     "high": {
       "calls": "10",
@@ -29,8 +27,7 @@
       "output_tokens": "2000",
       "retry_rate": "0.10",
       "cache_fraction": "0",
-      "cache_write_fraction": "0",
-      "model_id": ""
+      "cache_write_fraction": "0"
     }
   },
   "agents": [
@@ -66,7 +63,7 @@
         "retry_rate": null,
         "cache_fraction": null,
         "cache_write_fraction": null,
-        "model_id": null
+        "model_id": "Fixture A"
       },
       "steps": [],
       "tool_costs": []
@@ -98,7 +95,7 @@
         "retry_rate": null,
         "cache_fraction": null,
         "cache_write_fraction": null,
-        "model_id": null
+        "model_id": "Fixture A"
       },
       "steps": [],
       "tool_costs": []
@@ -130,17 +127,17 @@
         "retry_rate": null,
         "cache_fraction": null,
         "cache_write_fraction": null,
-        "model_id": null
+        "model_id": "Fixture A"
       },
       "steps": [],
       "tool_costs": []
     },
     {
-      "id": "411aa4e8-9cb9-4909-8e5b-2179ec8724b8",
+      "id": "9a30da2d-51e3-4595-8610-c3a3bcce101b",
       "name": "Research tuned",
       "description": "",
       "use_case_name": "Analyze documents",
-      "use_case_description": "Business use case pending description",
+      "use_case_description": "",
       "members": [
         {
           "id": "8e28c4a0-b143-5499-ba2f-8d51a9650259",
@@ -206,9 +203,9 @@
       }
     },
     {
-      "id": "28ea1562-0d88-4862-bfb7-8f5fe798d241",
+      "id": "61996a9a-0f5e-4954-8b69-faac04d8be05",
       "parent_id": "planner",
-      "child_id": "411aa4e8-9cb9-4909-8e5b-2179ec8724b8",
+      "child_id": "9a30da2d-51e3-4595-8610-c3a3bcce101b",
       "trigger_probability": "0.5",
       "invocations_per_trigger": "1.0",
       "branch_group": "",
@@ -224,8 +221,8 @@
       }
     },
     {
-      "id": "a9bfb02f-6024-4c37-8ace-07b95d1858d4",
-      "parent_id": "411aa4e8-9cb9-4909-8e5b-2179ec8724b8",
+      "id": "ef9ad5e2-11cc-48b8-bc67-1c2ef0ce96a1",
+      "parent_id": "9a30da2d-51e3-4595-8610-c3a3bcce101b",
       "child_id": "reviewer",
       "trigger_probability": "0.4",
       "invocations_per_trigger": "1",

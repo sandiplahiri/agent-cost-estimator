@@ -396,7 +396,7 @@ Beyond the required ones, the model supports (all optional, with defaults):
 
 ### 7.2 Main Screens
 
-**Confirmed navigation decision (2026-10-03):** The left navigation must include **Agent suite graph** as its own workspace beside **Suite planner**. The graph canvas, agent inspector, and agent-to-agent link creation and editing belong in that workspace, including an **Add agent** action for an empty graph. Suite planner keeps the inventory, scenario totals, and budget breakdowns; it must not embed the graph or its link editor. Both screens edit the same estimate, so switching between them must preserve unsaved changes and show the resulting costs and volumes consistently. Shared save and export actions remain available from either screen. This screen boundary applies to future canvas features as the graph UI grows.
+**Confirmed navigation decision (2026-10-03):** The left navigation must include **Agent suite graph** as its own workspace beside **Dashboard**. The graph canvas, agent inspector, and agent-to-agent link creation and editing belong in that workspace, including an **Add agent** action for an empty graph. Dashboard keeps the inventory, scenario totals, and budget breakdowns; it must not embed the graph or its link editor. Both screens edit the same estimate, so switching between them must preserve unsaved changes and show the resulting costs and volumes consistently. Shared save and export actions remain available from either screen. This screen boundary applies to future canvas features as the graph UI grows.
 
 **A. Templates / Start screen**
 Prebuilt starters: *Single chatbot*, *Router + specialists*, *Planner-Executor-Critic*, *Research fan-out*, *Coding agent with tools*, *RAG assistant*. Or "Blank canvas". Import/export JSON.
