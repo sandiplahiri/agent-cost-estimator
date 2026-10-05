@@ -13,18 +13,43 @@ export interface ComplexityProfile {
 export interface Execution extends ComplexityProfile {
   model_id: string;
 }
-export interface Step extends Execution {
+export interface Step {
   id: string;
   name: string;
   complexity?: Complexity | null;
   execution_probability: Numeric;
+  action_type: 'model' | 'agent';
+  low_execution_probability?: Numeric | null;
+  high_execution_probability?: Numeric | null;
   model_calls: ModelCall[];
+  agent_calls: AgentCall[];
+}
+export interface AgentCall {
+  id: string;
+  child_agent_id: string;
+  probability: Numeric;
+  low?: AgentLink['low'];
+  high?: AgentLink['high'];
+}
+export interface StepActionCost {
+  action_type: string;
+  cost_per_execution: Numeric;
+  cost_per_invocation: Numeric;
+  monthly_cost: Numeric;
+  complete: boolean;
+  options: {
+    id: string;
+    target_id: string;
+    probability: Numeric;
+    cost: Numeric;
+    weighted_cost: Numeric;
+    complete: boolean;
+  }[];
 }
 export interface ModelCall extends Execution {
   id: string;
   role: string;
   probability: Numeric;
-  exclusive_group: string;
 }
 export interface ToolCost {
   id: string;
@@ -71,12 +96,9 @@ export interface AgentLink {
   parent_id: string;
   child_id: string;
   trigger_probability: Numeric;
-  invocations_per_trigger: Numeric;
-  branch_group: string;
-  branch_event_id: string | null;
-  step_id: string | null;
-  low: { trigger_probability: Numeric | null; invocations_per_trigger: Numeric | null };
-  high: { trigger_probability: Numeric | null; invocations_per_trigger: Numeric | null };
+  step_id: string;
+  low: { trigger_probability: Numeric | null };
+  high: { trigger_probability: Numeric | null };
 }
 export interface Price {
   id: string;
@@ -123,7 +145,7 @@ export interface AdditionalCost {
   frequency: 'monthly' | 'one-time';
 }
 export interface Estimate {
-  schema_version: 8;
+  schema_version: 10;
   defaults_version: 1;
   id: string;
   name: string;
@@ -188,6 +210,7 @@ export interface MonthlyTokenSummary {
 }
 export interface AgentCostPreview extends MonthlyTokenSummary {
   steps: Record<string, MonthlyTokenSummary>;
+  step_actions: Record<string, StepActionCost>;
 }
 export interface ScenarioResult {
   monthly_token_summary: MonthlyTokenSummary;
@@ -220,6 +243,7 @@ export interface ScenarioResult {
   }[];
   harness_allocations: Record<string, Numeric>;
   agent_costs: Record<string, { monthly_total: Numeric; per_agent_monthly: Numeric; complete: boolean }>;
+  step_costs: Record<string, Record<string, StepActionCost>>;
   use_case_costs: Record<
     string,
     {
@@ -255,7 +279,6 @@ export interface LinkContribution {
   parent_total: Numeric;
   trigger_probability: Numeric;
   step_probability: Numeric;
-  invocations_per_trigger: Numeric;
   child_total: Numeric;
   complete: boolean;
 }
@@ -397,4 +420,84 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
     );
   }
   return data;
+}
+
+// Graph links project step choices. Call only on a draft that is about to be
+// validated/applied; the backend repeats this projection at its boundary.
+export function syncAgentActions(estimate: Estimate): Estimate {
+  const previousChildren = new Set(estimate.links.map((link) => link.child_id));
+  estimate.links = [];
+  const memberRows = new Map(
+    estimate.agents.flatMap((row) => row.members.map((member) => [member.id, row] as const)),
+  );
+  for (const row of estimate.agents)
+    for (const step of row.steps) {
+      if (step.action_type !== 'agent') continue;
+      for (const option of step.agent_calls ?? []) {
+        const target = memberRows.get(option.child_agent_id);
+        // The backend separates a targeted shared member when applying the candidate.
+        if (!target || target.count !== 1) continue;
+        estimate.links.push({
+          id: option.id,
+          parent_id: row.id,
+          child_id: target.id,
+          step_id: step.id,
+          trigger_probability: option.probability,
+          low: option.low ?? { trigger_probability: null },
+          high: option.high ?? { trigger_probability: null },
+        });
+      }
+    }
+  const children = new Set(estimate.links.map((link) => link.child_id));
+  for (const row of estimate.agents) {
+    if (children.has(row.id) && row.volume_source !== 'derived') {
+      row.prior_volume_source = row.volume_source;
+      row.volume_source = 'derived';
+    } else if (previousChildren.has(row.id) && !children.has(row.id) && row.volume_source === 'derived') {
+      row.volume_source = row.prior_volume_source ?? 'daily_users';
+      row.prior_volume_source = null;
+    }
+  }
+  return estimate;
+}
+export function modelStep(execution: Execution, name: string, complexity: string): Step {
+  return {
+    id: id(),
+    name,
+    complexity,
+    action_type: 'model',
+    execution_probability: '1',
+    agent_calls: [],
+    model_calls: [{ ...execution, id: id(), role: '', probability: '1' }],
+  };
+}
+
+// Validate selection totals with decimal integers, matching the backend boundary.
+// Floating-point addition can hide a small excess above 1.0.
+export function distributionTotal(values: string[]): { valid: boolean; percent: string } {
+  const decimals: { units: bigint; scale: number }[] = [];
+  for (const value of values) {
+    const match = /^([+-]?)(\d*\.?\d+)(?:e([+-]?\d+))?$/i.exec(String(value).trim());
+    if (!match) return { valid: false, percent: 'Invalid' };
+    const [whole, fraction = ''] = match[2].split('.');
+    const exponent = Number(match[3] ?? 0);
+    const scale = fraction.length - exponent;
+    if (!Number.isSafeInteger(exponent) || Math.abs(scale) > 1000)
+      return { valid: false, percent: 'Invalid' };
+    let units = BigInt(`${whole || '0'}${fraction}`);
+    if (match[1] === '-' && units !== 0n) return { valid: false, percent: 'Invalid' };
+    if (scale < 0) units *= 10n ** BigInt(-scale);
+    const places = Math.max(scale, 0);
+    if (units > 10n ** BigInt(places)) return { valid: false, percent: 'Invalid' };
+    decimals.push({ units, scale: places });
+  }
+  const scale = Math.max(0, ...decimals.map((value) => value.scale));
+  const one = 10n ** BigInt(scale);
+  const sum = decimals.reduce((total, value) => total + value.units * 10n ** BigInt(scale - value.scale), 0n);
+  const percentUnits = (sum * 100n).toString().padStart(scale + 1, '0');
+  const percent =
+    scale === 0
+      ? percentUnits
+      : `${percentUnits.slice(0, -scale)}.${percentUnits.slice(-scale)}`.replace(/\.?0+$/, '');
+  return { valid: values.length > 0 && sum === one, percent: `${percent}%` };
 }

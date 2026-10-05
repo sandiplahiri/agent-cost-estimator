@@ -1,0 +1,77 @@
+{
+  "command": "node artifacts/bulk-add-width/preview.cjs",
+  "captures": [
+    {
+      "viewport": {
+        "width": 1512,
+        "height": 1050
+      },
+      "screenshot": "desktop.png",
+      "width": 770,
+      "clientWidth": 768,
+      "scrollWidth": 768,
+      "fields": [
+        {
+          "name": "Simple users per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "Simple invocations per user per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "Medium users per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "Medium invocations per user per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "High users per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "High invocations per user per agent per day *",
+          "lines": 1
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "mobile.png",
+      "width": 356,
+      "clientWidth": 354,
+      "scrollWidth": 354,
+      "fields": [
+        {
+          "name": "Simple users per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "Simple invocations per user per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "Medium users per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "Medium invocations per user per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "High users per agent per day *",
+          "lines": 1
+        },
+        {
+          "name": "High invocations per user per agent per day *",
+          "lines": 1
+        }
+      ]
+    }
+  ]
+}

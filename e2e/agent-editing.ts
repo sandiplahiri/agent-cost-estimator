@@ -8,7 +8,10 @@ export async function openAgentEditor(page: Page, name: string) {
     .locator('.graph-inspector-agent')
     .getByRole('button', { name: /^(Edit all \d+ agents|Edit steps and tools)$/ })
     .click();
-  return page.getByRole('dialog', { name: 'Edit agent' });
+  const dialog = page.getByRole('dialog', { name: 'Edit agent' });
+  for (const details of await dialog.locator('details.step-details').all())
+    if ((await details.getAttribute('open')) === null) await details.locator('summary').click();
+  return dialog;
 }
 
 export async function expectBaseVolume(page: Page, name: string, perAgent: number, total: number) {

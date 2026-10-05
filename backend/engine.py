@@ -15,6 +15,17 @@ TOKEN_TYPES = (
 )
 
 
+def effective_step_probability(step, scenario=None):
+    override = (
+        step.low_execution_probability
+        if scenario and scenario.name == "Low"
+        else step.high_execution_probability
+        if scenario and scenario.name == "High"
+        else None
+    )
+    return override if override is not None else step.execution_probability
+
+
 def summarize_tokens(lines: list[dict], volumes: dict) -> dict:
     """Sum priced Decimal line components for the selected rows in one scenario."""
     input_tokens = sum((line["input_tokens"] for line in lines), ZERO)
@@ -86,21 +97,12 @@ def resolve_volumes(estimate: Estimate, scenario: Scenario | None = None):
                     if override and override.trigger_probability is not None
                     else link.trigger_probability
                 )
-                fanout = (
-                    override.invocations_per_trigger
-                    if override and override.invocations_per_trigger is not None
-                    else link.invocations_per_trigger
+                step_probability = next(
+                    effective_step_probability(step, scenario)
+                    for step in rows[link.parent_id].steps
+                    if step.id == link.step_id
                 )
-                step_probability = (
-                    next(
-                        step.execution_probability
-                        for step in rows[link.parent_id].steps
-                        if step.id == link.step_id
-                    )
-                    if link.step_id
-                    else Decimal(1)
-                )
-                child_invocations = parent["total"] * step_probability * probability * fanout
+                child_invocations = parent["total"] * step_probability * probability
                 contributions[link.id] = {
                     "link_id": link.id,
                     "parent_id": link.parent_id,
@@ -108,7 +110,6 @@ def resolve_volumes(estimate: Estimate, scenario: Scenario | None = None):
                     "parent_total": parent["total"],
                     "trigger_probability": probability,
                     "step_probability": step_probability,
-                    "invocations_per_trigger": fanout,
                     "child_total": child_invocations,
                     "complete": parent["complete"],
                 }
@@ -307,7 +308,10 @@ def calculate(estimate: Estimate):
             row
             for row in estimate.agents
             if (
-                any((step.complexity or row.complexity) == complexity for step in row.steps)
+                any(
+                    step.action_type != "agent" and (step.complexity or row.complexity) == complexity
+                    for step in row.steps
+                )
                 if row.steps
                 else row.complexity == complexity
             )
@@ -329,36 +333,22 @@ def calculate(estimate: Estimate):
         for row in estimate.agents:
             if row.steps:
                 for step in row.steps:
-                    if step.model_calls:
-                        for call in step.model_calls:
-                            lines.append(
-                                line_item(
-                                    estimate,
-                                    row,
-                                    call,
-                                    scenario,
-                                    step.name,
-                                    base_volumes[row.id],
-                                    scenario_volumes[row.id],
-                                    step.execution_probability * call.probability,
-                                    step.id,
-                                    call.role,
-                                    step.complexity,
-                                )
-                            )
-                    else:
+                    if step.action_type == "agent":
+                        continue
+                    for call in step.model_calls:
                         lines.append(
                             line_item(
                                 estimate,
                                 row,
-                                step,
+                                call,
                                 scenario,
                                 step.name,
                                 base_volumes[row.id],
                                 scenario_volumes[row.id],
-                                step.execution_probability,
+                                effective_step_probability(step, scenario) * call.probability,
                                 step.id,
-                                complexity=step.complexity,
+                                call.role,
+                                step.complexity,
                             )
                         )
             else:
@@ -374,12 +364,18 @@ def calculate(estimate: Estimate):
                     )
                 )
         known = sum((line["cost"] for line in lines if line["cost"] is not None), ZERO)
-        complete = all(not line["issues"] for line in lines)
+        complete = all(not line["issues"] for line in lines) and all(
+            v["complete"] for v in scenario_volumes.values()
+        )
         tool_lines = []
         for row in estimate.agents:
             for tool in row.tool_costs:
                 step_probability = (
-                    next(step.execution_probability for step in row.steps if step.id == tool.step_id)
+                    next(
+                        effective_step_probability(step, scenario)
+                        for step in row.steps
+                        if step.id == tool.step_id
+                    )
                     if tool.step_id
                     else Decimal(1)
                 )
@@ -418,7 +414,7 @@ def calculate(estimate: Estimate):
         total_invocations = sum((item["total"] for item in scenario_volumes.values()), ZERO)
         step_executions = sum(
             (
-                scenario_volumes[row.id]["total"] * step.execution_probability
+                scenario_volumes[row.id]["total"] * effective_step_probability(step, scenario)
                 for row in estimate.agents
                 for step in row.steps
             ),
@@ -503,13 +499,9 @@ def calculate(estimate: Estimate):
             for link in outgoing[row_id]:
                 contribution = scenario_links[link.id]
                 child_cost, child_complete = loaded_cost(link.child_id)
-                total += (
-                    contribution["step_probability"]
-                    * contribution["trigger_probability"]
-                    * contribution["invocations_per_trigger"]
-                    * child_cost
-                )
-                complete_row = complete_row and child_complete
+                total += contribution["step_probability"] * contribution["trigger_probability"] * child_cost
+                if contribution["step_probability"] * contribution["trigger_probability"] > ZERO:
+                    complete_row = complete_row and child_complete
             loaded[row_id] = (total, complete_row)
             return loaded[row_id]
 
@@ -540,6 +532,86 @@ def calculate(estimate: Estimate):
             }
             for row in estimate.agents
         }
+        step_costs = {}
+        for row in estimate.agents:
+            step_costs[row.id] = {}
+            for step in row.steps:
+                cost = ZERO
+                step_complete = True
+                options = []
+                if step.action_type == "agent":
+                    for edge in outgoing[row.id]:
+                        if edge.step_id != step.id:
+                            continue
+                        contribution = scenario_links[edge.id]
+                        child_cost, child_complete = loaded_cost(edge.child_id)
+                        weight = contribution["trigger_probability"]
+                        weighted = weight * child_cost
+                        cost += weighted
+                        option_complete = weight == ZERO or child_complete
+                        step_complete &= option_complete
+                        options.append(
+                            {
+                                "id": edge.id,
+                                "target_id": next(
+                                    option.child_agent_id
+                                    for option in step.agent_calls
+                                    if option.id == edge.id
+                                ),
+                                "probability": contribution["trigger_probability"],
+                                "cost": child_cost,
+                                "weighted_cost": weighted,
+                                "complete": option_complete,
+                            }
+                        )
+                else:
+                    calls = step.model_calls
+                    for call in calls:
+                        probability = call.probability
+                        unit = line_item(
+                            estimate,
+                            row,
+                            call,
+                            scenario,
+                            step.name,
+                            base_volumes[row.id],
+                            scenario_volumes[row.id],
+                            probability,
+                            step.id,
+                            complexity=step.complexity,
+                        )
+                        weighted = unit["unit_cost"] or ZERO
+                        cost += weighted
+                        option_complete = not unit["unit_issues"]
+                        step_complete &= option_complete
+                        options.append(
+                            {
+                                "id": call.id,
+                                "target_id": unit["model_id"],
+                                "probability": probability,
+                                "cost": weighted / probability if probability else ZERO,
+                                "weighted_cost": weighted,
+                                "complete": option_complete,
+                            }
+                        )
+                cost += sum(
+                    (
+                        tool.probability * tool.expected_units_per_invocation * tool.unit_cost
+                        for tool in row.tool_costs
+                        if tool.step_id == step.id
+                    ),
+                    ZERO,
+                )
+                step_costs[row.id][step.id] = {
+                    "action_type": step.action_type,
+                    "cost_per_execution": cost,
+                    "cost_per_invocation": cost * effective_step_probability(step, scenario),
+                    "monthly_cost": cost
+                    * effective_step_probability(step, scenario)
+                    * scenario_volumes[row.id]["total"],
+                    "complete": step_complete and scenario_volumes[row.id]["complete"],
+                    "options": options,
+                }
         vendor_costs = {}
         for line in lines:
             key = (line["provider"], line["source_type"], line["channel"])
@@ -577,6 +649,7 @@ def calculate(estimate: Estimate):
                 "harness_allocations": harness_allocations,
                 "agent_costs": agent_costs,
                 "use_case_costs": use_case_costs,
+                "step_costs": step_costs,
                 "vendor_costs": sorted(vendor_costs.values(), key=lambda item: -item["monthly_cost"]),
                 "harness_drivers": {"invocations": total_invocations, "step_executions": step_executions},
                 "volumes": scenario_volumes,

@@ -1,0 +1,33 @@
+{
+  "command": "npx playwright test e2e/single-agent-invocation.spec.ts",
+  "fixture": "input.json; A USD 2/M, B USD 10/M input; 1000 input tokens/call; 300 monthly root invocations; no output/retries/cache",
+  "expected": {
+    "initial": 1.14,
+    "repeated": 1.68,
+    "alice": 240,
+    "bob": 60,
+    "loaded": 0.0056,
+    "contributions": [
+      120,
+      30,
+      120,
+      30
+    ]
+  },
+  "actual": {
+    "initial": 1.14,
+    "repeated": 1.68,
+    "alice": 240,
+    "bob": 60,
+    "loaded": 0.0056,
+    "contributions": [
+      120,
+      30,
+      120,
+      30
+    ],
+    "excel": 1.68,
+    "imported": 1.68
+  },
+  "failures": []
+}

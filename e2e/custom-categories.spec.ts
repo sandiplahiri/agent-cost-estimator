@@ -123,7 +123,7 @@ test('global custom category is assignable and reconciles through save, import a
   const savedId = savedList.find((item: { name: string }) => item.name === 'Custom category fixture').id;
   const fixture = await (await request.get(`/api/estimates/${savedId}`)).json();
   await fs.writeFile(path.join(directory, 'estimate-fixture.json'), JSON.stringify(fixture, null, 2));
-  expect(fixture.schema_version).toBe(8);
+  expect(fixture.schema_version).toBe(10);
   expect(
     Object.values(fixture.profiles).every((profile) => !Object.hasOwn(profile as object, 'model_id')),
   ).toBe(true);

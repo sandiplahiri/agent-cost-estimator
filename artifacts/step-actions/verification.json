@@ -1,0 +1,35 @@
+{
+  "command": "npx playwright test e2e/step-actions.spec.ts",
+  "fixture": "input.json; synthetic prices A $2/M input, B $10/M; 30 days; no retries/cache/tools/harness",
+  "expected": {
+    "suite": 1.74,
+    "childA": 105,
+    "childB": 45,
+    "loadedRoot": 0.0058,
+    "sharedSuite": 2.34
+  },
+  "actual": {
+    "suite": 1.74,
+    "childA": 105,
+    "childB": 45,
+    "loadedRoot": 0.0058,
+    "sharedSuite": 2.34,
+    "exported": 1.74
+  },
+  "checks": [
+    "exact probability validation",
+    "exclusive actions",
+    "cycle rejection",
+    "zero-weight missing price",
+    "scenario routing",
+    "shared children",
+    "counted-member split",
+    "save/reopen",
+    "Excel formula recalculation",
+    "step-option spreadsheet round trip",
+    "invalid import recovery",
+    "action-switch undo",
+    "reset preserves distributions"
+  ],
+  "failures": []
+}

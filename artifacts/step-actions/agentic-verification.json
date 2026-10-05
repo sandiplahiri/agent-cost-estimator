@@ -1,0 +1,41 @@
+{
+  "command": "npx playwright test e2e/agentic.spec.ts",
+  "fixture": "Architect-authored prices, not provider benchmarks; input.json",
+  "expected": {
+    "completions": 100,
+    "childCompletions": 50,
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.6875,
+    "total": 13.3175,
+    "loadedPerRoot": 0.133175
+  },
+  "actual": {
+    "completions": 100,
+    "childCompletions": 50,
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.6875,
+    "total": 13.3175,
+    "loadedPerRoot": 0.133175
+  },
+  "exported": {
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.6875,
+    "total": 13.3175
+  },
+  "checks": [
+    "calculate",
+    "validation",
+    "FX conversion",
+    "cycle path",
+    "save/open",
+    "calculated unit economics",
+    "copy without volume and loaded cost",
+    "model probability edit",
+    "model row add with zero probability",
+    "JSON snapshot round trip",
+    "Excel formula recalculation"
+  ]
+}

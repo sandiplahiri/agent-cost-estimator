@@ -1,0 +1,421 @@
+{
+  "schema_version": 10,
+  "defaults_version": 1,
+  "id": "single-invocation-1791218640099",
+  "name": "One invocation per step fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "Research intensive": {
+      "calls": "2",
+      "input_tokens": "1000",
+      "output_tokens": "500",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "Root",
+      "name": "Root",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "Root",
+          "name": "Root",
+          "business_use_case_description": "Root handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "10",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [
+        {
+          "id": "Root-model",
+          "name": "Main step",
+          "complexity": null,
+          "execution_probability": "1",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "model",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "A",
+              "id": "Root-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ],
+          "agent_calls": []
+        },
+        {
+          "id": "delegate",
+          "name": "Delegate",
+          "complexity": null,
+          "execution_probability": "0.5",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "agent",
+          "model_calls": [],
+          "agent_calls": [
+            {
+              "id": "to-alice",
+              "child_agent_id": "Alice",
+              "probability": "0.8",
+              "low": {
+                "trigger_probability": null
+              },
+              "high": {
+                "trigger_probability": null
+              }
+            },
+            {
+              "id": "to-bob",
+              "child_agent_id": "Bob",
+              "probability": "0.2",
+              "low": {
+                "trigger_probability": null
+              },
+              "high": {
+                "trigger_probability": null
+              }
+            }
+          ]
+        },
+        {
+          "id": "ba13f687-18b8-4964-ab17-08262c5654ef",
+          "name": "Delegate (copy)",
+          "complexity": null,
+          "execution_probability": "0.5",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "agent",
+          "model_calls": [],
+          "agent_calls": [
+            {
+              "id": "edf3a9c3-ee27-408d-a94e-389970a0db3d",
+              "child_agent_id": "Alice",
+              "probability": "0.8",
+              "low": {
+                "trigger_probability": null
+              },
+              "high": {
+                "trigger_probability": null
+              }
+            },
+            {
+              "id": "2f0ad5b1-ef9c-4de6-84a0-af2906bf2f1c",
+              "child_agent_id": "Bob",
+              "probability": "0.2",
+              "low": {
+                "trigger_probability": null
+              },
+              "high": {
+                "trigger_probability": null
+              }
+            }
+          ]
+        }
+      ],
+      "tool_costs": []
+    },
+    {
+      "id": "Alice",
+      "name": "Alice",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "Alice",
+          "name": "Alice",
+          "business_use_case_description": "Alice handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [
+        {
+          "id": "Alice-model",
+          "name": "Main step",
+          "complexity": null,
+          "execution_probability": "1",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "model",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "A",
+              "id": "Alice-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ],
+          "agent_calls": []
+        }
+      ],
+      "tool_costs": []
+    },
+    {
+      "id": "Bob",
+      "name": "Bob",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "Bob",
+          "name": "Bob",
+          "business_use_case_description": "Bob handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [
+        {
+          "id": "Bob-model",
+          "name": "Main step",
+          "complexity": null,
+          "execution_probability": "1",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "model",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "B",
+              "id": "Bob-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ],
+          "agent_calls": []
+        }
+      ],
+      "tool_costs": []
+    }
+  ],
+  "links": [
+    {
+      "id": "to-alice",
+      "parent_id": "Root",
+      "child_id": "Alice",
+      "trigger_probability": "0.8",
+      "step_id": "delegate",
+      "low": {
+        "trigger_probability": null
+      },
+      "high": {
+        "trigger_probability": null
+      }
+    },
+    {
+      "id": "to-bob",
+      "parent_id": "Root",
+      "child_id": "Bob",
+      "trigger_probability": "0.2",
+      "step_id": "delegate",
+      "low": {
+        "trigger_probability": null
+      },
+      "high": {
+        "trigger_probability": null
+      }
+    },
+    {
+      "id": "edf3a9c3-ee27-408d-a94e-389970a0db3d",
+      "parent_id": "Root",
+      "child_id": "Alice",
+      "trigger_probability": "0.8",
+      "step_id": "ba13f687-18b8-4964-ab17-08262c5654ef",
+      "low": {
+        "trigger_probability": null
+      },
+      "high": {
+        "trigger_probability": null
+      }
+    },
+    {
+      "id": "2f0ad5b1-ef9c-4de6-84a0-af2906bf2f1c",
+      "parent_id": "Root",
+      "child_id": "Bob",
+      "trigger_probability": "0.2",
+      "step_id": "ba13f687-18b8-4964-ab17-08262c5654ef",
+      "low": {
+        "trigger_probability": null
+      },
+      "high": {
+        "trigger_probability": null
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "A": {
+      "id": "A",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "0",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Single agent invocation v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true,
+      "unsupported": []
+    },
+    "B": {
+      "id": "B",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "10",
+      "output": "0",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Single agent invocation v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

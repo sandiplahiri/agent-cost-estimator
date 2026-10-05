@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
+import { FileSpreadsheet, Plus, Trash2, Upload } from 'lucide-react';
 import { displayVolume, money, type AgentRow, type Estimate, type ScenarioResult } from './types';
 
 const pageSize = 50;
@@ -8,6 +8,7 @@ export function AgentInventory({
   estimate,
   expected,
   onEdit,
+  onDelete,
   onAdd,
   onBulkAdd,
   onExportJson,
@@ -18,6 +19,7 @@ export function AgentInventory({
   estimate: Estimate;
   expected?: ScenarioResult;
   onEdit: (row: AgentRow, memberId: string) => void;
+  onDelete: (memberId: string) => void;
   onAdd: () => void;
   onBulkAdd: () => void;
   onExportJson: () => void;
@@ -172,14 +174,24 @@ export function AgentInventory({
                         : '—'}
                     </td>
                     <td>
-                      <button
-                        className="button subtle"
-                        onClick={() => onEdit(row, member.id)}
-                        disabled={busy}
-                        aria-label={`Edit ${member.name}`}
-                      >
-                        Edit
-                      </button>
+                      <div className="button-row inventory-row-actions">
+                        <button
+                          className="button subtle"
+                          onClick={() => onEdit(row, member.id)}
+                          disabled={busy}
+                          aria-label={`Edit ${member.name}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="button danger"
+                          onClick={() => onDelete(member.id)}
+                          disabled={busy}
+                          aria-label={`Delete ${member.name}`}
+                        >
+                          <Trash2 size={14} aria-hidden="true" /> Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

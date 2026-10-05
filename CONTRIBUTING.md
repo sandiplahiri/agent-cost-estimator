@@ -1,6 +1,6 @@
 # Reporting bugs and suggesting features
 
-Use [GitHub Issues](https://github.com/sandiplahiri/llm-token-cost-estimator/issues/new/choose) for ordinary bugs and feature requests. Search for an existing issue first, then choose the matching form. Public reports are visible to everyone and should contain only synthetic examples. Never upload customer workbooks or estimates, prompts, API keys, or unredacted logs and screenshots.
+Use [GitHub Issues](https://github.com/sandiplahiri/agent-cost-estimator/issues/new/choose) for ordinary bugs and feature requests. Search for an existing issue first, then choose the matching form. Public reports are visible to everyone and should contain only synthetic examples. Never upload customer workbooks or estimates, prompts, API keys, or unredacted logs and screenshots.
 
 For a suspected vulnerability, follow [the private security reporting policy](SECURITY.md). Do not post exploit details in an issue, discussion, or pull request.
 

@@ -1,9 +1,43 @@
-"""Atomic domain transformations for turning one group member into an independent agent."""
+"""Atomic transformations for individual agent customization and deletion."""
 
-from decimal import Decimal
 from uuid import uuid4
 
 from .models import AgentRow, Estimate
+
+
+class AgentDeletionBlocked(ValueError):
+    pass
+
+
+def delete_agent(estimate: Estimate, member_id: str) -> Estimate:
+    source = next(
+        (row for row in estimate.agents if any(member.id == member_id for member in row.members)), None
+    )
+    if source is None:
+        raise ValueError("Choose an individual agent still in this estimate.")
+    references = [
+        f"{name} / {step.name}"
+        for row in estimate.agents
+        for step in row.steps
+        if any(option.child_agent_id == member_id for option in step.agent_calls)
+        for name in ([member.name for member in row.members] or [row.name])
+    ]
+    if references:
+        raise AgentDeletionBlocked(
+            "Remove or retarget these calling steps before deleting the agent: " + "; ".join(references)
+        )
+    updated = estimate.model_copy(deep=True)
+    row = next(row for row in updated.agents if row.id == source.id)
+    row.members = [member for member in row.members if member.id != member_id]
+    row.count = len(row.members)
+    if not row.members:
+        updated.agents = [item for item in updated.agents if item.id != row.id]
+    elif row.count == 1:
+        row.name = row.members[0].name
+        row.use_case_description = row.members[0].business_use_case_description
+    # Keep the previous link projection so canonical validation can restore the
+    # retained direct workload of children that lose their final caller.
+    return Estimate.model_validate(updated.model_dump())
 
 
 def split_agent(
@@ -21,7 +55,6 @@ def split_agent(
 
     next_estimate = estimate.model_copy(deep=True)
     group = next(row for row in next_estimate.agents if row.id == row_id)
-    original_count = group.count
     group.count -= 1
     member_index = next(
         (index for index, member in enumerate(group.members) if member.id == member_id),
@@ -60,6 +93,8 @@ def split_agent(
         step_ids[old_id] = step.id
         for call in step.model_calls:
             call.id = str(uuid4())
+        for option in step.agent_calls:
+            option.id = str(uuid4())
     for tool in copy.tool_costs:
         tool.id = str(uuid4())
         if tool.step_id:
@@ -68,37 +103,5 @@ def split_agent(
             tool.step_id = step_ids[tool.step_id]
     next_estimate.agents.append(copy)
 
-    # Partition incoming child work. The old group retains n-1 shares and the new row takes one.
-    old_share = Decimal(original_count - 1) / Decimal(original_count)
-    new_share = Decimal(1) / Decimal(original_count)
-    new_links = []
-    for link in next_estimate.links:
-        if link.child_id == row_id:
-            copied = link.model_copy(deep=True)
-            copied.id = str(uuid4())
-            copied.child_id = copy.id
-            event_id = link.branch_event_id or link.id
-            link.branch_event_id = event_id
-            copied.branch_event_id = event_id
-            original_fanout = link.invocations_per_trigger
-            link.invocations_per_trigger = original_fanout * old_share
-            copied.invocations_per_trigger = original_fanout * new_share
-            for scenario in ("low", "high"):
-                original_override = getattr(link, scenario).invocations_per_trigger
-                if original_override is not None:
-                    getattr(link, scenario).invocations_per_trigger = original_override * old_share
-                    getattr(copied, scenario).invocations_per_trigger = original_override * new_share
-            new_links.append(copied)
-        if link.parent_id == row_id:
-            copied = link.model_copy(deep=True)
-            copied.id = str(uuid4())
-            copied.parent_id = copy.id
-            copied.branch_event_id = None
-            if copied.step_id:
-                if copied.step_id not in step_ids:
-                    raise ValueError("Keep the caller step used by an outgoing link or edit that link first.")
-                copied.step_id = step_ids[copied.step_id]
-            new_links.append(copied)
-    next_estimate.links.extend(new_links)
     validated = Estimate.model_validate(next_estimate.model_dump())
     return validated, copy.id

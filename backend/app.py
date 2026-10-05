@@ -12,7 +12,7 @@ from pydantic import Field, ValidationError, model_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import pricing, store, workbook
-from .customize import split_agent
+from .customize import AgentDeletionBlocked, delete_agent, split_agent
 from .engine import calculate, summarize_tokens
 from .models import (
     PREDEFINED_COMPLEXITIES,
@@ -147,6 +147,12 @@ def delete_category(request: DeleteCategoryRequest):
         raise HTTPException(409, str(exc)) from exc
 
 
+@app.post("/api/validate")
+def validate_estimate(estimate: Estimate):
+    """Return the canonical candidate, including independently targeted agents."""
+    return estimate
+
+
 @app.post("/api/calculate")
 def calculate_api(estimate: Estimate):
     # Decimal must stay strings through JSON, not become binary floats.
@@ -158,6 +164,24 @@ class SplitRequest(Record):
     row_id: str = Field(min_length=1, max_length=100)
     individual: AgentRow | None = None
     member_id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class DeleteAgentRequest(Record):
+    estimate: Estimate
+    member_id: str = Field(min_length=1, max_length=100)
+
+
+@app.post("/api/agents/delete")
+def delete_agent_api(request: DeleteAgentRequest):
+    try:
+        updated = delete_agent(request.estimate, request.member_id)
+    except AgentDeletionBlocked as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(422, exc.errors()[0]["msg"]) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return JSONResponse(jsonable_encoder(updated.model_dump(), custom_encoder={Decimal: str}))
 
 
 class AgentCostRequest(Record):
@@ -196,6 +220,10 @@ def agent_cost_preview(request: AgentCostRequest):
         if line["step_id"] in step_lines:
             step_lines[line["step_id"]].append(line)
     summary = summarize_tokens(row_lines, row_volume)
+    summary["step_actions"] = {
+        draft_id: expected["step_costs"][row_id][step.id]
+        for draft_id, step in zip(draft_step_ids, preview_row.steps, strict=True)
+    }
     summary["steps"] = {
         draft_id: summarize_tokens(step_lines[step.id], row_volume)
         for draft_id, step in zip(draft_step_ids, preview_row.steps, strict=True)
@@ -256,7 +284,7 @@ def sensitivity(request: SensitivityRequest):
         raise HTTPException(422, "Choose an entry with at least one agent.")
     if request.field in ("users_per_day", "invocations_per_user_per_agent_per_day"):
         if row.volume_source != "daily_users":
-            raise HTTPException(422, "This agent uses legacy monthly volume.")
+            raise HTTPException(422, "This agent uses manual monthly volume.")
         setattr(row, request.field, request.value)
     elif request.field == "invocations":
         if row.volume_source != "manual":

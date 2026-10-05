@@ -29,6 +29,8 @@ import { CostImpact } from './CostImpact';
 import { AgentGraph, type GraphAgentDrafts } from './AgentGraph';
 import {
   api,
+  syncAgentActions,
+  modelStep,
   categoryClass,
   complexities,
   displayVolume,
@@ -36,7 +38,6 @@ import {
   money,
   number,
   rateMoney,
-  resizeMembers,
   pendingUseCase,
   type AgentRow,
   type Catalog,
@@ -87,10 +88,11 @@ const costLabel = (total: string, complete: boolean, format = money) =>
   complete ? format(total) : Number(total) === 0 ? 'Incomplete' : `${format(total)} (partial)`;
 
 function withSnapshots(next: Estimate, available: Record<string, Price>) {
+  syncAgentActions(next);
   const modelIds = [
     ...next.agents.flatMap((r) => [
       r.overrides.model_id,
-      ...r.steps.flatMap((s) => [s.model_id, ...s.model_calls.map((c) => c.model_id)]),
+      ...r.steps.flatMap((s) => s.model_calls.map((c) => c.model_id)),
     ]),
     ...next.scenarios.map((s) => s.model_id),
   ];
@@ -98,74 +100,9 @@ function withSnapshots(next: Estimate, available: Record<string, Price>) {
     if (key && !next.prices[key] && available[key]) next.prices[key] = clone(available[key]);
   return next;
 }
-function migrateDraft(raw: Estimate): Estimate {
-  const next = clone(raw);
-  const legacy = Number(next.schema_version) < 6;
-  if (Number(next.schema_version) < 8) {
-    const legacyModels: Record<string, string> = {};
-    for (const [name, profile] of Object.entries(next.profiles)) {
-      const previous = profile as ComplexityProfile & { model_id?: string };
-      legacyModels[name] = previous.model_id || '';
-      delete previous.model_id;
-    }
-    for (const row of next.agents) {
-      const previous = legacyModels[row.complexity];
-      if (!row.steps?.length && previous && row.overrides?.model_id == null) {
-        row.overrides ??= {};
-        row.overrides.model_id = previous;
-      }
-    }
-  }
-  next.schema_version = 8;
-  next.links ??= [];
-  next.harness ??= {
-    name: 'Agent harness',
-    harness_type: 'none',
-    fixed_monthly: '0',
-    per_invocation: '0',
-    per_step_execution: '0',
-    allocation: 'by_invocations',
-    include_in_cost_per_use_case: true,
-  };
-  next.agents = next.agents.map((row) => ({
-    ...row,
-    description: row.description ?? '',
-    use_case_name: row.use_case_name ?? '',
-    use_case_description: row.use_case_description ?? '',
-    members: row.members ?? resizeMembers({ ...row, members: [] }, row.count),
-    tool_costs: row.tool_costs ?? [],
-    steps: row.steps.map((step) => ({
-      ...step,
-      id: step.id ?? id(),
-      execution_probability: step.execution_probability ?? '1',
-      model_calls: step.model_calls ?? [],
-    })),
-    volume_source: row.volume_source ?? 'manual',
-    prior_volume_source: row.prior_volume_source ?? null,
-    users_per_day: row.users_per_day ?? null,
-    invocations_per_user_per_agent_per_day: row.invocations_per_user_per_agent_per_day ?? null,
-  }));
-  if (legacy) {
-    const used = new Set<string>();
-    for (const row of next.agents) {
-      for (const member of row.members) {
-        let name = member.name;
-        let suffix = 2;
-        while (used.has(name.trim().toLowerCase())) {
-          name = `${member.name.slice(0, 110)} (${suffix})`;
-          suffix += 1;
-        }
-        member.name = name;
-        used.add(name.trim().toLowerCase());
-      }
-    }
-  }
-  next.links = next.links.map((link) => ({
-    ...link,
-    step_id: link.step_id ?? null,
-    branch_event_id: link.branch_event_id ?? null,
-  }));
-  return next;
+function restoreDraft(raw: Estimate): Estimate {
+  if (raw.schema_version !== 10) throw new Error('Unsupported estimate schema. Create a new estimate.');
+  return syncAgentActions(clone(raw));
 }
 
 export default function App() {
@@ -195,6 +132,9 @@ export default function App() {
   >(null);
   const [editing, setEditing] = useState<AgentRow | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [deletingAgent, setDeletingAgent] = useState<{ memberId: string; name: string } | null>(null);
+  const [deleteAgentBusy, setDeleteAgentBusy] = useState(false);
+  const [deleteAgentError, setDeleteAgentError] = useState('');
   const [graphSelectedId, setGraphSelectedId] = useState<string | null>(null);
   const [graphAgentDrafts, setGraphAgentDrafts] = useState<GraphAgentDrafts>({});
   const [undo, setUndo] = useState<Estimate | null>(null);
@@ -231,6 +171,17 @@ export default function App() {
     [catalog, estimate?.prices],
   );
   const categoryKeys = estimate ? Object.keys(estimate.profiles) : complexities;
+  const deletingAgentReferences = deletingAgent
+    ? (estimate?.agents.flatMap((row) =>
+        row.steps.flatMap((step) =>
+          step.agent_calls.some((option) => option.child_agent_id === deletingAgent.memberId)
+            ? (row.members.length ? row.members.map((member) => member.name) : [row.name]).map(
+                (name) => `${name} / ${step.name}`,
+              )
+            : [],
+        ),
+      ) ?? [])
+    : [];
   const deletingAssignments = deletingCategory
     ? estimate?.agents.filter(
         (row) =>
@@ -326,9 +277,8 @@ export default function App() {
       try {
         const text = localStorage.getItem('agent-ledger-draft-v1');
         if (text) {
-          const parsed = migrateDraft(JSON.parse(text));
-          await api<Results>('/calculate', parsed);
-          draft = parsed;
+          const parsed = restoreDraft(JSON.parse(text));
+          draft = await api<Estimate>('/validate', parsed);
         }
       } catch {
         setNotice(
@@ -420,6 +370,55 @@ export default function App() {
       count: 1,
     });
   }
+  function startDeleteAgent(memberId: string) {
+    const member = estimateRef.current?.agents
+      .flatMap((row) => row.members)
+      .find((item) => item.id === memberId);
+    if (!member) return;
+    setDeletingAgent({ memberId, name: member.name });
+    setDeleteAgentError('');
+  }
+  async function confirmDeleteAgent() {
+    const base = estimateRef.current;
+    if (!base || !deletingAgent) return;
+    setDeleteAgentBusy(true);
+    setDeleteAgentError('');
+    try {
+      const next = await api<Estimate>('/agents/delete', {
+        estimate: base,
+        member_id: deletingAgent.memberId,
+      });
+      if (estimateRef.current !== base)
+        throw new Error('The estimate changed. Review the agent and try again.');
+      const source = base.agents.find((row) =>
+        row.members.some((member) => member.id === deletingAgent.memberId),
+      );
+      setUndo(clone(base));
+      setEstimate(next);
+      setIsSaved(false);
+      if (editing?.members.some((member) => member.id === deletingAgent.memberId)) {
+        setEditing(null);
+        setEditingSingleAgent(false);
+        setEditingMemberId(null);
+      }
+      if (source) {
+        setGraphAgentDrafts((previous) => {
+          const drafts = { ...previous };
+          delete drafts[source.id];
+          return drafts;
+        });
+        if (!next.agents.some((row) => row.id === source.id)) setGraphSelectedId(null);
+      }
+      setNotice(
+        `${deletingAgent.name} deleted from this draft. Workloads recalculated. Undo is available; Save persists the deletion.`,
+      );
+      setDeletingAgent(null);
+    } catch (error) {
+      setDeleteAgentError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeleteAgentBusy(false);
+    }
+  }
   function startNewAgent() {
     const current = estimateRef.current;
     const profile = current?.profiles.simple;
@@ -442,17 +441,7 @@ export default function App() {
       invocations_per_user_per_agent_per_day: '0',
       overrides: {},
       tool_costs: [],
-      steps: [
-        {
-          ...clone(profile),
-          model_id: '',
-          id: id(),
-          name: 'Main step',
-          complexity: 'simple',
-          execution_probability: '1',
-          model_calls: [],
-        },
-      ],
+      steps: [modelStep({ ...clone(profile), model_id: '' }, 'Main step', 'simple')],
     });
   }
   function copyAgent(row: AgentRow) {
@@ -479,6 +468,7 @@ export default function App() {
         ...clone(step),
         id: id(),
         model_calls: step.model_calls.map((call) => ({ ...clone(call), id: id() })),
+        agent_calls: (step.agent_calls ?? []).map((option) => ({ ...clone(option), id: id() })),
       })),
       tool_costs: row.tool_costs.map((tool) => ({ ...clone(tool), id: id() })),
     };
@@ -490,16 +480,6 @@ export default function App() {
     setUndo(clone(base));
     update((next) => {
       next.agents.push(copy);
-      next.links.push(
-        ...base.links
-          .filter((link) => link.parent_id === row.id)
-          .map((link) => ({
-            ...clone(link),
-            id: id(),
-            parent_id: copy.id,
-            step_id: link.step_id ? stepIds.get(link.step_id) || null : null,
-          })),
-      );
     });
     setEditing(copy);
     setNotice(
@@ -562,10 +542,10 @@ export default function App() {
   async function importJson(file: File) {
     await perform('Reading JSON', async () => {
       if (file.size > 6_000_000) throw new Error('JSON estimate must be smaller than 6 MB.');
-      const parsed = migrateDraft(JSON.parse(await file.text()));
-      await api<Results>('/calculate', parsed);
+      const parsed = restoreDraft(JSON.parse(await file.text()));
+      const validated = await api<Estimate>('/validate', parsed);
       setUndo(clone(estimate!));
-      setEstimate(parsed);
+      setEstimate(validated);
       setIsSaved(false);
       setNotice('JSON estimate loaded with its saved pricing snapshot. Undo restores your previous draft.');
     });
@@ -589,7 +569,8 @@ export default function App() {
           proposed.links = [];
           let validationError = '';
           try {
-            await api('/calculate', proposed);
+            const validated = await api<Estimate>('/validate', proposed);
+            data.agents = validated.agents;
           } catch (e) {
             validationError = e instanceof Error ? e.message : String(e);
           }
@@ -886,12 +867,13 @@ export default function App() {
               estimate={estimate}
               expected={expected}
               onEdit={openInventoryAgent}
+              onDelete={startDeleteAgent}
               onAdd={startNewAgent}
               onBulkAdd={() => setModal('quick')}
               onExportJson={exportJson}
               onImportJson={(file) => void importJson(file)}
               onImportSpreadsheet={(file) => void previewImport(file)}
-              busy={!!busy}
+              busy={!!busy || deleteAgentBusy}
             />
           )}
 
@@ -1641,7 +1623,7 @@ export default function App() {
       )}
 
       {modal === 'quick' && (
-        <Modal title="Set up your agent suite" onClose={() => setModal(null)}>
+        <Modal title="Set up your agent suite" onClose={() => setModal(null)} wide>
           <p className="muted">
             Enter a total and classify your agents. This replaces the current inventory; profiles and prices
             stay intact.
@@ -1807,31 +1789,76 @@ export default function App() {
             if (index >= 0) next.agents[index] = row;
             else next.agents.push(row);
             withSnapshots(next, available);
-            await api('/calculate', next);
-            setEstimate(next);
+            const validated = await api<Estimate>('/validate', next);
+            setUndo(clone(estimate));
+            setEstimate(validated);
             setIsSaved(false);
             setEditing(null);
             setEditingSingleAgent(false);
             setEditingMemberId(null);
           }}
           onRemove={() => {
-            if (
-              estimate.links.some((link) => link.parent_id === editing.id || link.child_id === editing.id)
-            ) {
-              setError('Remove this agent’s links before deleting the row.');
-              return;
-            }
-            setUndo(clone(estimate));
-            update((n) => {
-              n.agents = n.agents.filter((r) => r.id !== editing.id);
-            });
-            setEditing(null);
-            setEditingSingleAgent(false);
+            const memberId = editingMemberId ?? editing.members[0]?.id;
+            if (memberId) startDeleteAgent(memberId);
           }}
           onSplit={async (draft) => {
             await customizeOne(draft);
           }}
         />
+      )}
+
+      {deletingAgent && (
+        <Modal
+          title={`Delete ${deletingAgent.name}`}
+          onClose={() => {
+            if (!deleteAgentBusy) setDeletingAgent(null);
+          }}
+        >
+          <p>
+            Delete {deletingAgent.name} from this estimate? This removes this individual's definition, steps,
+            and tool costs. Other agents keep their settings. Undo is available after deletion.
+          </p>
+          {deletingAgentReferences.length > 0 ? (
+            <div role="alert" className="import-errors">
+              <p>
+                Remove or retarget these calling steps before deleting this agent. Their probability
+                distributions must still total 1.0.
+              </p>
+              <ul>
+                {deletingAgentReferences.map((reference, index) => (
+                  <li key={index}>{reference}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="muted">
+              Outgoing calls from this agent will be removed and child workloads recalculated. Children with
+              no remaining callers return to their retained direct workload. Save the estimate to persist this
+              change.
+            </p>
+          )}
+          {deleteAgentError && (
+            <p role="alert" className="invalid-text">
+              {deleteAgentError}
+            </p>
+          )}
+          <div className="modal-actions">
+            <button
+              className="button subtle"
+              disabled={deleteAgentBusy}
+              onClick={() => setDeletingAgent(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="button danger"
+              disabled={deleteAgentBusy || deletingAgentReferences.length > 0}
+              onClick={() => void confirmDeleteAgent()}
+            >
+              {deleteAgentBusy ? 'Deleting…' : 'Delete agent'}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {modal === 'category' && (
@@ -2036,7 +2063,7 @@ export default function App() {
           </label>
           <p className="muted small">
             {clearOverrides
-              ? `${estimate.agents.length} inventory rows will return to profile execution. Individual model overrides stay selected. Scenarios return to starter values.`
+              ? `${estimate.agents.length} inventory rows will return to profile execution. Models, exclusive step actions, and target distributions stay selected. Scenarios return to starter values.`
               : 'Individual execution and scenario overrides will remain in place.'}{' '}
             Undo is available after resetting.
           </p>
@@ -2058,13 +2085,23 @@ export default function App() {
                   if (clearOverrides) {
                     n.agents.forEach((r) => {
                       r.overrides = r.overrides.model_id != null ? { model_id: r.overrides.model_id } : {};
-                      r.steps = [];
+                      for (const step of r.steps) {
+                        step.low_execution_probability = null;
+                        step.high_execution_probability = null;
+                        if (step.action_type === 'model') {
+                          const profile = n.profiles[step.complexity ?? r.complexity];
+                          step.model_calls = step.model_calls.map((call) => ({
+                            ...call,
+                            ...clone(profile),
+                          }));
+                        }
+                        for (const option of step.agent_calls ?? []) {
+                          option.low = { trigger_probability: null };
+                          option.high = { trigger_probability: null };
+                        }
+                      }
                     });
                     n.scenarios = clone(defaults.scenarios);
-                    n.links.forEach((link) => {
-                      link.low = { trigger_probability: null, invocations_per_trigger: null };
-                      link.high = { trigger_probability: null, invocations_per_trigger: null };
-                    });
                   }
                 });
                 setModal(null);
@@ -2099,7 +2136,7 @@ export default function App() {
                   <strong>{r.name}</strong> · {r.count} {r.complexity} ·{' '}
                   {r.volume_source === 'daily_users'
                     ? `${r.users_per_day ?? 'missing'} users/day × ${r.invocations_per_user_per_agent_per_day ?? 'missing'} invocations/user/agent/day × 30 days`
-                    : `${number(r.invocations)} legacy manual invocations/agent/mo`}
+                    : `${number(r.invocations)} manual invocations/agent/mo`}
                 </p>
               ))}
               {imported.agents.length > 20 && <p>And {imported.agents.length - 20} more rows…</p>}

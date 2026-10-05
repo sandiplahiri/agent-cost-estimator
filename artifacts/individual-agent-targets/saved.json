@@ -1,0 +1,368 @@
+{
+  "schema_version": 10,
+  "defaults_version": 1,
+  "id": "individual-targets-1791218635874",
+  "name": "Individual target fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "1000",
+      "output_tokens": "0",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "Research intensive": {
+      "calls": "2",
+      "input_tokens": "1000",
+      "output_tokens": "500",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "root-row",
+      "name": "Root",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "root",
+          "name": "Root",
+          "business_use_case_description": "Root handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "10",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [
+        {
+          "id": "root-model",
+          "name": "Main step",
+          "complexity": null,
+          "execution_probability": "1",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "model",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "A",
+              "id": "root-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ],
+          "agent_calls": []
+        },
+        {
+          "id": "7bbce1c8-83e0-4254-86f4-3662b26d717e",
+          "name": "Step 2",
+          "complexity": "simple",
+          "execution_probability": "1",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "agent",
+          "model_calls": [],
+          "agent_calls": [
+            {
+              "id": "f8c8132f-fae6-48ca-be6d-87608dc8a1c0",
+              "child_agent_id": "alice",
+              "probability": "0.8",
+              "low": {
+                "trigger_probability": null
+              },
+              "high": {
+                "trigger_probability": null
+              }
+            },
+            {
+              "id": "7c380bbb-25d1-4f02-9b21-fdaeaa5e09b6",
+              "child_agent_id": "bob",
+              "probability": "0.2",
+              "low": {
+                "trigger_probability": null
+              },
+              "high": {
+                "trigger_probability": null
+              }
+            }
+          ]
+        }
+      ],
+      "tool_costs": []
+    },
+    {
+      "id": "shared-row",
+      "name": "Cara",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "cara",
+          "name": "Cara",
+          "business_use_case_description": "Cara handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "A"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "fccadf8a-040e-5986-823e-550c20621469",
+      "name": "Alice",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "Alice handles a request",
+      "members": [
+        {
+          "id": "alice",
+          "name": "Alice",
+          "business_use_case_description": "Alice handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "A"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "df326191-e9f7-5439-a544-ae2e7f9efb1e",
+      "name": "Bob",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "Bob handles a request",
+      "members": [
+        {
+          "id": "bob",
+          "name": "Bob",
+          "business_use_case_description": "Bob handles a request"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "1000",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "A"
+      },
+      "steps": [
+        {
+          "id": "adfea3f2-0f40-4731-9719-20f7b3e73708",
+          "name": "Main step",
+          "complexity": "simple",
+          "execution_probability": "1",
+          "low_execution_probability": null,
+          "high_execution_probability": null,
+          "action_type": "model",
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "B",
+              "id": "cd551d44-0765-478a-aaf5-93d349fd58db",
+              "role": "",
+              "probability": "1"
+            }
+          ],
+          "agent_calls": []
+        }
+      ],
+      "tool_costs": []
+    }
+  ],
+  "links": [
+    {
+      "id": "f8c8132f-fae6-48ca-be6d-87608dc8a1c0",
+      "parent_id": "root-row",
+      "child_id": "fccadf8a-040e-5986-823e-550c20621469",
+      "trigger_probability": "0.8",
+      "step_id": "7bbce1c8-83e0-4254-86f4-3662b26d717e",
+      "low": {
+        "trigger_probability": null
+      },
+      "high": {
+        "trigger_probability": null
+      }
+    },
+    {
+      "id": "7c380bbb-25d1-4f02-9b21-fdaeaa5e09b6",
+      "parent_id": "root-row",
+      "child_id": "df326191-e9f7-5439-a544-ae2e7f9efb1e",
+      "trigger_probability": "0.2",
+      "step_id": "7bbce1c8-83e0-4254-86f4-3662b26d717e",
+      "low": {
+        "trigger_probability": null
+      },
+      "high": {
+        "trigger_probability": null
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "A": {
+      "id": "A",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "0",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Individual targets v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true,
+      "unsupported": []
+    },
+    "B": {
+      "id": "B",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "10",
+      "output": "0",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Individual targets v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

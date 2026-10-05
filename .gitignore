@@ -11,4 +11,4 @@ __pycache__/
 .env
 test-results/
 playwright-report/
-artifacts/*.sqlite*
+artifacts/**/*.sqlite*

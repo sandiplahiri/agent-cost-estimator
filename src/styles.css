@@ -563,6 +563,10 @@ textarea {
 .inventory-agent-table td:last-child {
   text-align: right;
 }
+.inventory-row-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
 .inventory-pagination {
   align-items: center;
   justify-content: flex-end;
@@ -1752,6 +1756,9 @@ tr:last-child td {
   }
   .form-grid.three {
     gap: 10px;
+  }
+  .quick-volume-group .form-grid {
+    grid-template-columns: 1fr;
   }
   .totals-grid {
     margin-inline: 15px;

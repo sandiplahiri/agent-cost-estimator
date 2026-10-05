@@ -1,0 +1,25 @@
+{
+  "command": "npx playwright test e2e/agent-deletion.spec.ts",
+  "fixture": "input.json; A USD 2/M, B USD 10/M input; 1000 tokens/call; no retries/cache/output; delegation tool USD 0.001/executed step",
+  "expected": {
+    "initial": 4.68,
+    "oneRoot": 2.43,
+    "finalRootsDeleted": 1.08,
+    "childAfterOne": 150,
+    "retainedChild": 90,
+    "remainingAgents": 4,
+    "emptyFixedHarness": 5
+  },
+  "actual": {
+    "initial": 4.68,
+    "oneRoot": 2.43,
+    "finalRootsDeleted": 1.08,
+    "childAfterOne": 150,
+    "retainedChild": 90,
+    "remainingAgents": 4,
+    "excel": 1.08,
+    "emptyFixedHarness": 5
+  },
+  "failures": [],
+  "executedCommand": "npx playwright test"
+}

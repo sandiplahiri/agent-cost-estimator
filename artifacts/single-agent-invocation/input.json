@@ -1,0 +1,242 @@
+{
+  "schema_version": 10,
+  "defaults_version": 1,
+  "id": "single-invocation-1791218640099",
+  "name": "One invocation per step fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "Research intensive": {
+      "calls": "2",
+      "input_tokens": "1000",
+      "output_tokens": "500",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "Root",
+      "name": "Root",
+      "complexity": "simple",
+      "count": 1,
+      "members": [
+        {
+          "id": "Root",
+          "name": "Root",
+          "business_use_case_description": "Root handles a request"
+        }
+      ],
+      "volume_source": "daily_users",
+      "users_per_day": "10",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {},
+      "steps": [
+        {
+          "id": "Root-model",
+          "name": "Main step",
+          "action_type": "model",
+          "execution_probability": "1",
+          "agent_calls": [],
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "A",
+              "id": "Root-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ]
+        },
+        {
+          "id": "delegate",
+          "name": "Delegate",
+          "action_type": "agent",
+          "execution_probability": "0.5",
+          "model_calls": [],
+          "agent_calls": [
+            {
+              "id": "to-alice",
+              "child_agent_id": "Alice",
+              "probability": "0.8"
+            },
+            {
+              "id": "to-bob",
+              "child_agent_id": "Bob",
+              "probability": "0.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Alice",
+      "name": "Alice",
+      "complexity": "simple",
+      "count": 1,
+      "members": [
+        {
+          "id": "Alice",
+          "name": "Alice",
+          "business_use_case_description": "Alice handles a request"
+        }
+      ],
+      "volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {},
+      "steps": [
+        {
+          "id": "Alice-model",
+          "name": "Main step",
+          "action_type": "model",
+          "execution_probability": "1",
+          "agent_calls": [],
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "A",
+              "id": "Alice-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Bob",
+      "name": "Bob",
+      "complexity": "simple",
+      "count": 1,
+      "members": [
+        {
+          "id": "Bob",
+          "name": "Bob",
+          "business_use_case_description": "Bob handles a request"
+        }
+      ],
+      "volume_source": "daily_users",
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {},
+      "steps": [
+        {
+          "id": "Bob-model",
+          "name": "Main step",
+          "action_type": "model",
+          "execution_probability": "1",
+          "agent_calls": [],
+          "model_calls": [
+            {
+              "calls": "1",
+              "input_tokens": "1000",
+              "output_tokens": "0",
+              "retry_rate": "0",
+              "cache_fraction": "0",
+              "cache_write_fraction": "0",
+              "model_id": "B",
+              "id": "Bob-model-model",
+              "role": "",
+              "probability": "1"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "A": {
+      "id": "A",
+      "provider": "Synthetic fixture",
+      "input": "2",
+      "output": "0",
+      "source": "Single agent invocation v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true
+    },
+    "B": {
+      "id": "B",
+      "provider": "Synthetic fixture",
+      "input": "10",
+      "output": "0",
+      "source": "Single agent invocation v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

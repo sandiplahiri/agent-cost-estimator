@@ -1,0 +1,120 @@
+{
+  "schema_version": 10,
+  "defaults_version": 1,
+  "id": "agent-deletion-1791218557804",
+  "name": "Agent deletion fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "A": {
+      "id": "A",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "0",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Agent deletion v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true,
+      "unsupported": []
+    },
+    "B": {
+      "id": "B",
+      "provider": "Synthetic fixture",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "10",
+      "output": "0",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Agent deletion v1",
+      "retrieved_at": "2026-10-05",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "self_built",
+    "fixed_monthly": "5",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "command": "npx playwright test e2e/individual-agent-targets.spec.ts",
+  "fixture": "input.json; A USD 2/M input, B USD 10/M; 1000 input tokens/call; 30-day month; no retries/cache",
+  "expected": {
+    "initial": 0.78,
+    "routed": 1.26,
+    "edited": 1.74,
+    "alice": 240,
+    "bob": 60,
+    "cara": 30,
+    "restoredAlice": 30,
+    "agentCount": 4
+  },
+  "actual": {
+    "routed": 1.26,
+    "edited": 1.74,
+    "excel": 1.74,
+    "imported": 1.74,
+    "alice": 240,
+    "bob": 60,
+    "cara": 30,
+    "restoredAlice": 30
+  },
+  "failures": []
+}

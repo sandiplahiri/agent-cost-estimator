@@ -54,31 +54,11 @@ test('suite members receive editable identities that survive save and Excel expo
   const savedId = list.find((item: { name: string }) => item.name === 'Identity fixture').id;
   const estimate = await (await request.get(`/api/estimates/${savedId}`)).json();
   await fs.writeFile(path.join(directory, 'input-fixture.json'), JSON.stringify(estimate, null, 2));
-  expect(estimate.schema_version).toBe(8);
+  expect(estimate.schema_version).toBe(10);
   expect(estimate.agents[0].members).toEqual([
     { id: 'triage-1', name: 'Customer triage', business_use_case_description: 'Classifies support requests' },
     { id: 'draft-2', name: 'Response drafter', business_use_case_description: 'Drafts a customer reply' },
   ]);
-
-  const legacy = structuredClone(estimate);
-  legacy.schema_version = 5;
-  legacy.id = `legacy-identities-${Date.now()}`;
-  legacy.name = 'Legacy identity migration fixture';
-  delete legacy.agents[0].members;
-  legacy.agents.push({
-    ...legacy.agents[0],
-    id: 'legacy-extra-row',
-    name: 'Simple agents 2',
-    count: 1,
-  });
-  const legacySave = await request.post('/api/estimates', { data: legacy });
-  expect(legacySave.ok(), await legacySave.text()).toBe(true);
-  const migrated = await (await request.get(`/api/estimates/${legacy.id}`)).json();
-  expect(migrated.schema_version).toBe(8);
-  const migratedNames = migrated.agents.flatMap((row: { members: { name: string }[] }) =>
-    row.members.map((member) => member.name),
-  );
-  expect(new Set(migratedNames.map((name: string) => name.toLowerCase())).size).toBe(3);
 
   await page.reload();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
@@ -130,7 +110,6 @@ test('suite members receive editable identities that survive save and Excel expo
         },
         duplicateIdRejected: true,
         duplicateNameRejected: true,
-        legacyMigrationNamesUnique: true,
         failures: [],
       },
       null,

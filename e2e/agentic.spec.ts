@@ -1,3 +1,4 @@
+import { modelStep, agentStep } from './workflow-fixtures';
 import { openAgentEditor } from './agent-editing';
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
@@ -58,7 +59,6 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     id,
     role: 'reasoning',
     probability,
-    exclusive_group: '',
     calls,
     input_tokens,
     output_tokens,
@@ -72,13 +72,8 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     name,
     execution_probability: probability,
     model_calls,
-    calls: '0',
-    input_tokens: '0',
-    output_tokens: '0',
-    retry_rate: '0',
-    cache_fraction: '0',
-    cache_write_fraction: '0',
-    model_id: '',
+    action_type: 'model',
+    agent_calls: [],
   });
   const agent = (id: string, name: string, source: 'daily_users' | 'derived', steps: unknown[]) => ({
     id,
@@ -101,7 +96,9 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   estimate.agents = [
     agent('router', 'Resolve inquiry', 'daily_users', [
       step('classify', 'Classify', '1', [call('primary', 'Fixture A', '1', '1000', '100', '1')]),
-      step('verify', 'Verify', '0.25', [call('optional', 'Fixture A', '1', '200', '50', '0.5')]),
+      step('verify', 'Verify', '0.125', [call('optional', 'Fixture A', '1', '200', '50', '1')]),
+      agentStep('delegation', 'specialist', '0.25'),
+      agentStep('delegation-again', 'specialist', '0.25'),
     ]),
     agent('specialist', 'Research documents', 'derived', [
       step('research', 'Research', '1', [call('research-call', 'Fixture B', '2', '500', '100', '1')]),
@@ -113,21 +110,8 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
       name: 'Search API',
       unit_cost: '0.1',
       expected_units_per_invocation: '1',
-      probability: '0.5',
+      probability: '1',
       step_id: 'verify',
-    },
-  ];
-  estimate.links = [
-    {
-      id: 'delegation',
-      parent_id: 'router',
-      child_id: 'specialist',
-      step_id: 'verify',
-      trigger_probability: '1',
-      invocations_per_trigger: '2',
-      branch_group: '',
-      low: { trigger_probability: null, invocations_per_trigger: null },
-      high: { trigger_probability: null, invocations_per_trigger: null },
     },
   ];
   estimate.harness = {
@@ -150,9 +134,9 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     childCompletions: 50,
     model: 0.38,
     tools: 1.25,
-    harness: 11.675,
-    total: 13.305,
-    loadedPerRoot: 0.13305,
+    harness: 11.7125,
+    total: 13.3425,
+    loadedPerRoot: 0.133425,
   };
   expect(Number(expected.volumes.router.total)).toBeCloseTo(independent.completions, 9);
   expect(Number(expected.volumes.specialist.total)).toBeCloseTo(independent.childCompletions, 9);
@@ -168,9 +152,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   const invalid = structuredClone(estimate);
   invalid.agents[0].steps[1].model_calls.push({
     ...call('extra', 'Fixture B', '1', '100', '100', '0.6'),
-    exclusive_group: 'one',
   });
-  invalid.agents[0].steps[1].model_calls[0].exclusive_group = 'one';
   expect((await request.post('/api/calculate', { data: invalid })).status()).toBe(422);
   const unpriced = structuredClone(estimate);
   unpriced.agents[1].steps[0].model_calls[0].model_id = 'Unknown';
@@ -192,13 +174,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   expect((await request.post('/api/calculate', { data: missingFx })).status()).toBe(422);
   const cyclic = structuredClone(estimate);
   cyclic.agents[0].volume_source = 'derived';
-  cyclic.links.push({
-    ...cyclic.links[0],
-    id: 'back-edge',
-    parent_id: 'specialist',
-    child_id: 'router',
-    step_id: 'research',
-  });
+  cyclic.agents[1].steps.push(agentStep('back-edge', 'router'));
   const cycleResponse = await request.post('/api/calculate', { data: cyclic });
   expect(cycleResponse.status()).toBe(422);
   expect(await cycleResponse.text()).toContain('Resolve inquiry');
@@ -235,7 +211,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
       {
         command: 'npm run test:e2e',
         assumptions:
-          '100 monthly invocations; 0.25 step probability and 0.5 model probability; 200 input and 50 output tokens per call; USD 2/M input and 8/M output; excludes tools, harness and delegated specialist',
+          '100 monthly invocations; 0.125 step execution probability and one model option; 200 input and 50 output tokens per call; USD 2/M input and 8/M output; excludes tools, harness and delegated specialist',
         expected: ['2,500', '$0.005', '625', '$0.005', '$0.01'],
         actual: conditionalStepCostActual,
         failures: [],
@@ -254,9 +230,9 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await (await jsonDownloadPromise).saveAs(jsonFile);
   const exportedJson = JSON.parse(await fs.readFile(jsonFile, 'utf8'));
   expect(exportedJson.prices['Fixture A'].input).toBe('2');
-  expect(exportedJson.agents[0].steps[1].model_calls[0].probability).toBe('0.5');
+  expect(exportedJson.agents[0].steps[1].model_calls[0].probability).toBe('1');
   await page.getByRole('button', { name: 'Agent harness' }).click();
-  await expect(page.getByText('$11.68', { exact: true })).toBeVisible();
+  await expect(page.getByText('$11.71', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await page.getByRole('button', { name: 'Select agent Resolve inquiry', exact: true }).click();
@@ -284,9 +260,15 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await openAgentEditor(page, 'Resolve inquiry');
   const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await page.screenshot({ path: path.join(artifactDir, 'edit-agent-dialog.png'), fullPage: true });
-  await editor.getByLabel('Model invocation probability (0–1)').nth(1).fill('0');
+  await editor.getByLabel('Step 2 execution probability (0–1)').fill('0');
   await editor.getByRole('button', { name: 'Add model to step' }).first().click();
+  await editor.getByRole('button', { name: /Step 1 model 2 name:/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Choose a model' })
+    .getByRole('button', { name: /Fixture B/ })
+    .click();
   await editor.getByRole('button', { name: 'Apply changes' }).click();
+  await expect(editor).toBeHidden();
   await expect(page.getByTestId('cost-expected')).toContainText('$0.37');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   const jsonChooser = page.waitForEvent('filechooser');
@@ -380,7 +362,7 @@ test('Linked group members become independently editable without changing graph 
 }) => {
   const outputDir = path.resolve('artifacts/agent-customization');
   await fs.mkdir(outputDir, { recursive: true });
-  const estimate = await (await request.get('/api/new')).json();
+  let estimate = await (await request.get('/api/new')).json();
   estimate.id = `linked-customization-${Date.now()}`;
   estimate.name = 'Linked customization fixture';
   estimate.profiles.simple = {
@@ -431,6 +413,11 @@ test('Linked group members become independently editable without changing graph 
     use_case_description: '',
     complexity: 'simple',
     count,
+    members: Array.from({ length: count }, (_, i) => ({
+      id: `${id}-${i + 1}`,
+      name: count === 1 ? name : `${name} ${i + 1}`,
+      business_use_case_description: 'Fixture use case',
+    })),
     invocations: '0',
     volume_source: source,
     prior_volume_source: source === 'derived' ? 'daily_users' : null,
@@ -445,112 +432,82 @@ test('Linked group members become independently editable without changing graph 
     row('research', 'Research group', 2, 'derived'),
     row('reviewer', 'Reviewer', 1, 'derived'),
   ];
-  const link = (id: string, parent_id: string, child_id: string, probability: string, fanout: string) => ({
-    id,
-    parent_id,
-    child_id,
-    step_id: null,
-    trigger_probability: probability,
-    invocations_per_trigger: fanout,
-    branch_group: '',
-    low: { trigger_probability: null, invocations_per_trigger: null },
-    high: { trigger_probability: null, invocations_per_trigger: null },
-  });
-  estimate.links = [
-    link('to-research', 'planner', 'research', '0.5', '2'),
-    link('to-reviewer', 'research', 'reviewer', '0.4', '1'),
+  estimate.agents[0].steps = [
+    modelStep('planner-model', { ...estimate.profiles.simple, model_id: 'Fixture A' }),
+    {
+      ...agentStep('to-research', 'research-1', '0.5'),
+      agent_calls: [
+        { id: 'to-research-1', child_agent_id: 'research-1', probability: '0.5' },
+        { id: 'to-research-2', child_agent_id: 'research-2', probability: '0.5' },
+      ],
+      low_execution_probability: '0.2',
+      high_execution_probability: '1',
+    },
   ];
-  estimate.links[0].low.trigger_probability = '0.2';
-  estimate.links[0].high.trigger_probability = '1';
+  estimate.agents[0].steps.push({
+    ...structuredClone(estimate.agents[0].steps[1]),
+    id: 'to-research-again',
+    agent_calls: estimate.agents[0].steps[1].agent_calls.map((option: { id: string }) => ({
+      ...option,
+      id: `${option.id}-again`,
+    })),
+  });
+  estimate.agents[1].steps = [
+    modelStep('research-model', { ...estimate.profiles.simple, model_id: 'Fixture A' }),
+    agentStep('research-step', 'reviewer-1', '0.4'),
+  ];
+  const validated = await request.post('/api/validate', { data: estimate });
+  expect(validated.ok(), await validated.text()).toBe(true);
+  estimate = await validated.json();
+  const researchOne = estimate.agents.find(
+    (row: { members: { id: string }[] }) => row.members[0]?.id === 'research-1',
+  ).id;
+  const researchTwo = estimate.agents.find(
+    (row: { members: { id: string }[] }) => row.members[0]?.id === 'research-2',
+  ).id;
   await fs.writeFile(path.join(outputDir, 'input.json'), JSON.stringify(estimate, null, 2));
   const baseline = await (await request.post('/api/calculate', { data: estimate })).json();
   const expectedMonthly = [1.9656, 4.032, 9.576];
   baseline.scenarios.forEach((scenario: { llm_cost: string }, index: number) =>
     expect(Number(scenario.llm_cost)).toBeCloseTo(expectedMonthly[index], 9),
   );
-  expect(Number(baseline.scenarios[1].volumes.research.total)).toBe(600);
+  expect(Number(baseline.scenarios[1].volumes[researchOne].total)).toBe(300);
+  expect(Number(baseline.scenarios[1].volumes[researchTwo].total)).toBe(300);
   expect(Number(baseline.scenarios[1].volumes.reviewer.total)).toBe(240);
 
-  const splitResponse = await request.post('/api/agents/split', {
-    data: { estimate, row_id: 'research', individual: estimate.agents[1] },
-  });
+  const splitResponse = await request.post('/api/agents/split', { data: { estimate, row_id: 'planner' } });
   expect(splitResponse.ok(), await splitResponse.text()).toBe(true);
   const split = await splitResponse.json();
-  const individualId = split.individual_id;
-  expect(split.estimate.agents.find((agent: { id: string }) => agent.id === 'research').count).toBe(1);
-  expect(split.estimate.agents.find((agent: { id: string }) => agent.id === individualId).count).toBe(1);
   const afterSplit = await (await request.post('/api/calculate', { data: split.estimate })).json();
   afterSplit.scenarios.forEach(
     (scenario: { llm_cost: string; volumes: Record<string, { total: string }> }, index: number) => {
       expect(Number(scenario.llm_cost)).toBeCloseTo(expectedMonthly[index], 9);
-      expect(
-        Number(scenario.volumes.research.total) + Number(scenario.volumes[individualId].total),
-      ).toBeCloseTo([240, 600, 1200][index], 9);
+      expect(Number(scenario.volumes[researchOne].total)).toBeCloseTo([120, 300, 600][index], 9);
+      expect(Number(scenario.volumes[researchTwo].total)).toBeCloseTo([120, 300, 600][index], 9);
       expect(Number(scenario.volumes.reviewer.total)).toBeCloseTo([96, 240, 480][index], 9);
     },
   );
-  const splitRootResponse = await request.post('/api/agents/split', {
-    data: { estimate: split.estimate, row_id: 'planner' },
-  });
-  expect(splitRootResponse.ok(), await splitRootResponse.text()).toBe(true);
-  const splitRoot = await splitRootResponse.json();
-  const afterRootSplit = await (await request.post('/api/calculate', { data: splitRoot.estimate })).json();
-  afterRootSplit.scenarios.forEach(
-    (scenario: { llm_cost: string; volumes: Record<string, { total: string }> }, index: number) => {
-      expect(Number(scenario.llm_cost)).toBeCloseTo(expectedMonthly[index], 9);
-      expect(Number(scenario.volumes.reviewer.total)).toBeCloseTo([96, 240, 480][index], 9);
-    },
+  const copiedCaller = split.estimate.agents.find(
+    (agent: { id: string }) => agent.id === split.individual_id,
   );
-  const stepScoped = structuredClone(estimate);
-  stepScoped.agents[1].steps = [
-    {
-      ...estimate.profiles.simple,
-      id: 'research-step',
-      name: 'Investigate',
-      execution_probability: '1',
-      model_calls: [],
-    },
-  ];
-  stepScoped.links[1].step_id = 'research-step';
-  const scopedSplitResponse = await request.post('/api/agents/split', {
-    data: { estimate: stepScoped, row_id: 'research' },
-  });
-  expect(scopedSplitResponse.ok(), await scopedSplitResponse.text()).toBe(true);
-  const scopedSplit = await scopedSplitResponse.json();
-  const scopedIndividual = scopedSplit.estimate.agents.find(
-    (agent: { id: string }) => agent.id === scopedSplit.individual_id,
+  const copiedOutgoing = split.estimate.links.filter(
+    (edge: { parent_id: string }) => edge.parent_id === copiedCaller.id,
   );
-  const copiedOutgoing = scopedSplit.estimate.links.find(
-    (edge: { parent_id: string; child_id: string }) =>
-      edge.parent_id === scopedIndividual.id && edge.child_id === 'reviewer',
-  );
-  expect(copiedOutgoing.step_id).toBe(scopedIndividual.steps[0].id);
-  expect(copiedOutgoing.step_id).not.toBe('research-step');
-  const scopedResult = await (await request.post('/api/calculate', { data: scopedSplit.estimate })).json();
-  expect(Number(scopedResult.scenarios[1].volumes.reviewer.total)).toBe(240);
-  const exclusive = structuredClone(estimate);
-  exclusive.links[0].trigger_probability = '0.6';
-  exclusive.links[0].branch_group = 'route';
-  const alternative = link('alternative', 'planner', 'reviewer', '0.4', '1');
-  alternative.branch_group = 'route';
-  alternative.high.trigger_probability = '0';
-  exclusive.links.push(alternative);
-  const exclusiveBefore = await (await request.post('/api/calculate', { data: exclusive })).json();
-  const exclusiveSplitResponse = await request.post('/api/agents/split', {
-    data: { estimate: exclusive, row_id: 'research' },
-  });
-  expect(exclusiveSplitResponse.ok(), await exclusiveSplitResponse.text()).toBe(true);
-  const exclusiveSplit = await exclusiveSplitResponse.json();
-  const splitBranchEdges = exclusiveSplit.estimate.links.filter(
-    (edge: { branch_event_id: string | null }) => edge.branch_event_id === 'to-research',
-  );
-  expect(splitBranchEdges).toHaveLength(2);
-  const exclusiveAfter = await (
-    await request.post('/api/calculate', { data: exclusiveSplit.estimate })
-  ).json();
-  exclusiveAfter.scenarios.forEach((scenario: { llm_cost: string }, index: number) =>
-    expect(Number(scenario.llm_cost)).toBeCloseTo(Number(exclusiveBefore.scenarios[index].llm_cost), 9),
-  );
+  expect(copiedOutgoing).toHaveLength(4);
+  expect(
+    copiedOutgoing.every((edge: { step_id: string }) =>
+      copiedCaller.steps.slice(1).some((step: { id: string }) => edge.step_id === step.id),
+    ),
+  ).toBe(true);
+  expect(
+    copiedCaller.steps[1].agent_calls.map((option: { child_agent_id: string; probability: string }) => [
+      option.child_agent_id,
+      option.probability,
+    ]),
+  ).toEqual([
+    ['research-1', '0.5'],
+    ['research-2', '0.5'],
+  ]);
 
   expect((await request.post('/api/estimates', { data: estimate })).ok()).toBe(true);
   await page.goto('/');
@@ -565,20 +522,25 @@ test('Linked group members become independently editable without changing graph 
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await expect(graph).toBeVisible();
   await expect(
-    graph.getByLabel('Agent canvas').getByRole('button', { name: 'Select agent Research group' }),
+    graph.getByLabel('Agent canvas').getByRole('button', { name: 'Select agent Research group 2' }),
   ).toBeVisible();
   await expect(page.getByTestId('cost-expected')).toContainText('$4.03');
   await page.screenshot({ path: path.join(outputDir, 'graph-workspace.png') });
   await graph.screenshot({ path: path.join(outputDir, 'graph-before.png') });
-  await graph.getByRole('button', { name: 'Select agent Research group' }).click();
+  await graph.getByRole('button', { name: 'Select agent Research group 2' }).click();
   await expect(
-    graph.locator('.graph-inspector-agent').getByText('2 agents · Volume from callers'),
+    graph.locator('.graph-inspector-agent').getByText('Individual agent · Volume from callers'),
   ).toBeVisible();
-  await graph.getByRole('button', { name: 'Customize one agent' }).click();
+  await graph.getByRole('button', { name: 'Edit steps and tools' }).click();
   const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await expect(editor.getByLabel('Agent name')).toHaveValue('Research group 2');
   await expect(page.getByTestId('cost-expected')).toContainText('$4.03');
   await editor.getByLabel('Agent name').fill('Research tuned');
+  await editor
+    .locator('article')
+    .filter({ has: page.getByLabel('Step 1 name') })
+    .getByText('Step execution details', { exact: true })
+    .click();
   await editor.getByLabel('Output tokens / call').fill('200');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toContainText('$4.27');
@@ -623,7 +585,9 @@ test('Linked group members become independently editable without changing graph 
     'data-complexity',
     'medium',
   );
-  await expect(graph.getByRole('button', { name: 'Select agent Research group' })).toContainText('$0.84 LLM');
+  await expect(graph.getByRole('button', { name: 'Select agent Research group 1' })).toContainText(
+    '$0.84 LLM',
+  );
   await graph.screenshot({ path: path.join(outputDir, 'graph-inspector-after.png') });
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(graph).toBeHidden();
@@ -636,10 +600,11 @@ test('Linked group members become independently editable without changing graph 
   expect(Number(verified.scenarios[1].volumes.reviewer.total)).toBe(240);
   expect(savedDraft.profiles.simple).not.toHaveProperty('model_id');
   expect(
-    savedDraft.agents.find((agent: { name: string }) => agent.name === 'Research tuned').overrides.model_id,
+    savedDraft.agents.find((agent: { name: string }) => agent.name === 'Research tuned').steps[0]
+      .model_calls[0].model_id,
   ).toBe('Fixture B');
   const remainingResearchOverrides = savedDraft.agents.find(
-    (agent: { id: string }) => agent.id === 'research',
+    (agent: { id: string }) => agent.id === researchOne,
   ).overrides;
   expect(remainingResearchOverrides.model_id).toBe('Fixture A');
   expect(
@@ -702,8 +667,8 @@ test('Linked group members become independently editable without changing graph 
           expectedAfterCustomization: Number(afterModalResult.scenarios[1].llm_cost),
           expectedAfterGraphInspector: Number(verified.scenarios[1].llm_cost),
           researchMonthly:
-            Number(afterSplit.scenarios[1].volumes.research.total) +
-            Number(afterSplit.scenarios[1].volumes[individualId].total),
+            Number(afterSplit.scenarios[1].volumes[researchOne].total) +
+            Number(afterSplit.scenarios[1].volumes[researchTwo].total),
           reviewerMonthly: Number(verified.scenarios[1].volumes.reviewer.total),
         },
         navigation: {

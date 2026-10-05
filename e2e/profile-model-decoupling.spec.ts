@@ -4,23 +4,18 @@ import { HyperFormula } from 'hyperformula';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-test('legacy profile models become agent choices while a shared profile prices two models', async ({
-  page,
-  request,
-}) => {
+test('a shared profile prices independent agent model choices', async ({ page, request }) => {
   const directory = path.resolve('artifacts/profile-model-decoupling');
   await fs.mkdir(directory, { recursive: true });
-  const legacy = await (await request.get('/api/new')).json();
-  legacy.schema_version = 7;
-  legacy.id = `profile-migration-${Date.now()}`;
-  legacy.name = 'Profile model migration fixture';
-  legacy.profiles.simple = {
-    ...legacy.profiles.simple,
+  const fixture = await (await request.get('/api/new')).json();
+  fixture.id = `profile-choice-${Date.now()}`;
+  fixture.name = 'Profile model choice fixture';
+  fixture.profiles.simple = {
+    ...fixture.profiles.simple,
     calls: '1',
     input_tokens: '1000',
     output_tokens: '100',
     retry_rate: '0',
-    model_id: 'Fixture A',
   };
   const price = (id: string, input: string, output: string) => ({
     id,
@@ -37,7 +32,7 @@ test('legacy profile models become agent choices while a shared profile prices t
     custom: true,
     unsupported: [],
   });
-  legacy.prices = {
+  fixture.prices = {
     'Fixture A': price('Fixture A', '2', '8'),
     'Fixture B': price('Fixture B', '1', '4'),
   };
@@ -46,7 +41,7 @@ test('legacy profile models become agent choices while a shared profile prices t
     name,
     description: '',
     use_case_name: name,
-    use_case_description: 'Fixed profile migration fixture',
+    use_case_description: 'Fixed model choice fixture',
     members: [{ id: `${name}-member`, name, business_use_case_description: 'Fixture' }],
     complexity: 'simple',
     count: 1,
@@ -59,16 +54,16 @@ test('legacy profile models become agent choices while a shared profile prices t
     steps: [],
     tool_costs: [],
   });
-  legacy.agents = [
-    row('Agent A', {}),
+  fixture.agents = [
+    row('Agent A', { model_id: 'Fixture A' }),
     row('Agent B', { model_id: 'Fixture B' }),
     row('Unselected agent', { model_id: '' }, '0'),
   ];
 
-  const savedResponse = await request.post('/api/estimates', { data: legacy });
+  const savedResponse = await request.post('/api/estimates', { data: fixture });
   expect(savedResponse.ok(), await savedResponse.text()).toBe(true);
-  const saved = await (await request.get(`/api/estimates/${legacy.id}`)).json();
-  expect(saved.schema_version).toBe(8);
+  const saved = await (await request.get(`/api/estimates/${fixture.id}`)).json();
+  expect(saved.schema_version).toBe(10);
   expect(saved.profiles.simple).not.toHaveProperty('model_id');
   expect(saved.agents.map((agent: { overrides: { model_id: string } }) => agent.overrides.model_id)).toEqual([
     'Fixture A',
@@ -77,8 +72,8 @@ test('legacy profile models become agent choices while a shared profile prices t
   ]);
   expect(saved.prices['Fixture A'].input).toBe('2');
   expect(saved.prices['Fixture B'].output).toBe('4');
-  await fs.writeFile(path.join(directory, 'legacy-input.json'), JSON.stringify(legacy, null, 2));
-  await fs.writeFile(path.join(directory, 'migrated-estimate.json'), JSON.stringify(saved, null, 2));
+  await fs.writeFile(path.join(directory, 'fixture-input.json'), JSON.stringify(fixture, null, 2));
+  await fs.writeFile(path.join(directory, 'saved-estimate.json'), JSON.stringify(saved, null, 2));
 
   const priced = await (await request.post('/api/calculate', { data: saved })).json();
   const expected = priced.scenarios.find((scenario: { name: string }) => scenario.name === 'Expected');
@@ -87,7 +82,7 @@ test('legacy profile models become agent choices while a shared profile prices t
   expect(Number(expected.llm_cost)).toBeCloseTo(0.126, 9);
 
   const rejected = await request.post('/api/categories', {
-    data: { name: 'Model coupled', profile: legacy.profiles.simple },
+    data: { name: 'Model coupled', profile: { ...fixture.profiles.simple, model_id: 'Fixture A' } },
   });
   expect(rejected.status()).toBe(422);
   const invalidCurrent = structuredClone(saved);
@@ -97,11 +92,11 @@ test('legacy profile models become agent choices while a shared profile prices t
   await page.addInitScript((draft) => {
     if (!localStorage.getItem('agent-ledger-draft-v1'))
       localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft));
-  }, legacy);
+  }, fixture);
   await page.goto('/');
   await expect(page.getByTestId('cost-expected')).toContainText('$0.13');
   const browserDraft = await page.evaluate(() => JSON.parse(localStorage.getItem('agent-ledger-draft-v1')!));
-  expect(browserDraft.schema_version).toBe(8);
+  expect(browserDraft.schema_version).toBe(10);
   expect(browserDraft.profiles.simple).not.toHaveProperty('model_id');
   expect(browserDraft.agents[0].overrides.model_id).toBe('Fixture A');
 
@@ -150,9 +145,8 @@ test('legacy profile models become agent choices while a shared profile prices t
         expectedUsd: 0.126,
         actualUsd: Number(expected.llm_cost),
         workbookUsd: workbookTotal,
-        legacyModelMigrated: true,
         sharedProfileUsesIndependentModels: true,
-        browserDraftMigrated: true,
+        browserDraftReproduced: true,
         profileModelRejected: true,
         failures: [],
       },

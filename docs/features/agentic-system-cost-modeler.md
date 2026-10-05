@@ -1,6 +1,6 @@
 # PRD: Agentic System Cost Modeler
 
-**Status:** Draft v1.7 (step-level complexity and mixed-profile agents) | **Date:** 2026-10-04 | **Owner:** AI Architecture
+**Status:** Draft v1.8 (exclusive model-or-agent step actions) | **Date:** 2026-10-05 | **Owner:** AI Architecture
 
 ---
 
@@ -8,7 +8,9 @@
 
 Add a feature to the cost estimation app that lets a user model an **agentic system** as a directed acyclic graph (DAG) of agents and models, then get a daily/monthly/annual cost estimate with full breakdowns, sensitivity analysis, and what-if scenarios.
 
-The atomic unit is the **agent**. Each agent is associated with a **business use case**, and **one invocation of the agent completes that use case**. A use case consists of multiple ordered **steps**; each step has its own effective complexity profile and can invoke one or multiple **models**, each with a probability and token profile. One agent invocation can mix simple, medium, high, and custom profiles. Agents also have a usage profile (invocations per day), an optional default complexity for new steps, and **sub-agent calls** (each with a probability and multiplicity). Because agents can call other agents, the structure is a call tree/DAG. **Cycles are not allowed**; the app must prevent and explain them.
+The atomic unit is the **agent**. Each agent is associated with a **business use case**, and **one invocation of the agent completes that use case**. A use case consists of multiple ordered **steps**. Each step has exactly one action type: **invoke a model** selected from potential models, or **invoke another agent in the same suite** selected from potential agents. These action types are mutually exclusive. Within the selected type, option probabilities total **1.0**, and exactly one target is selected whenever the step executes. The step's expected action cost is the probability-weighted cost of its options. Model steps can mix simple, medium, high, and custom complexity profiles across an agent's invocation. Agents also have a usage profile (invocations per day) and an optional default complexity for new model steps. Because agents can call other agents, the structure is a call tree/DAG. **Cycles are not allowed**; the app must prevent and explain them.
+
+**Confirmed requirements update (2026-10-05):** This step contract supersedes independent model probabilities, optional exclusive groups with a residual no-call probability, mixed model/agent actions within one step, and agent calls outside steps. An optional step execution probability controls whether a step runs; it does not relax the requirement that its target distribution totals 1.0.
 
 Because an invocation equals a completed use case, the primary unit-economics metric is **cost per completed use case**, which can be broken down by step, model, and vendor.
 
@@ -27,7 +29,7 @@ The suite also has exactly one dedicated **agent harness** cost entry covering t
 **Non-Goals (v1)**
 - Live telemetry ingestion or billing reconciliation (see Future Work).
 - Latency/throughput SLA modeling beyond simple peak-concurrency estimates.
-- Modeling loops or unbounded recursion. Bounded retry/iteration is handled by multiplicity parameters instead.
+- Modeling loops or unbounded recursion. Model retries use model-option retry assumptions; additional agent invocations require separate steps in an acyclic dependency graph.
 
 ## 3. Users and Use Cases
 
@@ -88,8 +90,7 @@ The app ships with a starter catalog of common models and prices (clearly dated)
 - `agent_id`, `name`, `description`, `color`
 - `use_case`: the business use case this agent completes (see 4.3): `name`, `description`, optional `value_per_completion` (business value or avoided cost of one completed use case)
 - `complexity`: optional agent default for initializing steps (see 4.2); the effective profile is resolved per step
-- `steps[]`: the ordered steps of the use case; each step owns its `model_calls[]` (see 4.3) and may own `tool_calls[]` and `agent_calls[]`
-- `agent_calls[]`: sub-agent calls not tied to a specific step (see 4.4)
+- `steps[]`: the ordered steps of the use case; each step declares `action_type` (`model` or `agent`) and owns exactly one nonempty option list: `model_calls[]` (4.3) or `agent_calls[]` (4.4). Optional `tool_calls[]` remain separately accounted ancillary charges (4.5).
 - `tool_calls[]`: non-LLM costs not tied to a specific step (see 4.5)
 - `fixed_overhead_per_invocation` (optional flat $)
 
@@ -118,40 +119,41 @@ Complexity describes a **step's** model invocation assumptions. An agent may use
 | Very Complex | 4.0x | 3.0x | 2.5x |
 | Custom | user-set | user-set | user-set |
 
-- Each step selects an effective profile: its explicit selection if present, otherwise the agent's default. A lightweight "Classify" step and a complex "Investigate" step may belong to the same agent invocation. Changing the default must not silently rewrite explicitly selected step profiles.
+- Each model step selects an effective profile: its explicit selection if present, otherwise the agent's default. A lightweight "Classify" step and a complex "Investigate" step may belong to the same agent invocation. Changing the default must not silently rewrite explicitly selected step profiles.
 - Effective tokens for a model call = `base_tokens x tier_multiplier`.
-- Profile definitions live at the workspace level; custom profiles can be selected per step. Model choice and workload volume remain independent of complexity.
+- Profile definitions live at the workspace level; custom profiles can be selected per model step. Model choice and workload volume remain independent of complexity.
 - The multiplier on calls represents extra reasoning steps/tool-use turns a harder task needs.
 
-Agent inventory and workload are counted by unique agent identity. A counted group may reuse a complete agent step definition, but complexity alone cannot define a group. Profile breakdowns allocate each step's expected tokens and model cost to its effective profile. An agent may contribute to several profile breakdowns, so profile agent counts, if displayed, are overlapping distinct-agent counts and must never be summed to obtain suite agent count.
+Agent inventory and workload are counted by unique agent identity. A counted group may reuse a complete agent step definition, but complexity alone cannot define a group. Profile breakdowns allocate each step's expected tokens and model cost to its effective profile. Called-agent model usage is attributed to the called agents' own model-step profiles once. An agent may contribute to several profile breakdowns, so profile agent counts, if displayed, are overlapping distinct-agent counts and must never be summed to obtain suite agent count.
 
-### 4.3 Use Case, Steps, and Model Calls (per agent)
+### 4.3 Use Case, Steps, and Exclusive Actions (per agent)
 
 **An agent invocation completes one business use case.** Each agent is associated with a business use case (e.g. "Resolve a customer billing inquiry", "Produce a due-diligence summary", "Triage an incoming support ticket"). One invocation of the agent runs the use case from start to finish, so:
 - **Cost per invocation = cost per completed use case.** This is the headline unit-economics metric throughout the app.
 - The number of invocations per day (4.1 root usage, 5.1) is the number of use cases completed per day.
 
-**A use case consists of multiple ordered steps.** Example: *Understand request -> Retrieve context -> Draft response -> Verify -> Finalize*. Model calls happen inside steps:
-- A step has: `step_id`, `name`, `description`, `order`, an optional `execution_probability` (default 1.0: the chance this step runs at all in a given invocation, e.g. a "Verify" step that only runs for 20% of cases), a selectable complexity profile (inheriting the agent default only when no step selection exists), an optional `context_carryover_pct` (share of earlier steps' output tokens that is added to this step's input), and its own **model table** (below).
-- **For each step, the agent can invoke one or multiple models**, with a user-provided probability per model, using the semantics below, scoped to the step.
-- Steps may also own tool costs and sub-agent calls (4.4, 4.5) when the work happens at a specific step; otherwise those belong to the agent as a whole.
+**A use case consists of multiple ordered steps.** Example: *Understand request -> Delegate retrieval -> Draft response -> Verify -> Finalize*.
+- A step has: `step_id`, `name`, `description`, `order`, `action_type`, and an optional `execution_probability` (default 1.0: the chance this step runs at all in a given invocation, e.g. a "Verify" step that only runs for 20% of cases).
+- A **model step** selects one target from its model options. It has a selectable complexity profile (inheriting the agent default only when no step selection exists), an optional `context_carryover_pct` (share of earlier steps' output tokens added to this step's input), and its own model-option table (below).
+- An **agent step** selects one other agent from the same suite using its agent-option table (4.4). It has no model options or direct model token assumptions. Each called agent retains its own steps and complexity profiles; the caller's profile does not modify the child's execution assumptions.
+- A step cannot contain both model and agent options. Work that requires both is represented by separate steps. Tool costs (4.5) are ancillary charges, not a third action type.
 - Steps are sequential for cost purposes. Order matters for context carryover and for display; parallel or branching flows are a latency concern (see open questions), and conditional steps are expressed with `execution_probability`.
 - A single-step agent is valid and is the simple case. New agents start with one step.
 
-**Semantics: a fixed model set with probabilistic invocation, per step.**
-- Each **step** has a **fixed, user-defined set of models** it is able to invoke (e.g. Step 2 of Agent A can use Model 1, Model 2, and Model 3). The set is part of the step's configuration and does not change at run time. Different steps of the same agent can use different model sets, including models from different vendors.
-- Which of those models are **actually invoked in a given execution instance is probabilistic**. For every (step, model) pair, the user supplies an **invocation probability**: the chance that this model is invoked at least once during one execution of that step.
-- By default the probabilities are **independent**: an execution of the step may invoke none, one, or several of the step's models. Example: Step 2 with P(Model 1)=1.0, P(Model 2)=0.3, P(Model 3)=0.05 always calls Model 1, sometimes also calls Model 2, and rarely Model 3.
-- If the user wants "pick exactly one" behavior (router/cascade/traffic split), they place the step's models in an **exclusive group** (see below); probabilities in a group must sum to <= 1 and the remainder is "none of these". Groups are scoped to a single step.
-- The user enters one probability per model per step directly in the step's model table. The only other probability on a step is its optional `execution_probability`. The engine uses these in expected-value form (`step_probability x model_probability x calls_per_occurrence`) and, in simulation mode, samples them per execution (see 5.4).
+**Semantics: exactly one target from one probability distribution per executed step.**
+- Each step has a fixed, user-defined, nonempty set of potential targets of its selected action type. Different model steps may offer models from different vendors; agent-step targets must be other agents in the current suite.
+- Every option has an explicit, finite probability in [0,1], and probabilities across the step's options must sum to **1.0**. A single-option step therefore has probability 1.0. Explicit zero-probability options are valid; missing probabilities are invalid.
+- Options are mutually exclusive alternatives. There is no independent invocation mode, residual "no call" outcome, or separate exclusive-group control. Optional execution is represented only by `execution_probability`.
+- Expected action cost given the step executes is `sum(option_probability x option_cost)`. For a model option, use that option's effective model pricing and execution assumptions. For an agent option, use the selected child's full cost per invocation, including its downstream steps. Apply the step execution probability once, then scale by the caller's workload. A positive-probability option with missing pricing or unresolved child cost makes the step estimate incomplete; do not omit it and present a complete weighted total.
+- Model-call counts and retries apply only to model options. An executed agent step invokes its selected individual exactly once. Additional invocations require separate steps; no agent repetition count or scenario repetition override is supported. An individual appears at most once in one step’s option list and may be selected again in other steps.
 
-Each step has one or more model-call rows:
+Each model step has one or more model-option rows:
 
 | Field | Description |
 |---|---|
 | `model_id` | Any model from the catalog, from any vendor or source type. An agent may use any mix (e.g. a vendor API model for reasoning, a self-hosted open model for classification, a marketplace-hosted embedding model) |
 | `role` | Optional label for the purpose of the call (e.g. "reasoning", "classifier", "embedding", "reranker", "guardrail", "fallback") |
-| `probability` | **User-provided.** Chance this model is invoked during one execution of this step (given the step runs), 0-1 (e.g. 1.0 for the main model, 0.15 for a fallback/escalation model). Each model in each step has its own value |
+| `probability` | **User-provided.** Chance this model is selected given the step runs, in [0,1]. All model-option probabilities in this step total 1.0 |
 | `calls_per_occurrence` | Average number of calls when it occurs (e.g. 3.2 turns in a tool-use loop). Must be >= 0, can be fractional |
 | `base_input_tokens` | Average fresh input tokens per call |
 | `base_output_tokens` | Average output tokens per call |
@@ -160,28 +162,28 @@ Each step has one or more model-call rows:
 | `context_growth_per_call` | Optional tokens added to input on each successive call within one invocation (models multi-turn context accumulation) |
 | `mode` | Standard / Batch (applies batch discount) |
 
-Mutually exclusive alternatives (e.g. "Small model 80% / Large model 20%") are supported via an **exclusive group**: probabilities in a group must sum to <= 1, and the UI shows the remaining probability as "no call". Exclusive groups may span vendors (e.g. 70% self-hosted open model, 30% vendor API model on escalation) and are scoped to one step.
+Example: Small model 80% / Large model 20% is one valid model step. Its expected action cost is `0.8 x cost(Small) + 0.2 x cost(Large)`. Alternatives may span vendors or hosting channels.
 
 **Multi-vendor patterns supported explicitly** (available as one-click presets in the model-call editor):
-- **Cascade / escalation:** cheap model first, stronger model with probability p (can be a different vendor).
-- **Fallback / failover:** secondary vendor used with probability equal to the primary's failure/timeout rate.
+- **Cascade / escalation:** cheap model in one step, stronger model in a separate conditional step (can be a different vendor).
+- **Fallback / failover:** primary model in one step and secondary vendor in a separate conditional step with execution probability equal to the explicitly modeled failure/timeout rate.
 - **Traffic split / routing:** a fixed percentage of calls routed to each vendor or channel (cost optimization, A/B testing, or resiliency).
-- **Ensemble / voting:** the same prompt sent to several models from different vendors (probabilities of 1.0 each, cost summed).
-- **Pipeline of specialists:** e.g. embedding model -> reranker -> generator, each from a different vendor, modeled as consecutive steps of the use case (or as models within one step).
+- **Ensemble / voting:** separate steps for each model, each with a single option of probability 1.0; costs sum across steps.
+- **Pipeline of specialists:** e.g. embedding model -> reranker -> generator, each from a different vendor, modeled as consecutive steps of the use case.
 
 **Per-call token profile is model-specific.** Because tokenizers differ across vendors, the same text produces a different token count in each model. Each model-call row therefore stores its own token counts, with an optional **"derive from reference"** helper (see 5.2) that converts a reference token count into this model's token count using the catalog's tokenizer ratio.
 
-### 4.4 Agent Call (sub-agent edges)
+### 4.4 Agent Options (sub-agent edges)
+
+Each agent step has one or more distinct individual agent-option rows. When the step executes, one option is selected and invoked exactly once. To invoke the same agent again, add another step. The rows form one mutually exclusive distribution totaling 1.0. Graph edges are projections of these rows, not additional calls to be charged separately.
 
 | Field | Description |
 |---|---|
-| `child_agent_id` | Target agent |
-| `probability` | Chance the parent invokes the child on one parent invocation |
-| `multiplicity` | Average number of child invocations when it occurs (fan-out, e.g. 5 parallel researchers) |
-| `exclusive_group` | Optional, as above (scoped to the step if `step_id` is set) |
-| `step_id` | Optional. The step during which the parent invokes the child. If set, the effective probability is `step.execution_probability x probability`; if omitted, the call belongs to the agent as a whole |
+| `child_agent_id` | Stable ID of a named individual agent in the same suite; cannot be the calling agent, a category, or a shared row |
+| `probability` | Chance this child is selected given the agent step executes; all option probabilities for this step total 1.0 |
+| `step_id` | Required on the graph edge; references the parent's agent step owning this option. Effective selection probability is `step.execution_probability x probability` |
 
-A child can have many parents (shared specialist agents). Its expected invocations are the sum across all incoming edges.
+A child can have many parents (shared specialist agents). Its expected invocations are the sum across all incoming edges. Example: Answerer 70% / Escalation 30% is one agent step with expected action cost `0.7 x loaded_cost(Answerer) + 0.3 x loaded_cost(Escalation)` for one invocation of the selected child. Child costs are attributed to this step for explanation, but counted once in suite totals through the children's derived workload.
 
 ### 4.5 Tool / Non-LLM Costs
 Per-agent rows for web search, vector DB queries, code sandbox seconds, API calls, etc.: `name`, `unit_cost`, `expected_units_per_invocation`, `probability`. Rows can be attached to a specific step (`step_id`, so they only occur when that step runs) or to the agent as a whole.
@@ -189,7 +191,7 @@ Per-agent rows for web search, vector DB queries, code sandbox seconds, API call
 ### 4.6 Constraint: No Cycles
 - The graph must be a DAG. On every edge add/edit, run cycle detection (DFS).
 - If a cycle would be created, block it and highlight the offending path in the UI: "Adding Critic -> Planner would create a cycle: Planner -> Executor -> Critic -> Planner."
-- Guidance: model bounded loops with `multiplicity` (e.g. average 2.3 revision rounds) instead.
+- Guidance: model repeated downstream invocations with separate steps; those steps cannot create a dependency cycle.
 
 ### 4.7 Copy Agent (create a new agent from an existing one)
 
@@ -204,9 +206,9 @@ Users frequently need agents that are variations of one another (same structure,
 
 **What is copied** (user can untick any item in a short "Copy options" panel; all ticked by default):
 - Description, color, complexity tier / custom multipliers
-- The **use case definition and all steps** (names, order, execution probabilities, explicit complexity selections or inherited defaults, context carryover), and each step's full model table: every model, its probability, calls per occurrence, token profile, cache hit rate, context growth, mode, role, exclusive groups
+- The **use case definition and all steps** (names, order, execution probabilities, explicit complexity selections or inherited defaults, context carryover), and each model step's full option table: every model, its probability, calls per occurrence, token profile, cache hit rate, context growth, mode, role, action type, and the complete agent-option distribution where applicable
 - Tool / non-LLM cost rows and fixed overhead
-- **Outgoing sub-agent calls** (edges to child agents, with probability and multiplicity). Children are shared, not duplicated, unless the user chooses **Duplicate with subtree**, which also copies all descendants and rewires the edges among the copies.
+- **Outgoing sub-agent calls** (edges to child agents, with selection probabilities and one invocation per executed step). Children are shared, not duplicated, unless the user chooses **Duplicate with subtree**, which also copies all descendants and rewires the edges among the copies.
 
 **What is NOT copied**
 - Incoming edges (the copy is not automatically called by any parent) and root usage settings (users, invocations/day). The new agent starts as an unattached node so it never silently changes the existing system's cost; the user then wires it in or sets it as a root. After duplicating, the UI offers "Attach to a parent" and "Make this a root" actions.
@@ -214,7 +216,7 @@ Users frequently need agents that are variations of one another (same structure,
 
 **After copying**
 - The copy is named `<Original name> (copy)` and opens immediately in the inspector with the name field focused.
-- All fields are editable, including renaming the use case, adding/removing/reordering steps, adding/removing models in each step, changing each model's probability or complexity profile per step, changing the optional default for new steps, and changing edges.
+- All fields are editable, including renaming the use case, adding/removing/reordering steps, changing action types and model or agent options per step, changing option probabilities and model-step complexity profiles, changing the optional default for new steps, and changing edges.
 - A **"Changes from source"** indicator shows which fields differ from the original (chips or a compact diff), with the cost delta versus the source agent, so users see the impact of their modifications. It can be dismissed.
 - Cycle validation (4.6) runs on the copied outgoing edges and on any edges the user adds next.
 - Undo restores the state before the copy in a single action.
@@ -251,6 +253,16 @@ The **agent harness** is the shared runtime and platform around the agents: the 
 
 **Presets** (one click, fully editable, dated like the model catalog): *Managed agent platform* (license plus per-invocation / per-step fees), *Self-built on Kubernetes* (cluster capacity, state database, queue, observability, 0.5 FTE), *Serverless* (per-invocation functions, queue, database, per-GB logging), and *Minimal* (single service plus logging).
 
+### 4.9 Delete an Individual Agent
+
+The requested feature is deletion of a named individual from the current estimate. The implemented behavior defaults are:
+
+- Provide Delete beside Edit in Agent inventory and Delete agent in individual editors, including members sharing settings. Confirm the selected name and scope; Cancel leaves the draft unchanged.
+- Block deletion when any step references the individual, even at zero probability or zero workload. Identify calling agents and steps so the architect can explicitly remove or retarget options while preserving normalized distributions.
+- Deleting an unreferenced caller removes its steps, tools, and outgoing contributions. Recalculate child work with the canonical model; restore retained direct volume when the last caller disappears. Deleting a shared member reduces only its own share; deleting the final member removes that definition.
+- Preserve sibling identities and assumptions, pricing snapshots, profiles, scenarios, and suite costs. Apply atomically to the browser draft after backend validation; reject stale responses. Undo restores the prior estimate and Save persists the deletion.
+- Permit an empty inventory and retain applicable fixed harness/additional costs. Save/reopen and Excel must reproduce the reduced agent count and scenario costs.
+
 ## 5. Calculation Engine
 
 All values are **expected values** computed deterministically; optional Monte Carlo layer provides ranges (5.4).
@@ -260,11 +272,11 @@ All values are **expected values** computed deterministically; optional Monte Ca
 ```
 E[inv(root)]  = users x invocations_per_user_per_day
 E[inv(child)] = sum over incoming edges e (parent p -> child c):
-                  E[inv(p)] x e.probability x e.multiplicity
+                  E[inv(p)] x e.probability
 ```
 Computed once per agent in topological order. Cost is O(V + E).
 
-Because one invocation completes one use case, `E[inv(a)]` is also the expected number of completed use cases per day for agent a. For an edge attached to a step, the effective probability is `step.execution_probability x e.probability`, which replaces `e.probability` in the formula above.
+Because one invocation completes one use case, `E[inv(a)]` is also the expected number of completed use cases per day for agent a. Every edge belongs to an agent step. Its effective probability is `step.execution_probability x e.probability`, which replaces `e.probability` in the formula above. Model steps create no child-agent volume. Multiple callers contribute to a shared child's volume without charging its execution twice.
 
 ### 5.2 Cost per agent invocation (self cost, excluding children)
 
@@ -297,24 +309,30 @@ call_cost     = calls x [ in_tokens x (1 - cache_hit) x p_in
 **Stage 2: Per step and per agent (use case) cost**
 
 ```
-step_cost(s)   = sum(call_cost over the step's model calls) + step tool_costs
-self_cost(a)   = sum over steps s of [ s.execution_probability x step_cost(s) ]
-                 + agent-level tool_costs + fixed overhead
+direct_step_cost(s) = model step: sum(call_cost over model options) + step tool_costs
+                      agent step: step tool_costs only
+action_cost(s)      = model step: sum(call_cost over model options)
+                      agent step: sum over options e [ e.probability
+                                                       x loaded_cost(e.child) ]
+step_cost(s)        = action_cost(s) + step tool_costs
+self_cost(a)        = sum over steps s [ s.execution_probability x direct_step_cost(s) ]
+                      + agent-level tool_costs + fixed overhead
 ```
-`self_cost(a)` is the direct cost of completing one use case for agent a (before sub-agents). Step-level sub-agent calls are weighted by the step's execution probability in 5.1 and 5.3.
+`self_cost(a)` excludes child-agent costs. `step_cost(s)` includes the probability-weighted downstream cost for an agent step; `direct_step_cost(s)` excludes it. Model option probability is already included in `call_cost`; do not apply it a second time. Step execution probability is applied once in each rollup. Use decimal arithmetic and round only for presentation.
 
 ### 5.3 Rollups
 - **Daily direct cost of agent a** = `E[inv(a)] x self_cost(a)`.
-- **Daily cost of step s of agent a** = `E[inv(a)] x s.execution_probability x step_cost(s)`; steps of an agent sum to its direct cost (excluding agent-level tool and overhead lines, shown as their own rows).
+- **Daily direct cost of step s of agent a** = `E[inv(a)] x s.execution_probability x direct_step_cost(s)`; these amounts reconcile to the agent's direct cost, excluding separately shown agent-level charges. **Daily loaded step cost** uses `step_cost(s)` instead and includes called-agent costs for explanation; label these views explicitly.
 - **Daily total** = sum over all agents (model, tool, and fixed model cost) + daily harness cost (5.6). Totals always show the split Models / Tools / Harness.
-- **Fully loaded cost per invocation** of agent a (recursive, memoized) = `self_cost(a) + sum over edges (p x mult x loaded_cost(child))`. This is the "cost of one task" metric, i.e. the fully loaded **cost of one completed business use case**, shown for each root (and each agent). When the harness is included (default), `self_cost(a)` in this recursion is replaced by `self_cost(a) + harness_per_inv(a)` (5.6); the UI always offers a toggle to show cost with and without the harness.
+- **Fully loaded cost per invocation** of agent a (recursive, memoized) = `self_cost(a) + sum over agent steps s [s.execution_probability x sum over options e (e.probability x loaded_cost(e.child))]`. This is the "cost of one task" metric, i.e. the fully loaded **cost of one completed business use case**, shown for each root (and each agent). When the harness is included (default), `self_cost(a)` in this recursion is replaced by `self_cost(a) + harness_per_inv(a)` (5.6); the UI always offers a toggle to show cost with and without the harness.
+- **No double counting:** suite totals sum agents' direct costs at their derived workload. Do not also sum loaded parent or loaded step costs, which already include those child costs.
 - Derived metrics: cost per user per day/month, cost per completed use case, cost per step, monthly/annual (using active days and growth), tokens per day by type, cost share by agent / step / model / token type.
 - **Value metrics (optional):** when `value_per_completion` is entered, net value per completion (`value - loaded cost`), ROI, and break-even volume per use case.
 
 ### 5.4 Uncertainty (Monte Carlo, v1.1 but designed-in now)
 - Any numeric input may be entered as a **range** (min / likely / max, triangular distribution) instead of a point.
 - Run N=5,000 samples client-side or in a worker; output P10/P50/P90 for daily and monthly cost.
-- **Execution-level simulation mode:** instead of using expected values, simulate individual executions. For each agent execution (one use case completion), each step runs or not by a Bernoulli draw on its execution probability; within each executed step, each model is invoked or not by a Bernoulli draw using that model's user-provided probability (one draw per exclusive group, selecting at most one member). This shows the real distribution of cost per execution (e.g. most runs are cheap, a few escalate to an expensive model) and is the basis for cost-per-task percentiles (P50/P95). The expected-value engine and the simulation must agree on the mean (tested, see 8.5).
+- **Execution-level simulation mode:** instead of using expected values, simulate individual executions. For each agent execution (one use case completion), each step runs or not by a Bernoulli draw on its execution probability; within each executed step, make one categorical draw from its target distribution, selecting exactly one model or exactly one other suite agent according to its action type. Each agent selection invokes the selected child once and executes its steps; repeated agent invocations are represented by additional steps. This shows the real distribution of cost per execution (e.g. most runs are cheap, a few escalate to an expensive model) and is the basis for cost-per-task percentiles (P50/P95). The expected-value engine and the simulation must agree on the mean (tested, see 8.5).
 - Display as a band on charts and a "confidence range" in the summary.
 
 ### 5.5 Peak load (simple)
@@ -409,7 +427,7 @@ Prebuilt starters: *Single chatbot*, *Router + specialists*, *Planner-Executor-C
 
 **A3. Harness editor**
 - One screen for the suite's single harness entry. Start from a preset (Managed platform, Self-built on Kubernetes, Serverless, Minimal) or add components one by one.
-- Components table: name, category, basis, price and parameters, a live driver preview (e.g. "about 7,080 step executions/day"), monthly cost, and a fixed/variable tag. Inline validation and a "what does this driver mean?" tooltip.
+- Components table: name, category, basis, price and parameters, a live driver preview (e.g. "about 9,780 step executions/day"), monthly cost, and a fixed/variable tag. Inline validation and a "what does this driver mean?" tooltip.
 - Live summary: monthly harness cost, % of total suite cost, donut by category, and a fixed vs variable bar.
 - Allocation selector with a preview of how harness cost lands on each agent, plus the include-in-cost-per-use-case toggle.
 - Scaffolding tokens section with the resulting cost shown live.
@@ -418,19 +436,19 @@ Prebuilt starters: *Single chatbot*, *Router + specialists*, *Planner-Executor-C
 **B. Canvas (graph editor)**
 - Selecting an individual agent must expose its own editable use case, step profiles, workload source and direct usage where applicable, model choices, and execution assumptions. Saving those values changes only that agent, not the shared profile or other agents. A grouped node must show its member count and offer distinct actions to edit the whole group or separate one member for individual customization; separating a linked member must preserve graph workload until its own assumptions are changed.
 - Node-and-edge canvas. Agents are nodes; each node shows its **use case name** and a mini step strip (one segment per step, colored by its effective complexity profile and sized by cost share). Model calls appear as small chips under each step showing model name, a **vendor icon/color**, and probability. Mixed-profile agents must not be represented by a single complexity color.
-- Edges show `probability x multiplicity` (e.g. "70% x 3"), and edge thickness scales with expected invocations.
-- Drag from a node handle to create an edge. Cycle attempts are blocked with a red path highlight and explanation.
+- Edges show selection probability (e.g. "70%"), and edge thickness scales with expected invocations.
+- Drag from an agent-step handle to create an option edge, or select/create an owning agent step when dragging from a node. Editing an edge updates that step's target distribution and validates its total. Cycle attempts are blocked with a red path highlight and explanation.
 - Node badge shows daily invocations and daily cost; a heat overlay (green to red) shows cost share.
 - Auto-layout (top-down tree), minimap, zoom, collapse/expand subtrees for large systems.
-- Right-hand **inspector panel** edits the selected agent/edge: use case name and description, an ordered **step list** (add, rename, reorder by drag, duplicate, delete), each step's complexity profile and model-call table, tool costs, with inline validation and live cost delta. An optional agent default initializes new steps and remains visibly distinct from effective step selections.
-- **Model probability editor** (in the inspector, per step): one row per model the selected step can invoke, each with a probability input (slider + numeric field, 0-100%). A small bar shows each model's share of the step's cost, and a footer shows "Expected models invoked per execution of this step" (the sum of probabilities) and, for exclusive groups, the remaining "none" probability. Adding a model to a step adds a row defaulting to probability 0 so it never changes cost until the user sets it. A separate "Step runs in X% of executions" field sets the step's execution probability (default 100%).
+- Right-hand **inspector panel** edits the selected agent/edge: use case name and description, an ordered **step list** (add, rename, reorder by drag, duplicate, delete), each step's action type and target probability table, model-step complexity and token assumptions, tool costs, with inline validation and live cost delta. An optional agent default initializes new steps and remains visibly distinct from effective step selections.
+- **Step action editor** (in the inspector, per step): select **Invoke model** or **Invoke agent**, then show only that type's target table. Model options use the catalog; agent options use a picker of named individual agents in the same suite, including Bulk add members. Categories, profiles, and shared rows are not targets. Persist the individual agent ID; applying a call to a shared member separates only that member, preserves all other workload, and routes the full weighted contribution to the selected individual. Each option has a probability input (slider + numeric field, 0-100%) and its weighted cost contribution. Show **Probability total: 100%** and the probability-weighted step cost. Block applying or importing invalid distributions; never silently normalize them. Adding an option may start at explicit zero; a new single-option step starts at 100%. A separate "Step runs in X% of executions" field sets execution probability (default 100%). Switching action type must replace the prior target list through an explicit, undoable edit, without retaining active options of both types.
 - **Duplicate** button on the node and inspector header (see 4.7), plus drag-copy (hold Alt/Option while dragging a node).
-- **Use case flow view** (double-click an agent): a left-to-right timeline of the use case's steps. Each step is a card showing its name, an execution-probability badge, its models as vendor-colored chips with probabilities, and its expected tokens and cost per execution. Users add steps with "+" or from the step library, drag to reorder, duplicate a step, and click a step to edit its models. A cost bar under the timeline shows each step's share of the cost of one completed use case.
+- **Use case flow view** (double-click an agent): a left-to-right timeline of the use case's steps. Each step is a card showing its name, an execution-probability badge, its action type and model or agent targets with probabilities, and its expected tokens and cost per execution. Users add steps with "+" or from the step library, drag to reorder, duplicate a step, and click a step to edit its action and options. A cost bar under the timeline shows each step's share of the cost of one completed use case.
 - **Harness panel (one per suite):** a pinned card at the edge of the canvas (not a node in the DAG) shows "Agent harness: $X/month, Y% of total, fixed vs variable", with a warning badge if the harness is undefined or capacity is exceeded. Clicking it opens the harness editor (A3). It cannot be duplicated or wired into the graph.
 
 **B2. Agent inventory (dedicated left-navigation view)**
-- Show one row per uniquely identified agent, including members of counted groups. Columns: name, business use case summary, number of steps, number of distinct agents calling it, number of distinct agents it calls, users per agent per day, and invocations per user per agent per day. Count agent identities behind linked groups and count each linked identity once even when several edges connect the same pair of groups.
-- The calling and called counts are derived from links and read-only. Edit one agent at a time. The editor exposes its name, **Business use case name** and description, daily workload inputs, and an ordered **Steps** list. Each step shows a model name and complexity profile, with detailed execution inputs inside the step. The panel has no agent ID input, agent-level Complexity field, separate Agent identities section, or separate Execution assumptions section. Opening and closing an editor without applying changes must not alter a counted group; applying a member edit separates only that member and preserves link accounting.
+- Show one row per uniquely identified agent, including members of counted groups. Columns: name, business use case summary, number of steps, number of distinct agents calling it, number of distinct agents it calls, users per agent per day, and invocations per user per agent per day. Count each distinct calling/called identity once, even when several step options connect the same agents.
+- The calling and called counts are derived from links and read-only. Edit one agent at a time. The editor exposes its name, **Business use case name** and description, daily workload inputs, and an ordered **Steps** list. Each step shows its action type, targets, probability total, and weighted cost; model steps also show their complexity profile and detailed execution inputs. The panel has no agent ID input, agent-level Complexity field, separate Agent identities section, or separate Execution assumptions section. Opening and closing an editor without applying changes must not alter a counted group; applying a member edit separates only that member and preserves link accounting.
 - For a derived-volume agent, daily inputs are retained and editable for recovery but incoming links determine current execution volume. Show that distinction beside the controls.
 
 **C. Live Summary bar (always visible)**
@@ -465,7 +483,7 @@ Enter target margin or seat price; see break-even usage, margin per user, and co
 - Undo/redo, autosave, **copy agent / copy with subtree** (4.7), bulk edit of models.
 - **Template library:** any agent can be saved as a reusable template and used later as the starting point for a new agent (same flow as copying an existing one).
 - **Step library / palette:** common steps (Classify intent, Retrieve context, Generate draft, Verify / critique, Summarize, Format output) with sensible default model probabilities and token profiles can be added in one click and then edited; any step can be saved to the library.
-- Inline warnings: probabilities in an exclusive group exceeding 1, missing model price, orphan agents (not reachable from any root), unusually high fan-out.
+- Inline validation: missing probabilities, target probability totals other than 1.0, empty or mixed action lists, invalid suite-agent targets, missing model prices, orphan agents (not reachable from any root), duplicate individual targets within a step, and unsupported agent repetition inputs. Invalid steps cannot be applied.
 - Keyboard shortcuts and accessible color palettes (never rely on color alone).
 - Export: PDF/PNG report, CSV of per-agent costs, JSON model definition, shareable read-only link.
 
@@ -502,31 +520,41 @@ Enter target margin or seat price; see break-even usage, margin per user, and co
                     "description": "Turn a user request into a vetted research plan",
                     "value_per_completion": 4.0 },
       "steps": [
-        { "id": "s1", "name": "Classify request", "order": 1, "execution_probability": 1.0,
+        { "id": "s1", "name": "Classify request", "order": 1, "action_type": "model", "execution_probability": 1.0,
           "model_calls": [
             { "model_id": "m_open_small", "role": "classifier", "probability": 1.0, "calls_per_occurrence": 1,
               "base_input_tokens": 1200, "base_output_tokens": 50 }
           ] },
-        { "id": "s2", "name": "Retrieve context", "order": 2, "execution_probability": 1.0,
+        { "id": "s2", "name": "Retrieve context", "order": 2, "action_type": "model", "execution_probability": 1.0,
           "model_calls": [
             { "model_id": "m_mkt_embed", "role": "embedding", "probability": 1.0, "calls_per_occurrence": 1,
               "base_input_tokens": 800, "base_output_tokens": 0 }
           ] },
-        { "id": "s3", "name": "Draft plan", "order": 3, "execution_probability": 1.0,
+        { "id": "s3", "name": "Draft plan", "order": 3, "action_type": "model", "execution_probability": 1.0,
           "complexity_override": "complex", "context_carryover_pct": 0.5,
           "model_calls": [
             { "model_id": "m_open_small", "probability": 0.65, "calls_per_occurrence": 1,
-              "base_input_tokens": 3000, "base_output_tokens": 600, "exclusive_group": "draft" },
+              "base_input_tokens": 3000, "base_output_tokens": 600 },
             { "model_id": "m_large", "role": "reasoning", "probability": 0.35, "calls_per_occurrence": 2,
-              "base_input_tokens": 4000, "base_output_tokens": 800, "cache_hit_rate": 0.6,
-              "exclusive_group": "draft" }
-          ],
+              "base_input_tokens": 4000, "base_output_tokens": 800, "cache_hit_rate": 0.6 }
+          ] },
+        { "id": "s4", "name": "Delegate research", "order": 4, "action_type": "agent", "execution_probability": 0.8,
           "agent_calls": [
-            { "child_agent_id": "researcher", "probability": 0.8, "multiplicity": 4 }
+            { "child_agent_id": "researcher", "probability": 1.0 }
           ] }
       ],
-      "agent_calls": [],
       "tool_calls": []
+    },
+    {
+      "id": "researcher", "name": "Researcher", "complexity": "standard",
+      "use_case": { "name": "Research supporting evidence" },
+      "steps": [
+        { "id": "r1", "name": "Research", "order": 1, "action_type": "model", "execution_probability": 1.0,
+          "model_calls": [
+            { "model_id": "m_large", "probability": 1.0, "calls_per_occurrence": 1,
+              "base_input_tokens": 2000, "base_output_tokens": 500 }
+          ] }
+      ]
     }
   ],
   "roots": [
@@ -537,11 +565,11 @@ Enter target margin or seat price; see break-even usage, margin per user, and co
 
 ### 8.2 Validation Rules
 - Graph is a DAG; at least one root; all agents reachable (warn if not).
-- Probabilities in [0,1]; exclusive-group sums <= 1; multiplicity >= 0.
-- Each model in a step's fixed model set must have an explicit probability (default 0 if left blank, with a visible hint). Warn when a step has models but all probabilities are 0 (step would incur no model cost), and when the same model is listed twice in one step without differing roles.
-- Use case and steps: every agent has a use case name and at least one step; step order values are unique; `execution_probability` and `context_carryover_pct` are in [0,1], and carryover is not allowed on the first step; a `step_id` on a sub-agent call or tool row must reference a step of the same agent; warn on empty steps (no model, tool, or sub-agent calls).
-- Each step resolves to an existing simple, medium, high, or custom complexity profile. A custom profile cannot be deleted while any current or saved step or agent default references it. A mixed-profile agent remains one agent and its workload is counted once; profile model-cost and token rollups sum its step contributions without duplicating them.
-- Complexity profile definitions contain execution assumptions only. Model identity is chosen independently by the aggregate agent or by each detailed step/model-call row using the profile. Multiple executions using one profile may use different models and pricing snapshots. Older inherited profile models migrate to explicit aggregate agent selections.
+- Validate in both the UI and backend: each step declares exactly one `action_type`, with a nonempty matching option list and no options of the other type. All option probabilities are explicit, finite decimals in [0,1] and total exactly 1.0; reject totals below or above 1.0 and missing values without silently normalizing. Explicit zero is allowed. Multiplicity and call counts are finite and nonnegative.
+- Each model option references a catalog model. Each agent option references another existing agent in the same suite; reject self-calls, external or missing agents, and cycles. Every agent edge references its owning agent step; agent-level calls outside steps are invalid.
+- Use case and steps: every agent has a use case name and at least one step; step order values are unique; `execution_probability` and `context_carryover_pct` are in [0,1], and carryover is not allowed on the first step; a `step_id` on a sub-agent call or tool row must reference a step of the same agent; reject empty action lists even when a step has tool charges or execution probability zero.
+- Each model step resolves to an existing simple, medium, high, or custom complexity profile. Agent steps use the called agents' own profiles. A custom profile cannot be deleted while any current or saved step or agent default references it. A mixed-profile agent remains one agent and its workload is counted once; profile model-cost and token rollups sum its step contributions without duplicating them.
+- Complexity profile definitions contain execution assumptions only. Model identity is chosen independently by the aggregate agent or by each detailed step/model-call row using the profile. Multiple executions using one profile may use different models and pricing snapshots.
 - Copy-agent validation: names stay unique (auto-suffix "(copy)", "(copy 2)"); copied edges are re-checked for cycles.
 - Token counts and prices >= 0; cache hit rate in [0,1].
 - Every model-call references an existing catalog model.
@@ -560,14 +588,15 @@ Enter target margin or seat price; see break-even usage, margin per user, and co
 - Projects stored per user/workspace with version history; scenarios are branches of a project.
 - Model price catalog versioned by effective date; estimates pin to a catalog version, with a "price changed since estimate" banner.
 - Export/import JSON; read-only share links.
+- Version the step action schema. Persist action types, option probabilities, effective assumptions, and frozen pricing in saved estimates, scenarios, JSON, and Excel. Validate complete imports before applying them. Support only the exclusive model-or-agent action workflow. No legacy action modes or migration/conversion flows are required. Invalid or unsupported action definitions are rejected without changing the current draft.
 
 ### 8.5 Testing
 - Golden test suite: hand-computed examples (below) must match to the cent, including a mixed-vendor case (vendor API + marketplace + self-hosted in one agent) with FX conversion and tiered pricing.
 - Tiered pricing is evaluated on a model's aggregate volume across all agents; a test must confirm that moving usage between agents does not change total cost.
 - Fixed-cost allocation: per-agent allocated fixed costs must sum exactly to the model's fixed cost.
-- Probabilistic invocation: the mean of the execution-level simulation converges to the expected-value result (within sampling tolerance); independent probabilities allow multiple models per execution, while exclusive groups never invoke more than one member.
-- Copy agent: a copy produces an identical use case, steps (order, execution probabilities), per-step model tables and probabilities, tool rows, and outgoing edges, but no incoming edges or root usage; editing the copy never changes the original; total system cost is unchanged until the copy is wired in; "duplicate with subtree" preserves the internal structure of the copied subgraph.
-- Steps: an agent's self cost equals the sum of its step costs weighted by each step's execution probability; a step with execution probability 0 contributes nothing (including its attached tool costs and sub-agent calls); reordering steps without context carryover does not change cost, and with carryover only input tokens change; an agent with one step reproduces the cost of the equivalent single model table.
+- Step actions: verify model and agent distributions through E2E editing, save/reopen, import, and export. Reject mixed types, empty options, missing/nonfinite/out-of-range probabilities, totals below or above 1.0, and invalid suite targets. A single option has probability 1.0; zero-weight options contribute no usage or cost. Compare weighted costs against independent hand calculations, including a shared child reached by multiple parents and an optional agent step, with no duplicate suite charges. When simulation is implemented, each executed step selects exactly one target and its mean converges to the expected-value result.
+- Copy agent: a copy produces an identical use case, steps (order, execution probabilities), per-step action types, target tables and probabilities, tool rows, and outgoing option edges, but no incoming edges or root usage; editing the copy never changes the original; total system cost is unchanged until the copy is wired in; "duplicate with subtree" preserves the internal structure of the copied subgraph.
+- Steps: an agent's self cost equals the sum of its direct step costs weighted by each step's execution probability (plus separately shown agent-level charges); loaded step costs include child work; a step with execution probability 0 contributes nothing (including its attached tool costs and sub-agent calls); reordering steps without context carryover does not change cost, and with carryover only input tokens change; an agent with one step reproduces the cost of the equivalent single model table.
 - Harness: harness total equals the sum of its components exactly; allocated harness cost across agents sums exactly to the harness total for every allocation method; with a fixed-only harness, scaling users leaves harness cost unchanged and lowers harness cost per use case; per-unit components scale linearly with their driver; a scoped component is allocated only to its scoped agents; removing the harness reproduces the agent-only total; scaffold token cost matches a hand calculation with the model prices.
 - Property tests: scaling users scales agent and model cost linearly (harness cost scales only through its variable components); zeroing a probability removes the subtree's cost; the loaded cost of a root x its invocations equals the sum of agent direct costs from that root alone.
 
@@ -577,15 +606,17 @@ System: **Support Assistant** (root), 1,000 users x 2 invocations/day = 2,000 in
 
 | Agent (use case) | Tier | Steps and model calls | Calls to children |
 |---|---|---|---|
-| Router ("Route a support request") | Simple (0.5x) | 1 step "Classify": Small model, p=1, 1 call, 2,000 in / 100 out | -> Answerer p=0.7 x1; -> Escalation p=0.3 x1 |
-| Answerer ("Answer a customer question") | Standard (1x) | Step 1 "Understand" (runs p=1): Small model, p=1, 1 call, 1,000 in / 50 out. Step 2 "Draft answer" (runs p=1): Large model, p=1, 2 calls, 3,000 in / 500 out. Step 3 "Verify" (runs p=0.2): exclusive group of Large model p=0.5 and Small model p=0.5, 1 call each, 1,500 in / 100 out | From step 2: -> Search agent p=0.5 x2 |
+| Router ("Route a support request") | Simple (0.5x) | Step 1 "Classify" (model, runs p=1): Small model, p=1, 1 call, 2,000 in / 100 out. Step 2 "Route" (agent, runs p=1): select Answerer p=0.7 or Escalation p=0.3 | From step 2: -> Answerer p=0.7 x1; -> Escalation p=0.3 x1 |
+| Answerer ("Answer a customer question") | Standard (1x) | Step 1 "Understand" (model, runs p=1): Small model, p=1, 1 call, 1,000 in / 50 out. Step 2 "Delegate search" (agent, runs p=0.5): Search agent, p=1, one invocation. Step 3 "Delegate search again" (agent, runs p=0.5): Search agent, p=1, one invocation. Step 4 "Draft answer" (model, runs p=1): Large model, p=1, 2 calls, 3,000 in / 500 out. Step 5 "Verify" (model, runs p=0.2): select Large model p=0.5 or Small model p=0.5, 1 call each, 1,500 in / 100 out | From steps 2 and 3: -> Search agent p=1 once per executed step, each weighted by execution p=0.5 |
 | Escalation ("Handle a complex case") | Complex (2x) | 1 step "Resolve": Large model, p=1, 1.5x calls mult x 2 calls, 3,000 in / 500 out | none |
 | Search agent ("Retrieve supporting documents") | Simple (0.5x) | 1 step "Search": Small model, p=1, 1 call, 1,500 in / 200 out | none |
 
-Expected invocations (= completed use cases per day): Router 2,000; Answerer 1,400; Escalation 600; Search 1,400 x (step 2 runs 1.0 x edge 0.5) x 2 = 1,400.
+Expected invocations (= completed use cases per day): Router 2,000; Answerer 1,400; Escalation 600; Search 1,400 x (step 2 runs 0.5 x option 1.0) x 2 = 1,400.
 Expected Answerer calls per day by step: Understand 1,400 Small calls; Draft answer 2,800 Large calls; Verify 1,400 x 0.2 x 0.5 = 140 Large calls and 140 Small calls.
 
-Suite harness (one entry), illustrative: fixed platform fee $3,000/month plus $0.0005 per step execution, allocation by invocations, 22 active days/month. Expected drivers per day: invocations 5,400 (2,000 + 1,400 + 600 + 1,400); step executions 7,080 (Router 2,000; Answerer 1,400 + 1,400 + 280; Escalation 600; Search 1,400). Harness cost per day = 3,000 / 22 = $136.36 fixed + 7,080 x $0.0005 = $3.54 variable = $139.90 (about $3,077.88/month). Harness per agent invocation = 139.90 / 5,400, about $0.0259. One Support request triggers 2.7 expected agent invocations (Router 1, Answerer 0.7, Escalation 0.3, Search 0.7), so its allocated harness cost is about $0.0700, which equals 139.90 / 2,000 root invocations.
+Illustrative weighted-cost acceptance examples (USD per selected option, after its execution assumptions): a model step offering costs $0.01 at p=0.8 and $0.05 at p=0.2 costs $0.018 per executed step. An agent step offering loaded child costs $0.04 at p=0.7 and $0.20 at p=0.3, invoked once, costs $0.088 per executed step. If that agent step runs with probability 0.5, it contributes $0.044 per caller invocation; at 2,000 caller invocations/day its attributed child cost is $88/day. Count that $88 once through the children's derived direct costs in the suite total.
+
+Suite harness (one entry), illustrative: fixed platform fee $3,000/month plus $0.0005 per step execution, allocation by invocations, 22 active days/month. Expected drivers per day: invocations 5,400 (2,000 + 1,400 + 600 + 1,400); step executions 9,780 (Router 4,000; Answerer 1,400 + 700 + 1,400 + 280; Escalation 600; Search 1,400). Harness cost per day = 3,000 / 22 fixed + 9,780 x $0.0005 variable = about $141.25 ($3,107.58/month). Harness per agent invocation is about $0.0262. One Support request triggers 2.7 expected agent invocations (Router 1, Answerer 0.7, Escalation 0.3, Search 0.7), so its allocated harness cost is about $0.0706, which equals the unrounded daily harness cost / 2,000 root invocations.
 Fixtures should assert these counts and the resulting per-agent and total costs using the catalog prices in the test file.
 
 ## 10. Success Metrics
@@ -598,7 +629,7 @@ Fixtures should assert these counts and the resulting per-agent and total costs 
 
 | Phase | Scope |
 |---|---|
-| **M1 (MVP)** | Agent / use case / step / model / edge data model (with per-step complexity profiles, model probabilities, and step execution probability), use case flow view, cost per completed use case, **suite-level agent harness cost entry (fixed and per-unit components, allocation by invocations, shown as its own line in totals)**, DAG validation, expected-value engine, canvas editor, summary bar, breakdown charts, templates, JSON export, **copy agent (with copy options and "changes from source")**, **per-agent per-model probability editor**, **multi-vendor model catalog with per-token pricing, vendor/channel tags, and FX conversion** |
+| **M1 (MVP)** | Agent / use case / step / model / edge data model (with exclusive model-or-agent actions, target distributions totaling 1.0, per-model-step complexity profiles, and step execution probability), use case flow view, cost per completed use case, **suite-level agent harness cost entry (fixed and per-unit components, allocation by invocations, shown as its own line in totals)**, DAG validation, expected-value engine, canvas editor, summary bar, breakdown charts, templates, JSON export, **copy agent (with copy options and "changes from source")**, **per-step model-or-agent probability editor**, **multi-vendor model catalog with per-token pricing, vendor/channel tags, and FX conversion** |
 | **M2** | **Harness: capacity, storage, labor, amortized and percent-of-model-spend components, scaffolding tokens, presets, other allocation methods, scale curve**, context carryover, step library, step waterfall and step x model views, value/ROI per use case completion, complexity tier editor, caching/reasoning/tool costs, call-tree explorer, Sankey, scenarios and comparison, **self-hosted and provisioned-throughput cost models, tiered/volume pricing, cascade/fallback/split presets, model swap and vendor breakdown views, catalog manager UI** |
 | **M3** | Ranges + Monte Carlo, tornado sensitivity, growth projection, unit economics/pricing panel, PDF report, share links |
 | **Future** | Import real traces/logs to calibrate parameters, billing reconciliation, latency modeling, team collaboration/comments |
@@ -612,7 +643,7 @@ Fixtures should assert these counts and the resulting per-agent and total costs 
 4b. How to treat negotiated/enterprise discounts that differ per vendor and expire (workspace-level vs per-model, with end dates)?
 4c. Self-hosted GPU cost: include only inference GPUs, or also storage, networking, and engineering time? Proposed: `ops_overhead_pct` plus optional fixed monthly lines.
 4d. Should vendor-level spend commitments (e.g. a minimum monthly commitment with one vendor) be modeled as a floor on that vendor's cost?
-4e. Independent model probabilities are the default. Do users also need to express correlation (e.g. "if Model 3 is invoked, Model 2 is always invoked too")? Proposed: not in v1; exclusive groups cover the common cases, and conditional/correlated invocation can be added later as "invoke-if" rules.
+4e. **Resolved 2026-10-05:** Each step chooses one action type and exactly one model or suite-agent target from a distribution totaling 1.0. Multiple targets that must all run require separate steps; skipping is expressed through step execution probability.
 4f. Should copied agents optionally stay linked to a source ("template inheritance", where unchanged fields follow the source)? Proposed: v1 copies are independent; revisit based on usage.
 4g. Steps are sequential for cost purposes, with conditional steps expressed via `execution_probability`. Do we need parallel or branching step flows (which affect latency and dependencies more than cost)? Proposed: not in v1; add an optional `parallel_group` later.
 4h. Should steps be reusable across agents as shared definitions (edit once, update everywhere), or always copied? Proposed: copied in v1, with a step library for quick reuse.

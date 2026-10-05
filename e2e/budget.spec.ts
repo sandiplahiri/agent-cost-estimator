@@ -1,3 +1,4 @@
+import { modelStep, agentStep } from './workflow-fixtures';
 import { openAgentEditor, expectBaseVolume } from './agent-editing';
 import { test, expect, type Page } from '@playwright/test';
 import ExcelJS from 'exceljs';
@@ -420,7 +421,7 @@ test('top five ranks individual members by token cost rather than group or tool 
   );
 });
 
-test('Agent links derive pooled child volume, preserve scenarios, and export a reproducible graph', async ({
+test('Agent steps derive individual child volume, preserve scenarios, and export a reproducible graph', async ({
   page,
   request,
 }) => {
@@ -459,7 +460,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       id: 'researcher',
       name: 'Researcher',
       complexity: 'simple',
-      count: 2,
+      count: 1,
       invocations: '0',
       volume_source: 'daily_users',
       prior_volume_source: null,
@@ -482,28 +483,20 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       steps: [],
     },
   ];
-  const schemaTwo = structuredClone(fixture);
-  schemaTwo.id = 'schema-two-graph-migration';
-  schemaTwo.name = 'Previous schema fixture';
-  schemaTwo.schema_version = 2;
-  schemaTwo.profiles.simple.model_id = 'Graph Fixture';
-  schemaTwo.agents.forEach((row: { overrides: { model_id?: string } }) => delete row.overrides.model_id);
-  delete schemaTwo.links;
-  schemaTwo.agents.forEach((row: { prior_volume_source?: string | null }) => delete row.prior_volume_source);
-  expect((await request.post('/api/estimates', { data: schemaTwo })).ok()).toBe(true);
-  const migrated = await (await request.get('/api/estimates/schema-two-graph-migration')).json();
-  expect(migrated.schema_version).toBe(8);
-  expect(migrated.profiles.simple).not.toHaveProperty('model_id');
-  expect(
-    migrated.agents.every(
-      (row: { overrides: { model_id: string } }) => row.overrides.model_id === 'Graph Fixture',
-    ),
-  ).toBe(true);
-  expect(migrated.links).toEqual([]);
-  const migratedResult = await (await request.post('/api/calculate', { data: migrated })).json();
-  expect(
-    Number(migratedResult.scenarios.find((item: { name: string }) => item.name === 'Expected').llm_cost),
-  ).toBeCloseTo(3.1824, 8);
+  fixture.agents[0].steps = [
+    modelStep('planner-model', { ...fixture.profiles.simple, model_id: 'Graph Fixture' }),
+    {
+      ...agentStep('to-researcher', 'researcher', '0.6'),
+      low_execution_probability: '0.2',
+      high_execution_probability: '1',
+    },
+    agentStep('to-reviewer', 'reviewer', '0.25'),
+    {
+      ...agentStep('to-researcher-again', 'researcher', '0.6'),
+      low_execution_probability: '0.2',
+      high_execution_probability: '1',
+    },
+  ];
   expect((await request.post('/api/estimates', { data: fixture })).ok()).toBe(true);
   await page.goto('/');
   await page.getByRole('button', { name: /Open estimate/ }).click();
@@ -511,41 +504,21 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
     .getByRole('dialog', { name: 'Saved estimates' })
     .getByRole('button', { name: /Delegated work fixture/ })
     .click();
-  await expect(page.getByTestId('cost-expected')).toHaveText('$3.18/mo');
+  await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
   const graph = page.getByRole('region', { name: 'Agent invocation graph' });
   await expect(graph).toBeHidden();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await expect(graph).toBeVisible();
-  await graph.getByLabel('Trigger probability (0–1)').fill('0.6');
-  await graph.getByLabel('Child invocations per trigger', { exact: true }).fill('2');
-  await graph.locator('summary').click();
-  await graph.getByLabel('Low trigger probability').fill('0.2');
-  await graph.getByLabel('High trigger probability').fill('1');
-  await graph.getByRole('button', { name: 'Preview link change' }).click();
-  await expect(graph.getByRole('status')).toContainText('60 → 360');
-  await expect(graph.getByRole('status')).toContainText('$3.18 → $5.63');
-  await expect(graph.getByRole('status')).toContainText('Low suite LLM/month');
-  await expect(graph.getByRole('status')).toContainText('0.2 probability × 2 child invocations/trigger');
-  await expect(graph.getByRole('status')).toContainText('High suite LLM/month');
-  await expect(page.getByTestId('cost-expected')).toHaveText('$3.18/mo');
-  await graph.getByRole('button', { name: 'Apply link change' }).click();
-  await expect(page.getByTestId('cost-expected')).toHaveText('$5.63/mo');
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(graph).toBeHidden();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await expectBaseVolume(page, 'Researcher', 180, 360);
+  await expectBaseVolume(page, 'Researcher', 360, 360);
   const researcherEditor = await openAgentEditor(page, 'Researcher');
   await expect(researcherEditor.getByLabel('Users per agent per day *')).toHaveCount(0);
   await expect(researcherEditor).toContainText('This agent receives work from agent links.');
   await researcherEditor.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
 
-  await graph.getByLabel('Caller agent').selectOption('planner');
-  await graph.getByLabel('Child agent').selectOption('reviewer');
-  await graph.getByLabel('Trigger probability (0–1)').fill('0.25');
-  await graph.getByRole('button', { name: 'Preview link change' }).click();
-  await expect(graph.getByRole('status')).toContainText('30 → 75');
-  await graph.getByRole('button', { name: 'Apply link change' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
   await expect(page.getByTestId('cost-low')).toHaveText('$3.03/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$11.93/mo');
@@ -558,7 +531,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   await page.getByRole('button', { name: /Dashboard/ }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$12.00/mo');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await expectBaseVolume(page, 'Researcher', 180, 360);
+  await expectBaseVolume(page, 'Researcher', 360, 360);
   const doubled = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('agent-ledger-draft-v1') || '{}'),
   );
@@ -581,28 +554,16 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   const cycle = structuredClone(savedGraph);
   cycle.agents[0].prior_volume_source = 'daily_users';
   cycle.agents[0].volume_source = 'derived';
-  cycle.links.push({
-    id: 'cycle',
-    parent_id: 'reviewer',
-    child_id: 'planner',
-    trigger_probability: '1',
-    invocations_per_trigger: '1',
-    branch_group: '',
-    low: {},
-    high: {},
-  });
+  cycle.agents[2].steps = [agentStep('cycle', 'planner')];
   const cycleResponse = await request.post('/api/calculate', { data: cycle });
   expect(cycleResponse.status()).toBe(422);
   expect(JSON.stringify(await cycleResponse.json())).toContain('cycle');
   const exclusive = structuredClone(savedGraph);
-  exclusive.links.forEach((link: { branch_group: string; trigger_probability: string }) => {
-    link.branch_group = 'choice';
-    link.trigger_probability = '0.7';
-  });
+  exclusive.agents[0].steps[1].agent_calls[0].probability = '0.7';
   expect((await request.post('/api/calculate', { data: exclusive })).status()).toBe(422);
-  const excessiveFanout = structuredClone(savedGraph);
-  excessiveFanout.links[0].invocations_per_trigger = '1000001';
-  expect((await request.post('/api/calculate', { data: excessiveFanout })).status()).toBe(422);
+  const unsupportedRepetition = structuredClone(savedGraph);
+  unsupportedRepetition.agents[0].steps[1].agent_calls[0].multiplicity = '2';
+  expect((await request.post('/api/calculate', { data: unsupportedRepetition })).status()).toBe(422);
   const incomplete = structuredClone(savedGraph);
   incomplete.agents[0].users_per_day = null;
   const incompleteResponse = await request.post('/api/calculate', { data: incomplete });
@@ -613,23 +574,18 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
     false,
   );
   const twoCallers = structuredClone(savedGraph);
-  twoCallers.links.push({
-    id: 'reviewer-researcher',
-    parent_id: 'reviewer',
-    child_id: 'researcher',
-    trigger_probability: '0.5',
-    invocations_per_trigger: '1',
-    branch_group: '',
-    low: {},
-    high: {},
-  });
+  twoCallers.agents[2].steps = [
+    modelStep('reviewer-model', { ...fixture.profiles.simple, model_id: 'Graph Fixture' }),
+    agentStep('reviewer-researcher', 'researcher', '0.5'),
+  ];
   const twoCallerResult = await (await request.post('/api/calculate', { data: twoCallers })).json();
   expect(Number(twoCallerResult.base_volumes.researcher.total)).toBeCloseTo(397.5, 8);
   expect(
     Number(twoCallerResult.scenarios.find((item: { name: string }) => item.name === 'Expected').llm_cost),
   ).toBeCloseTo(6.3036, 8);
   const zeroOverride = structuredClone(savedGraph);
-  zeroOverride.links[0].low.trigger_probability = '0';
+  zeroOverride.agents[0].steps[1].low_execution_probability = '0';
+  zeroOverride.agents[0].steps[3].low_execution_probability = '0';
   const zeroResult = await (await request.post('/api/calculate', { data: zeroOverride })).json();
   expect(
     Number(
@@ -648,7 +604,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
   await expect(graph).toBeHidden();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(2);
+  await expect(graph.locator('.graph-edge')).toHaveCount(3);
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export Excel', exact: true }).click();
   const file = path.join(artifacts, 'agent-graph-budget.xlsx');
@@ -662,11 +618,13 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   const linksSheet = engine.getSheetId('Agent links')!;
   const researcherPerAgent = engine.getCellValue({ sheet: volumeSheet, col: 8, row: 2 });
   const researcherTotal = engine.getCellValue({ sheet: volumeSheet, col: 9, row: 2 });
-  const researcherLink = engine.getCellValue({ sheet: linksSheet, col: 7, row: 3 });
-  const reviewerLink = engine.getCellValue({ sheet: linksSheet, col: 7, row: 4 });
-  expect(researcherPerAgent).toBeCloseTo(180, 8);
+  const researcherLink = engine.getCellValue({ sheet: linksSheet, col: 6, row: 4 });
+  const repeatedResearcherLink = engine.getCellValue({ sheet: linksSheet, col: 6, row: 6 });
+  const reviewerLink = engine.getCellValue({ sheet: linksSheet, col: 6, row: 5 });
+  expect(researcherPerAgent).toBeCloseTo(360, 8);
   expect(researcherTotal).toBeCloseTo(360, 8);
-  expect(researcherLink).toBeCloseTo(360, 8);
+  expect(researcherLink).toBeCloseTo(180, 8);
+  expect(repeatedResearcherLink).toBeCloseTo(180, 8);
   expect(reviewerLink).toBeCloseTo(75, 8);
   engine.destroy();
   const reimport = await request.post('/api/import/preview', {
@@ -674,26 +632,34 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
     headers: { 'Content-Type': 'application/octet-stream' },
   });
   expect(reimport.ok()).toBe(true);
-  expect(JSON.stringify(await reimport.json())).toContain('derived agent links cannot be imported');
+  expect((await reimport.json()).errors).toEqual([]);
 
   await graph
     .locator('.graph-edge')
     .filter({ hasText: 'Researcher' })
+    .first()
     .getByRole('button', { name: 'Edit link' })
     .click();
-  await graph.getByLabel('Trigger probability (0–1)').fill('0.5');
-  await graph.getByRole('button', { name: 'Preview link change' }).click();
-  await expect(graph.getByRole('status')).toContainText('360 → 300');
-  await graph.getByRole('button', { name: 'Apply link change' }).click();
-  await expect(page.getByTestId('cost-expected')).toHaveText('$5.51/mo');
+  const callerEditor = page.getByRole('dialog', { name: 'Edit agent' });
+  await callerEditor
+    .locator('article')
+    .filter({ has: page.getByLabel('Step 2 name') })
+    .getByText('Step execution details', { exact: true })
+    .click();
+  await callerEditor.getByLabel('Step 2 execution probability (0–1)').fill('0.5');
+  await callerEditor.getByRole('button', { name: 'Apply changes' }).click();
+  await expect(callerEditor).toBeHidden();
+  await expect(page.getByTestId('cost-expected')).toHaveText('$5.75/mo');
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
-
   await graph
     .locator('.graph-edge')
     .filter({ hasText: 'Reviewer' })
-    .getByRole('button', { name: 'Remove link' })
+    .getByRole('button', { name: 'Edit link' })
     .click();
+  await callerEditor.getByLabel('Remove step 3').click();
+  await callerEditor.getByRole('button', { name: 'Apply changes' }).click();
+  await expect(callerEditor).toBeHidden();
   await expect(page.getByTestId('cost-expected')).toHaveText('$5.63/mo');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   const reviewerEditor = await openAgentEditor(page, 'Reviewer');
@@ -719,20 +685,20 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page.getByLabel('Import agent spreadsheet').setInputFiles(replacementFile);
   const importPreview = page.getByRole('dialog', { name: 'Review spreadsheet import' });
-  await expect(importPreview).toContainText('2 agent links will be removed');
+  await expect(importPreview).toContainText('3 agent links will be removed');
   await importPreview.getByRole('button', { name: 'Replace inventory' }).click();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await expect(graph.locator('.graph-edge')).toHaveCount(0);
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(2);
+  await expect(graph.locator('.graph-edge')).toHaveCount(3);
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByRole('button', { name: 'Reset parameters', exact: true }).click();
   const resetDialog = page.getByRole('dialog', { name: 'Reset execution parameters' });
   await expect(resetDialog).toContainText('link scenario overrides');
   await resetDialog.getByRole('button', { name: 'Reset parameters', exact: true }).click();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(2);
+  await expect(graph.locator('.graph-edge')).toHaveCount(3);
   await expect(page.getByTestId('cost-low')).toHaveText('$4.50/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$9.00/mo');
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
@@ -742,7 +708,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: path.join(artifacts, 'agent-graph-mobile.png'), fullPage: true });
   records.push({
-    journey: 'Agent links, pooled volume, scenarios, graph validation, save/reopen, undo, and workbook',
+    journey: 'Agent steps, individual volume, scenarios, graph validation, save/reopen, undo, and workbook',
     evidence: 'agent-graph-fixture.json, agent-graph-budget.xlsx, and agent-graph-replacement.xlsx',
     expected: {
       lowUsd: 3.0294,
@@ -751,7 +717,6 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       researcherTotal: 360,
       reviewerTotal: 75,
       cycleStatus: 422,
-      schemaTwoMigrated: true,
       replacementClearsLinks: true,
       doubledExpectedResearcherTotal: 720,
       twoCallerResearcherTotal: 397.5,
@@ -763,9 +728,9 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
       researcherPerAgent,
       researcherTotal,
       researcherLink,
+      repeatedResearcherLink,
       reviewerLink,
       cycleStatus: cycleResponse.status(),
-      migratedSchema: migrated.schema_version,
       doubledExpectedResearcherTotal: Number(
         doubledResult.scenarios.find((item: { name: string }) => item.name === 'Expected').volumes.researcher
           .total,
@@ -1100,7 +1065,11 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await openAgentEditor(page, 'Another simple group');
   const mixedEditor = page.getByRole('dialog', { name: 'Edit agent' });
-  await chooseModel(page, mixedEditor.getByRole('button', { name: 'Model: Fixture A' }), 'Fixture B');
+  await chooseModel(
+    page,
+    mixedEditor.getByRole('button', { name: 'Step 1 model name: Fixture A' }),
+    'Fixture B',
+  );
   await mixedEditor.getByRole('button', { name: 'Apply changes' }).click();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByTestId('monthly-summary-expected-input-tokens')).toHaveText('489,600');
@@ -1172,6 +1141,7 @@ test('Individual overrides, zero output, detailed replacement and incomplete pri
 
   await openAgentEditor(page, 'Simple agents');
   await page.getByRole('button', { name: 'Use detailed workflow' }).click();
+  await editor.getByText('Step execution details', { exact: true }).click();
   await editor.getByLabel('Model calls / invocation', { exact: true }).fill('2');
   await editor.getByLabel('Input tokens / call', { exact: true }).fill('1000');
   await editor.getByLabel('Output tokens / call', { exact: true }).fill('250');

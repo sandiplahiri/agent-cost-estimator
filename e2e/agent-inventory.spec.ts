@@ -1,3 +1,4 @@
+import { modelStep, agentStep } from './workflow-fixtures';
 import { test, expect } from '@playwright/test';
 import { HyperFormula } from 'hyperformula';
 import ExcelJS from 'exceljs';
@@ -48,19 +49,16 @@ test('inventory edits one linked group member and preserves reconciled costs', a
     input: null,
     output: null,
   };
-  const step = (id: string) => ({
-    id,
-    name: 'Main step',
-    execution_probability: '1',
-    model_calls: [],
-    calls: '1',
-    input_tokens: '1000',
-    output_tokens: '100',
-    retry_rate: '0',
-    cache_fraction: '0',
-    cache_write_fraction: '0',
-    model_id: 'Fixture model',
-  });
+  const step = (id: string) =>
+    modelStep(id, {
+      calls: '1',
+      input_tokens: '1000',
+      output_tokens: '100',
+      retry_rate: '0',
+      cache_fraction: '0',
+      cache_write_fraction: '0',
+      model_id: 'Fixture model',
+    });
   const row = (id: string, name: string, members: string[], source: 'daily_users' | 'derived') => ({
     id,
     name,
@@ -88,22 +86,8 @@ test('inventory edits one linked group member and preserves reconciled costs', a
     row('research', 'Research', ['Research'], 'derived'),
     row('reviewer', 'Reviewer', ['Reviewer'], 'derived'),
   ];
-  const link = (id: string, parent_id: string, child_id: string, probability: string) => ({
-    id,
-    parent_id,
-    child_id,
-    step_id: null,
-    branch_event_id: null,
-    branch_group: '',
-    trigger_probability: probability,
-    invocations_per_trigger: '1',
-    low: { trigger_probability: null, invocations_per_trigger: null },
-    high: { trigger_probability: null, invocations_per_trigger: null },
-  });
-  estimate.links = [
-    link('planner-research', 'planner', 'research', '0.5'),
-    link('research-reviewer', 'research', 'reviewer', '0.4'),
-  ];
+  estimate.agents[0].steps.push(agentStep('planner-research', 'research-1', '0.5'));
+  estimate.agents[1].steps.push(agentStep('research-reviewer', 'reviewer-1', '0.4'));
   await fs.writeFile(path.join(directory, 'input.json'), JSON.stringify(estimate, null, 2));
   const initialResult = await (await request.post('/api/calculate', { data: estimate })).json();
   const baselineCost = Number(
@@ -130,7 +114,7 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await expect(plannerB.locator('td').nth(7)).toHaveText('$0.84/mo');
   await expect(research.locator('td').nth(7)).toHaveText('$0.84/mo');
   await expect(reviewer.locator('td').nth(7)).toHaveText('$0.34/mo');
-  await expect(plannerA.locator('td').nth(2)).toHaveText('1');
+  await expect(plannerA.locator('td').nth(2)).toHaveText('2');
   await expect(plannerA.locator('td').nth(4)).toHaveText('1');
   await expect(plannerA.locator('td').nth(5)).toHaveText('1');
   await expect(plannerA.locator('td').nth(6)).toHaveText('10');
@@ -171,7 +155,7 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await editor.getByLabel('Business use case name').fill('Plan support response');
   await editor.getByLabel('Business use case description', { exact: true }).fill('Plans complex requests');
   await editor.getByLabel('Users per agent per day *').fill('2');
-  await editor.getByRole('button', { name: 'Copy step' }).click();
+  await editor.getByRole('button', { name: 'Copy step' }).first().click();
   await editor.getByLabel('Step 2 name').fill('Review plan');
   await editor.getByLabel('Step 2 complexity profile').selectOption('medium');
   await editor.getByRole('button', { name: 'Step 2 model name: Fixture model' }).click();
@@ -244,7 +228,7 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await expect(plannerB.locator('td').nth(7)).toHaveText('$0.84/mo');
   await expect(research.locator('td').nth(7)).toHaveText('$1.26/mo');
   await expect(reviewer.locator('td').nth(7)).toHaveText('$0.50/mo');
-  await expect(tuned.locator('td').nth(2)).toHaveText('2');
+  await expect(tuned.locator('td').nth(2)).toHaveText('3');
   await expect(tuned.locator('td').nth(5)).toHaveText('2');
   await expect(research.locator('td').nth(3)).toHaveText('2');
 
@@ -289,7 +273,7 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await fs.writeFile(path.join(directory, 'saved.json'), JSON.stringify(saved, null, 2));
   expect(saved.agents.reduce((sum: number, agent: { count: number }) => sum + agent.count, 0)).toBe(4);
   expect(saved.agents.find((agent: { name: string }) => agent.name === 'Planner A tuned').steps).toHaveLength(
-    2,
+    3,
   );
   expect(saved.agents.find((agent: { name: string }) => agent.name === 'Planner A tuned').use_case_name).toBe(
     'Plan support response',
@@ -298,7 +282,8 @@ test('inventory edits one linked group member and preserves reconciled costs', a
     saved.agents.find((agent: { name: string }) => agent.name === 'Planner A tuned').steps[1].complexity,
   ).toBe('medium');
   expect(
-    saved.agents.find((agent: { name: string }) => agent.name === 'Planner A tuned').steps[1].model_id,
+    saved.agents.find((agent: { name: string }) => agent.name === 'Planner A tuned').steps[1].model_calls[0]
+      .model_id,
   ).toBe('Fixture review model');
   const calculated = await (await request.post('/api/calculate', { data: saved })).json();
   const editedCost = Number(

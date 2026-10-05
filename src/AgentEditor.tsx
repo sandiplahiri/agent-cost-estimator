@@ -3,15 +3,17 @@ import { Plus, Trash2 } from 'lucide-react';
 import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './components';
 import {
   effective,
+  modelStep,
+  distributionTotal,
   api,
   displayVolume,
   id,
   rateMoney,
   resizeMembers,
   type AgentRow,
+  type AgentCall,
   type AgentCostPreview,
   type Estimate,
-  type Execution,
   type ModelCall,
   type MonthlyTokenSummary,
   type Price,
@@ -34,7 +36,7 @@ function useAgentCost(draft: AgentRow, estimate: Estimate, prices: Record<string
       const snapshot = clone(estimate);
       const modelIds = [
         draft.overrides.model_id,
-        ...draft.steps.flatMap((step) => [step.model_id, ...step.model_calls.map((call) => call.model_id)]),
+        ...draft.steps.flatMap((step) => step.model_calls.map((call) => call.model_id)),
       ];
       for (const modelId of modelIds)
         if (modelId && !snapshot.prices[modelId] && prices[modelId])
@@ -101,7 +103,8 @@ function CostSection({
       {stepNumber ? <h4>Cost</h4> : <h3>Cost</h3>}
       <p className="muted small">
         Expected monthly · USD{agentCount > 1 ? ` · All ${agentCount} agents in this entry` : ''}. Updates
-        with your edits. Token costs exclude harness, tools, and other costs.
+        with your edits. Tokens and token costs cover this agent's own model calls. Called agents have their
+        own totals. Token costs exclude harness, tools, and other costs.
       </p>
       {summary ? (
         <div className="table-scroll">
@@ -161,16 +164,7 @@ export function AgentEditor({
   const [draft, setDraft] = useState(() => {
     const initial = clone(row);
     if (singleAgent && initial.steps.length === 0) {
-      initial.steps = [
-        {
-          ...effective(estimate, initial),
-          id: id(),
-          name: 'Main step',
-          complexity: initial.complexity,
-          execution_probability: '1',
-          model_calls: [],
-        },
-      ];
+      initial.steps = [modelStep(effective(estimate, initial), 'Main step', initial.complexity)];
     }
     return initial;
   });
@@ -297,7 +291,7 @@ export function AgentEditor({
             ? '* Required for a directly invoked agent. Monthly invocations are calculated from these inputs using 30 days/month.'
             : '* Required for directly invoked agents. Total monthly invocations per agent are calculated from these inputs using 30 days/month.'}
         {draft.volume_source === 'manual' &&
-          ' This saved row still uses a legacy manual volume until both daily inputs are entered.'}
+          ' This row uses manual monthly volume until both daily inputs are entered.'}
       </p>
       {!singleAgent && draft.count > 0 && (
         <div className="editor-section">
@@ -381,7 +375,7 @@ export function AgentEditor({
         </div>
       )}
       <CostSection {...costPreview} agentCount={draft.count} />
-      {singleAgent ? (
+      {draft.steps.length ? (
         <AgentStepList
           draft={draft}
           setDraft={setDraft}
@@ -392,324 +386,18 @@ export function AgentEditor({
       ) : (
         <div className="editor-section">
           <h3>Execution assumptions</h3>
-          <p className="muted small">
-            Inherited from the {draft.complexity} profile unless edited here. Model changes preserve other
-            parameters.
-          </p>
-          {draft.steps.length === 0 ? (
-            <>
-              <ExecutionFields
-                value={execution}
-                prices={prices}
-                onChange={(patch) => setDraft({ ...draft, overrides: { ...draft.overrides, ...patch } })}
-              />
-              <div className="override-summary">
-                {Object.entries(draft.overrides)
-                  .filter(([, v]) => v != null)
-                  .map(([k, v]) => (
-                    <span className="tag" key={k}>
-                      {k.replaceAll('_', ' ')}: {v}
-                    </span>
-                  ))}
-              </div>
-              <button className="text-button" onClick={() => setDraft({ ...draft, overrides: {} })}>
-                Clear row overrides; inherit profile
-              </button>
-            </>
-          ) : (
-            <>
-              {draft.steps.map((step, i) => (
-                <div className="step-card" key={step.id}>
-                  <div className="step-heading">
-                    <Field label={`Step ${i + 1} name`}>
-                      <input
-                        value={step.name}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            steps: draft.steps.map((s, j) => (j === i ? { ...s, name: e.target.value } : s)),
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field label={`Step ${i + 1} complexity profile`}>
-                      <select
-                        value={step.complexity ?? draft.complexity}
-                        onChange={(event) =>
-                          setDraft({
-                            ...draft,
-                            steps: draft.steps.map((item, index) =>
-                              index === i ? { ...item, complexity: event.target.value } : item,
-                            ),
-                          })
-                        }
-                      >
-                        {Object.keys(estimate.profiles).map((profile) => (
-                          <option key={profile} value={profile}>
-                            {profile}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Numeric
-                      label="Step execution probability (0–1)"
-                      value={step.execution_probability}
-                      onChange={(v) =>
-                        setDraft({
-                          ...draft,
-                          steps: draft.steps.map((s, j) =>
-                            j === i ? { ...s, execution_probability: v } : s,
-                          ),
-                        })
-                      }
-                    />
-                    <button
-                      className="text-button"
-                      disabled={i === 0}
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          steps: draft.steps.map((s, j) =>
-                            j === i ? draft.steps[i - 1] : j === i - 1 ? step : s,
-                          ),
-                        })
-                      }
-                    >
-                      Move up
-                    </button>
-                    <button
-                      className="text-button"
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          steps: [
-                            ...draft.steps.slice(0, i + 1),
-                            {
-                              ...clone(step),
-                              id: id(),
-                              name: `${step.name} (copy)`,
-                              model_calls: step.model_calls.map((call) => ({ ...call, id: id() })),
-                            },
-                            ...draft.steps.slice(i + 1),
-                          ],
-                        })
-                      }
-                    >
-                      Copy step
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Remove step ${i + 1}`}
-                      onClick={() => setDraft({ ...draft, steps: draft.steps.filter((_, j) => j !== i) })}
-                    >
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-                  <CostSection
-                    {...costPreview}
-                    summary={costPreview.summary?.steps[step.id]}
-                    agentCount={draft.count}
-                    stepNumber={i + 1}
-                  />
-                  {step.model_calls.length === 0 ? (
-                    <ExecutionFields
-                      value={step}
-                      prices={prices}
-                      onChange={(patch) =>
-                        setDraft({
-                          ...draft,
-                          steps: draft.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)),
-                        })
-                      }
-                    />
-                  ) : (
-                    step.model_calls.map((call, callIndex) => (
-                      <div className="model-call-card" key={call.id}>
-                        <div className="step-heading">
-                          <strong>Model {callIndex + 1}</strong>
-                          <button
-                            className="icon-button"
-                            aria-label={`Remove model ${callIndex + 1} from ${step.name}`}
-                            onClick={() =>
-                              setDraft({
-                                ...draft,
-                                steps: draft.steps.map((s, j) =>
-                                  j === i
-                                    ? {
-                                        ...s,
-                                        calls: s.model_calls.length === 1 ? '0' : s.calls,
-                                        model_calls: s.model_calls.filter((c) => c.id !== call.id),
-                                      }
-                                    : s,
-                                ),
-                              })
-                            }
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                        <div className="form-grid two">
-                          <Numeric
-                            label="Model invocation probability (0–1)"
-                            value={call.probability}
-                            onChange={(v) =>
-                              setDraft({
-                                ...draft,
-                                steps: draft.steps.map((s, j) =>
-                                  j === i
-                                    ? {
-                                        ...s,
-                                        model_calls: s.model_calls.map((c) =>
-                                          c.id === call.id ? { ...c, probability: v } : c,
-                                        ),
-                                      }
-                                    : s,
-                                ),
-                              })
-                            }
-                          />
-                          <Field label="Exclusive choice (optional)">
-                            <input
-                              value={call.exclusive_group}
-                              onChange={(e) =>
-                                setDraft({
-                                  ...draft,
-                                  steps: draft.steps.map((s, j) =>
-                                    j === i
-                                      ? {
-                                          ...s,
-                                          model_calls: s.model_calls.map((c) =>
-                                            c.id === call.id ? { ...c, exclusive_group: e.target.value } : c,
-                                          ),
-                                        }
-                                      : s,
-                                  ),
-                                })
-                              }
-                            />
-                          </Field>
-                          <Field label="Model role">
-                            <input
-                              value={call.role}
-                              onChange={(e) =>
-                                setDraft({
-                                  ...draft,
-                                  steps: draft.steps.map((s, j) =>
-                                    j === i
-                                      ? {
-                                          ...s,
-                                          model_calls: s.model_calls.map((c) =>
-                                            c.id === call.id ? { ...c, role: e.target.value } : c,
-                                          ),
-                                        }
-                                      : s,
-                                  ),
-                                })
-                              }
-                            />
-                          </Field>
-                        </div>
-                        <p className="muted small">
-                          The calls field below is average model calls when this model is invoked. Its
-                          probability and the step probability scale that average.
-                        </p>
-                        <ExecutionFields
-                          value={call}
-                          prices={prices}
-                          onChange={(patch) =>
-                            setDraft({
-                              ...draft,
-                              steps: draft.steps.map((s, j) =>
-                                j === i
-                                  ? {
-                                      ...s,
-                                      model_calls: s.model_calls.map((c) =>
-                                        c.id === call.id ? { ...c, ...patch } : c,
-                                      ),
-                                    }
-                                  : s,
-                              ),
-                            })
-                          }
-                        />
-                      </div>
-                    ))
-                  )}
-                  <button
-                    className="button subtle"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        steps: draft.steps.map((s, j) =>
-                          j === i
-                            ? {
-                                ...s,
-                                model_calls: [
-                                  ...(s.model_calls.length
-                                    ? s.model_calls
-                                    : [
-                                        {
-                                          id: id(),
-                                          role: 'primary',
-                                          probability: '1',
-                                          exclusive_group: '',
-                                          calls: step.calls,
-                                          input_tokens: step.input_tokens,
-                                          output_tokens: step.output_tokens,
-                                          retry_rate: step.retry_rate,
-                                          cache_fraction: step.cache_fraction,
-                                          cache_write_fraction: step.cache_write_fraction,
-                                          model_id: step.model_id,
-                                        },
-                                      ]),
-                                  { ...execution, id: id(), role: '', probability: '0', exclusive_group: '' },
-                                ],
-                              }
-                            : s,
-                        ),
-                      })
-                    }
-                  >
-                    Add model to step
-                  </button>
-                  {step.model_calls.length > 0 && (
-                    <p className="muted small">
-                      Expected models per step execution:{' '}
-                      {step.model_calls
-                        .reduce((sum, call) => sum + Number(call.probability || 0), 0)
-                        .toFixed(2)}
-                      . New models start at probability zero.
-                    </p>
-                  )}
-                </div>
-              ))}
-              <p className="muted small">
-                Steps replace aggregate execution. Calls per invocation are bounded expected repetitions for
-                each step. Delegated agents are counted in their own rows.
-              </p>
-            </>
-          )}
+          <ExecutionFields
+            value={execution}
+            prices={prices}
+            onChange={(patch) => setDraft({ ...draft, overrides: { ...draft.overrides, ...patch } })}
+          />
           <button
             className="button subtle"
             onClick={() =>
-              setDraft({
-                ...draft,
-                steps: [
-                  ...draft.steps,
-                  {
-                    ...execution,
-                    id: id(),
-                    name: `Step ${draft.steps.length + 1}`,
-                    complexity: draft.complexity,
-                    execution_probability: '1',
-                    model_calls: [],
-                  },
-                ],
-              })
+              setDraft({ ...draft, steps: [modelStep(execution, 'Main step', draft.complexity)] })
             }
           >
-            <Plus size={15} />
-            {draft.steps.length ? 'Add model-call step' : 'Use detailed workflow'}
+            Use detailed workflow
           </button>
         </div>
       )}
@@ -829,16 +517,16 @@ export function AgentEditor({
       )}
       {hasLinks && (
         <p className="muted small">
-          Linked agents can be customized individually. Incoming work is divided, and outgoing calls are
-          copied for the customized agent. Remove links before deleting linked agents.
+          Each called individual receives its assigned work. Remove or retarget incoming step options before
+          deleting a called agent. Deleting a caller recalculates its children's workload.
         </p>
       )}
       <div className="modal-actions spread">
         <div className="button-row">
-          {estimate.agents.some((r) => r.id === row.id) && !hasLinks && !pendingGroupMember && (
-            <button className="button danger" onClick={onRemove}>
+          {estimate.agents.some((r) => r.id === row.id) && (singleAgent || row.count === 1) && (
+            <button className="button danger" disabled={saving} onClick={onRemove}>
               <Trash2 size={14} />
-              Remove
+              Delete agent
             </button>
           )}
           {!singleAgent && row.count > 1 && estimate.agents.some((r) => r.id === row.id) && (
@@ -904,38 +592,43 @@ function AgentStepList({
       ...draft,
       steps: draft.steps.map((step) => (step.id === stepId ? { ...step, ...patch } : step)),
     });
-  const updateCall = (stepId: string, callId: string, patch: Partial<ModelCall>) =>
-    setDraft({
-      ...draft,
-      steps: draft.steps.map((step) =>
-        step.id === stepId
-          ? {
-              ...step,
-              model_calls: step.model_calls.map((call) =>
-                call.id === callId ? { ...call, ...patch } : call,
-              ),
-            }
-          : step,
+  const agentTargets = estimate.agents
+    .flatMap((row) => row.members)
+    .filter((member) => !draft.members.some((own) => own.id === member.id));
+  const updateCall = (step: Step, callId: string, patch: Partial<ModelCall>) =>
+    updateStep(step.id, {
+      model_calls: step.model_calls.map((call) => (call.id === callId ? { ...call, ...patch } : call)),
+    });
+  const updateAgent = (step: Step, optionId: string, patch: Partial<AgentCall>) =>
+    updateStep(step.id, {
+      agent_calls: (step.agent_calls ?? []).map((option) =>
+        option.id === optionId ? { ...option, ...patch } : option,
       ),
     });
-  const newStep = (): Step => ({
-    ...effective(estimate, draft),
-    id: id(),
-    name: `Step ${draft.steps.length + 1}`,
-    complexity: draft.complexity,
-    execution_probability: '1',
-    model_calls: [],
-  });
+  const [previousAction, setPreviousAction] = useState<{ stepId: string; step: Step } | null>(null);
   return (
     <section className="editor-section agent-step-list" aria-label="Agent steps">
       <h3>Steps</h3>
       <p className="muted small">
-        One invocation completes this use case. Choose the model and complexity profile for each step.
+        Each executed step chooses one model or one other suite agent. Its target probabilities must total
+        1.0.
       </p>
+      {previousAction && (
+        <button
+          className="text-button"
+          onClick={() => {
+            updateStep(previousAction.stepId, previousAction.step);
+            setPreviousAction(null);
+          }}
+        >
+          Undo action change
+        </button>
+      )}
       {draft.steps.map((step, index) => {
-        const referenced =
-          draft.tool_costs.some((tool) => tool.step_id === step.id) ||
-          estimate.links.some((link) => link.parent_id === draft.id && link.step_id === step.id);
+        const agentAction = step.action_type === 'agent';
+        const options = agentAction ? (step.agent_calls ?? []) : step.model_calls;
+        const probability = distributionTotal(options.map((option) => option.probability));
+        const action = costPreview.summary?.step_actions[step.id];
         return (
           <article className="step-card" key={step.id}>
             <div className="step-list-heading">
@@ -965,6 +658,10 @@ function AgentStepList({
                           id: id(),
                           name: `${step.name} (copy)`,
                           model_calls: step.model_calls.map((call) => ({ ...clone(call), id: id() })),
+                          agent_calls: (step.agent_calls ?? []).map((option) => ({
+                            ...clone(option),
+                            id: id(),
+                          })),
                         },
                         ...draft.steps.slice(index + 1),
                       ],
@@ -976,10 +673,9 @@ function AgentStepList({
                 <button
                   className="icon-button"
                   aria-label={`Remove step ${index + 1}`}
-                  title={
-                    referenced ? 'Remove linked agent calls and tool costs from this step first.' : undefined
+                  disabled={
+                    draft.steps.length === 1 || draft.tool_costs.some((tool) => tool.step_id === step.id)
                   }
-                  disabled={draft.steps.length === 1 || referenced}
                   onClick={() =>
                     setDraft({ ...draft, steps: draft.steps.filter((item) => item.id !== step.id) })
                   }
@@ -995,39 +691,141 @@ function AgentStepList({
                   onChange={(event) => updateStep(step.id, { name: event.target.value })}
                 />
               </Field>
-              <Field label={`Step ${index + 1} complexity profile`}>
+              <Field label={`Step ${index + 1} action`}>
                 <select
-                  value={step.complexity ?? draft.complexity}
-                  onChange={(event) => updateStep(step.id, { complexity: event.target.value })}
+                  aria-label={`Step ${index + 1} action`}
+                  value={step.action_type}
+                  onChange={(event) => {
+                    setPreviousAction({ stepId: step.id, step: clone(step) });
+                    const action_type = event.target.value as 'model' | 'agent';
+                    updateStep(step.id, {
+                      action_type,
+                      model_calls:
+                        action_type === 'model'
+                          ? [
+                              {
+                                ...effective(estimate, draft),
+                                id: id(),
+                                role: '',
+                                probability: '1',
+                              },
+                            ]
+                          : [],
+                      agent_calls:
+                        action_type === 'agent'
+                          ? [
+                              {
+                                id: id(),
+                                child_agent_id: agentTargets[0]?.id ?? '',
+                                probability: '1',
+                              },
+                            ]
+                          : [],
+                    });
+                  }}
                 >
-                  {Object.keys(estimate.profiles).map((profile) => (
-                    <option key={profile} value={profile}>
-                      {profile}
-                    </option>
-                  ))}
+                  <option value="model">Invoke model</option>
+                  <option value="agent">Invoke agent</option>
                 </select>
               </Field>
+              {!agentAction && (
+                <Field label={`Step ${index + 1} complexity profile`}>
+                  <select
+                    value={step.complexity ?? draft.complexity}
+                    onChange={(event) => updateStep(step.id, { complexity: event.target.value })}
+                  >
+                    {Object.keys(estimate.profiles).map((profile) => (
+                      <option key={profile} value={profile}>
+                        {profile}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
             </div>
-            {step.model_calls.length === 0 ? (
-              <ModelPicker
-                label={`Step ${index + 1} model name`}
-                value={step.model_id}
-                prices={prices}
-                onChange={(model_id) => updateStep(step.id, { model_id })}
-              />
+            {agentAction ? (
+              <>
+                <p className="muted small">
+                  Each executed step invokes one selected agent once. Add or copy a step for another
+                  invocation.
+                </p>
+                {(step.agent_calls ?? []).map((option, i) => (
+                  <div className="model-call-card" key={option.id}>
+                    <div className="form-grid">
+                      <Field label={`Step ${index + 1} agent ${i + 1}`}>
+                        <select
+                          aria-label={`Step ${index + 1} agent ${i + 1}`}
+                          value={option.child_agent_id}
+                          onChange={(event) =>
+                            updateAgent(step, option.id, { child_agent_id: event.target.value })
+                          }
+                        >
+                          <option value="">Choose an agent</option>
+                          {agentTargets.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Numeric
+                        label={`Step ${index + 1} agent ${i + 1} probability (0–1)`}
+                        value={option.probability}
+                        max={1}
+                        onChange={(probability) => updateAgent(step, option.id, { probability })}
+                      />
+                    </div>
+                    <button
+                      className="text-button"
+                      disabled={options.length === 1}
+                      onClick={() =>
+                        updateStep(step.id, {
+                          agent_calls: step.agent_calls?.filter((item) => item.id !== option.id),
+                        })
+                      }
+                    >
+                      Remove agent option {i + 1}
+                    </button>
+                  </div>
+                ))}
+                <button
+                  className="text-button"
+                  disabled={options.length >= 100}
+                  onClick={() =>
+                    updateStep(step.id, {
+                      agent_calls: [
+                        ...(step.agent_calls ?? []),
+                        { id: id(), child_agent_id: '', probability: '0' },
+                      ],
+                    })
+                  }
+                >
+                  <Plus size={14} /> Add agent option
+                </button>
+              </>
             ) : (
-              <div className="step-model-list">
-                {step.model_calls.map((call, callIndex) => (
-                  <div className="step-model-item" key={call.id}>
+              <>
+                {step.model_calls.map((call, i) => (
+                  <div className="model-call-card" key={call.id}>
                     <ModelPicker
-                      label={`Step ${index + 1} model ${callIndex + 1} name`}
+                      label={
+                        step.model_calls.length === 1
+                          ? `Step ${index + 1} model name`
+                          : `Step ${index + 1} model ${i + 1} name`
+                      }
                       value={call.model_id}
                       prices={prices}
-                      onChange={(model_id) => updateCall(step.id, call.id, { model_id })}
+                      onChange={(model_id) => updateCall(step, call.id, { model_id })}
+                    />
+                    <Numeric
+                      label={`Step ${index + 1} model ${i + 1} probability (0–1)`}
+                      value={call.probability}
+                      max={1}
+                      onChange={(probability) => updateCall(step, call.id, { probability })}
                     />
                     <button
-                      className="icon-button"
-                      aria-label={`Remove model ${callIndex + 1} from step ${index + 1}`}
+                      className="text-button"
+                      aria-label={`Remove model ${i + 1} from step ${index + 1}`}
                       disabled={step.model_calls.length === 1}
                       onClick={() =>
                         updateStep(step.id, {
@@ -1035,45 +833,72 @@ function AgentStepList({
                         })
                       }
                     >
-                      <Trash2 size={15} />
+                      Remove model {i + 1}
                     </button>
                   </div>
                 ))}
-              </div>
+                <button
+                  className="text-button"
+                  disabled={step.model_calls.length >= 100}
+                  onClick={() =>
+                    updateStep(step.id, {
+                      model_calls: [
+                        ...step.model_calls,
+                        {
+                          ...effective(estimate, draft),
+                          id: id(),
+                          role: '',
+                          probability: '0',
+                        },
+                      ],
+                    })
+                  }
+                >
+                  <Plus size={14} /> Add model to step
+                </button>
+              </>
             )}
-            <button
-              className="text-button"
-              disabled={step.model_calls.length >= 100}
-              onClick={() => {
-                const primary: ModelCall = {
-                  id: id(),
-                  role: 'primary',
-                  probability: '1',
-                  exclusive_group: '',
-                  calls: step.calls,
-                  input_tokens: step.input_tokens,
-                  output_tokens: step.output_tokens,
-                  retry_rate: step.retry_rate,
-                  cache_fraction: step.cache_fraction,
-                  cache_write_fraction: step.cache_write_fraction,
-                  model_id: step.model_id,
-                };
-                updateStep(step.id, {
-                  model_calls: [
-                    ...(step.model_calls.length ? step.model_calls : [primary]),
-                    {
-                      ...effective(estimate, draft),
-                      id: id(),
-                      role: '',
-                      probability: '0',
-                      exclusive_group: '',
-                    },
-                  ],
-                });
-              }}
-            >
-              <Plus size={14} /> Add model to step
-            </button>
+            <p className={probability.valid ? 'muted small' : 'invalid-text'}>
+              Probability total: {probability.percent}
+              {!probability.valid && ' · Option probabilities must total 1.0.'}
+            </p>
+            <section className="editor-section" aria-label={`Step ${index + 1} weighted cost`}>
+              <h4>Expected action cost</h4>
+              {action ? (
+                <>
+                  <p>
+                    {action.complete
+                      ? rateMoney(action.cost_per_execution)
+                      : `${rateMoney(action.cost_per_execution)} (partial)`}{' '}
+                    per executed step ·{' '}
+                    {action.complete
+                      ? rateMoney(action.monthly_cost)
+                      : `${rateMoney(action.monthly_cost)} (partial)`}{' '}
+                    per month
+                  </p>
+                  <p className="muted small">
+                    {agentAction
+                      ? 'Includes called agents and their downstream work. Suite totals count that work once in the called agents.'
+                      : 'Probability-weighted cost of the model options.'}
+                  </p>
+                  <ul>
+                    {action.options.map((option) => (
+                      <li key={option.id}>
+                        {agentAction
+                          ? (estimate.agents
+                              .flatMap((row) => row.members)
+                              .find((member) => member.id === option.target_id)?.name ?? option.target_id)
+                          : (prices[option.target_id]?.id ?? option.target_id)}
+                        : {option.probability} × {rateMoney(option.cost)} = {rateMoney(option.weighted_cost)}
+                        {!option.complete && ' (incomplete)'}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="muted small">{costPreview.error ?? 'Calculating action cost…'}</p>
+              )}
+            </section>
             <CostSection
               {...costPreview}
               summary={costPreview.summary?.steps[step.id]}
@@ -1088,47 +913,40 @@ function AgentStepList({
                 max={1}
                 onChange={(execution_probability) => updateStep(step.id, { execution_probability })}
               />
-              {step.model_calls.length === 0 ? (
-                <ExecutionFields
-                  value={step}
-                  prices={prices}
-                  showModel={false}
-                  onChange={(patch: Partial<Execution>) => updateStep(step.id, patch)}
+              {(['low', 'high'] as const).map((scenario) => (
+                <Numeric
+                  key={scenario}
+                  label={`Step ${index + 1} ${scenario} execution probability (optional)`}
+                  value={step[`${scenario}_execution_probability`] ?? ''}
+                  max={1}
+                  onChange={(value) =>
+                    updateStep(step.id, { [`${scenario}_execution_probability`]: value || null })
+                  }
                 />
-              ) : (
-                step.model_calls.map((call, callIndex) => (
+              ))}
+              {!agentAction &&
+                step.model_calls.map((call, i) => (
                   <div className="model-call-card" key={call.id}>
-                    <strong>Model {callIndex + 1} details</strong>
-                    <div className="form-grid two">
-                      <Numeric
-                        label={`Model ${callIndex + 1} invocation probability (0–1)`}
-                        value={call.probability}
-                        max={1}
-                        onChange={(probability) => updateCall(step.id, call.id, { probability })}
+                    <strong>Model {i + 1} details</strong>
+                    <Field label={`Model ${i + 1} role`}>
+                      <input
+                        value={call.role}
+                        onChange={(event) => updateCall(step, call.id, { role: event.target.value })}
                       />
-                      <Field label={`Model ${callIndex + 1} role`}>
-                        <input
-                          value={call.role}
-                          onChange={(event) => updateCall(step.id, call.id, { role: event.target.value })}
-                        />
-                      </Field>
-                      <Field label={`Model ${callIndex + 1} exclusive choice`}>
-                        <input
-                          value={call.exclusive_group}
-                          onChange={(event) =>
-                            updateCall(step.id, call.id, { exclusive_group: event.target.value })
-                          }
-                        />
-                      </Field>
-                    </div>
+                    </Field>
                     <ExecutionFields
                       value={call}
                       prices={prices}
                       showModel={false}
-                      onChange={(patch: Partial<Execution>) => updateCall(step.id, call.id, patch)}
+                      onChange={(patch) => updateCall(step, call.id, patch)}
                     />
                   </div>
-                ))
+                ))}
+              {agentAction && (
+                <p className="muted small">
+                  Called agents use their own steps and complexity profiles. Retained direct workload is
+                  replaced by work derived from callers.
+                </p>
               )}
             </details>
           </article>
@@ -1137,7 +955,15 @@ function AgentStepList({
       <button
         className="button subtle"
         disabled={draft.steps.length >= 100}
-        onClick={() => setDraft({ ...draft, steps: [...draft.steps, newStep()] })}
+        onClick={() =>
+          setDraft({
+            ...draft,
+            steps: [
+              ...draft.steps,
+              modelStep(effective(estimate, draft), `Step ${draft.steps.length + 1}`, draft.complexity),
+            ],
+          })
+        }
       >
         <Plus size={15} /> Add step
       </button>

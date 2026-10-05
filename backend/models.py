@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import Annotated, Literal
 from uuid import UUID, uuid4, uuid5
 
@@ -6,9 +6,18 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 Amount = Annotated[Decimal, Field(ge=0, le=Decimal("1e15"), allow_inf_nan=False)]
 Ratio = Annotated[Decimal, Field(ge=0, le=1, allow_inf_nan=False)]
-Fanout = Annotated[Decimal, Field(ge=0, le=1000000, allow_inf_nan=False)]
 PREDEFINED_COMPLEXITIES = ("simple", "medium", "high")
 Complexity = str
+
+
+def valid_distribution(probabilities):
+    # Bound pathological exponents and add without the default 28-digit rounding.
+    values = list(probabilities)
+    if any(value.as_tuple().exponent < -1000 for value in values):
+        raise ValueError("Selection probabilities support at most 1,000 decimal places.")
+    with localcontext() as context:
+        context.prec = 1105
+        return sum(values, Decimal(0)) == 1
 
 
 def category_name(value: str) -> str:
@@ -90,19 +99,30 @@ class Overrides(Record):
     model_id: str | None = Field(default=None, max_length=300)
 
 
-class Step(Execution):
+class Step(Record):
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=100)
     name: str = Field(default="Model call", min_length=1, max_length=120)
     complexity: Complexity | None = None
     execution_probability: Ratio = Decimal(1)
+    low_execution_probability: Ratio | None = None
+    high_execution_probability: Ratio | None = None
+    action_type: Literal["model", "agent"]
     model_calls: list["ModelCall"] = Field(default_factory=list, max_length=100)
+    agent_calls: list["AgentCall"] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def distinct_agent_targets(self):
+        if len({option.child_agent_id for option in self.agent_calls}) != len(self.agent_calls):
+            raise ValueError(
+                "Each individual agent can appear only once in a step. Add another step for an additional invocation."
+            )
+        return self
 
 
 class ModelCall(Execution):
     id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=100)
     role: str = Field(default="", max_length=120)
-    probability: Ratio = Decimal(1)
-    exclusive_group: str = Field(default="", max_length=80)
+    probability: Ratio
 
 
 class ToolCost(Record):
@@ -156,7 +176,7 @@ class AgentRow(Record):
 
     @model_validator(mode="before")
     @classmethod
-    def migrate_members(cls, value):
+    def generate_members(cls, value):
         if not isinstance(value, dict) or "members" in value:
             return value
         count = value.get("count", 1)
@@ -196,7 +216,6 @@ class Scenario(Record):
 
 class LinkOverride(Record):
     trigger_probability: Ratio | None = None
-    invocations_per_trigger: Fanout | None = None
 
 
 class AgentLink(Record):
@@ -204,10 +223,15 @@ class AgentLink(Record):
     parent_id: str = Field(min_length=1, max_length=100)
     child_id: str = Field(min_length=1, max_length=100)
     trigger_probability: Ratio = Decimal(1)
-    invocations_per_trigger: Fanout = Decimal(1)
-    branch_group: str = Field(default="", max_length=80)
-    branch_event_id: str | None = Field(default=None, max_length=100)
-    step_id: str | None = Field(default=None, max_length=100)
+    step_id: str = Field(min_length=1, max_length=100)
+    low: LinkOverride = Field(default_factory=LinkOverride)
+    high: LinkOverride = Field(default_factory=LinkOverride)
+
+
+class AgentCall(Record):
+    id: str = Field(default_factory=lambda: str(uuid4()), min_length=1, max_length=100)
+    child_agent_id: str = Field(min_length=1, max_length=100)
+    probability: Ratio
     low: LinkOverride = Field(default_factory=LinkOverride)
     high: LinkOverride = Field(default_factory=LinkOverride)
 
@@ -221,7 +245,7 @@ class AdditionalCost(Record):
 
 
 class Estimate(Record):
-    schema_version: Literal[8] = 8
+    schema_version: Literal[10] = 10
     defaults_version: Literal[1] = 1
     id: str = Field(default_factory=lambda: str(uuid4()), max_length=100)
     name: str = Field(default="Untitled agent suite", min_length=1, max_length=120)
@@ -234,56 +258,83 @@ class Estimate(Record):
     additional_costs: list[AdditionalCost] = Field(default_factory=list, max_length=200)
     harness: Harness = Field(default_factory=Harness)
 
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_previous(cls, value):
-        if not isinstance(value, dict) or value.get("schema_version", 1) not in (1, 2, 3, 4, 5, 6, 7):
-            return value
-        version = value.get("schema_version", 1)
-        agents = value.get("agents", [])
-        if version in (1, 2, 3, 4, 5, 6):
-            used_names = set()
-            agents = []
-            for row in value.get("agents", []):
-                migrated = AgentRow.migrate_members(row) if isinstance(row, dict) else row
-                if isinstance(migrated, dict):
-                    for member in migrated.get("members", []):
-                        base_name = member.get("name", "Agent")
-                        candidate = base_name
-                        suffix = 2
-                        while candidate.strip().casefold() in used_names:
-                            ending = f" ({suffix})"
-                            candidate = f"{base_name[: 120 - len(ending)]}{ending}"
-                            suffix += 1
-                        member["name"] = candidate
-                        used_names.add(candidate.strip().casefold())
-                agents.append(migrated)
-        profiles = {}
-        legacy_models = {}
-        for name, profile in value.get("profiles", {}).items():
-            if isinstance(profile, dict):
-                profile = profile.copy()
-                legacy_models[name] = profile.pop("model_id", "")
-            profiles[name] = profile
-        migrated_agents = []
-        for row in agents:
-            if not isinstance(row, dict):
-                migrated_agents.append(row)
-                continue
-            row = row.copy()
-            overrides = dict(row.get("overrides") or {})
-            legacy_model = legacy_models.get(row.get("complexity"))
-            if not row.get("steps") and legacy_model and overrides.get("model_id") is None:
-                overrides["model_id"] = legacy_model
-            row["overrides"] = overrides
-            migrated_agents.append(row)
-        return {
-            **value,
-            "schema_version": 8,
-            "links": value.get("links", []),
-            "agents": migrated_agents,
-            "profiles": profiles,
+    @model_validator(mode="after")
+    def project_actions(self):
+        """Derive graph edges and child workload from step options."""
+        # Targets identify named agents, never a shared row or complexity profile.
+        targets = {
+            option.child_agent_id for row in self.agents for step in row.steps for option in step.agent_calls
         }
+        member_ids = [member.id for row in self.agents for member in row.members]
+        if len(set(member_ids)) != len(member_ids):
+            raise ValueError("Agent IDs must be unique across the suite.")
+        if not targets.issubset(member_ids):
+            raise ValueError("Agent targets must reference individual agent IDs from the same suite.")
+        expanded = []
+        for row in self.agents:
+            selected = [member for member in row.members if member.id in targets]
+            if row.count <= 1 or not selected:
+                expanded.append(row)
+                continue
+            remaining = [member for member in row.members if member.id not in targets]
+            if remaining:
+                retained = row.model_copy(deep=True)
+                retained.members = remaining
+                retained.count = len(remaining)
+                if retained.count == 1:
+                    retained.name = remaining[0].name
+                expanded.append(retained)
+            for member in selected:
+                individual = row.model_copy(deep=True)
+                individual.id = str(
+                    uuid5(
+                        UUID("e83891b3-a81b-4231-a37f-63d61927bc3d"), f"target:{self.id}:{row.id}:{member.id}"
+                    )
+                )
+                individual.name = member.name
+                individual.members = [member]
+                individual.count = 1
+                individual.use_case_description = member.business_use_case_description
+                step_ids = {}
+                for step in individual.steps:
+                    previous_id = step.id
+                    step.id = str(uuid5(UUID(individual.id), f"step:{previous_id}"))
+                    step_ids[previous_id] = step.id
+                    for option in [*step.model_calls, *step.agent_calls]:
+                        option.id = str(uuid5(UUID(individual.id), f"option:{option.id}"))
+                for tool in individual.tool_costs:
+                    tool.id = str(uuid5(UUID(individual.id), f"tool:{tool.id}"))
+                    if tool.step_id:
+                        tool.step_id = step_ids.get(tool.step_id, tool.step_id)
+                expanded.append(individual)
+        self.agents = expanded
+        member_rows = {member.id: row.id for row in self.agents for member in row.members}
+        previous_children = {link.child_id for link in self.links}
+        projected = [
+            AgentLink(
+                id=option.id,
+                parent_id=row.id,
+                child_id=member_rows[option.child_agent_id],
+                step_id=step.id,
+                trigger_probability=option.probability,
+                low=option.low,
+                high=option.high,
+            )
+            for row in self.agents
+            for step in row.steps
+            if step.action_type == "agent"
+            for option in step.agent_calls
+        ]
+        self.links = projected
+        child_ids = {link.child_id for link in self.links}
+        for row in self.agents:
+            if row.id in child_ids and row.volume_source != "derived":
+                row.prior_volume_source = row.volume_source
+                row.volume_source = "derived"
+            elif row.id in previous_children - child_ids and row.volume_source == "derived":
+                row.volume_source = row.prior_volume_source or "daily_users"
+                row.prior_volume_source = None
+        return self
 
     @model_validator(mode="after")
     def consistency(self):
@@ -298,6 +349,8 @@ class Estimate(Record):
             raise ValueError("Low, Expected, and High scenarios must each occur once.")
         if len({r.id for r in self.agents}) != len(self.agents):
             raise ValueError("Agent row IDs must be unique.")
+        if len(self.agents) > 1000:
+            raise ValueError("An estimate can contain at most 1,000 independent agent definitions.")
         if sum(row.count for row in self.agents) > 5000:
             raise ValueError("An estimate can contain at most 5,000 agents.")
         members = [member for row in self.agents for member in row.members]
@@ -317,72 +370,47 @@ class Estimate(Record):
             if len(step_ids) != len(row.steps):
                 raise ValueError(f"{row.name}: step IDs must be unique.")
             for step in row.steps:
+                options = step.model_calls if step.action_type == "model" else step.agent_calls
+                other = step.agent_calls if step.action_type == "model" else step.model_calls
+                if not options or other:
+                    raise ValueError(
+                        f"{row.name} / {step.name}: choose exactly one nonempty model or agent option list."
+                    )
+                if len({option.id for option in options}) != len(options):
+                    raise ValueError(f"{row.name} / {step.name}: option IDs must be unique.")
+                if not valid_distribution(option.probability for option in options):
+                    raise ValueError(f"{row.name} / {step.name}: option probabilities must total 1.0.")
+                if step.action_type == "model" and any(not call.model_id.strip() for call in options):
+                    raise ValueError(f"{row.name} / {step.name}: select a model for every option.")
+                if step.action_type == "agent":
+                    for scenario_name in ("low", "high"):
+                        probabilities = (
+                            getattr(option, scenario_name).trigger_probability
+                            if getattr(option, scenario_name).trigger_probability is not None
+                            else option.probability
+                            for option in options
+                        )
+                        if not valid_distribution(probabilities):
+                            raise ValueError(
+                                f"{row.name} / {step.name}: {scenario_name} option probabilities must total 1.0."
+                            )
                 if step.complexity is not None and step.complexity not in self.profiles:
                     raise ValueError(
                         f"{row.name} / {step.name}: add the {step.complexity} profile to this estimate first."
                     )
-                groups = {}
-                if len({call.id for call in step.model_calls}) != len(step.model_calls):
-                    raise ValueError(f"{row.name} / {step.name}: model-call IDs must be unique.")
-                for call in step.model_calls:
-                    if call.exclusive_group:
-                        groups[call.exclusive_group] = (
-                            groups.get(call.exclusive_group, Decimal(0)) + call.probability
-                        )
-                if any(total > 1 for total in groups.values()):
-                    raise ValueError(f"{row.name} / {step.name}: exclusive model probabilities exceed 1.")
             for tool in row.tool_costs:
                 if tool.step_id and tool.step_id not in step_ids:
                     raise ValueError(f"{row.name}: tool {tool.name} references a missing step.")
         incoming = {row.id: 0 for row in self.agents}
         outgoing = {row.id: [] for row in self.agents}
-        branch_events = {}
         for link in self.links:
             parent, child = rows.get(link.parent_id), rows.get(link.child_id)
             if parent is None or child is None:
                 raise ValueError("Agent links must reference existing parent and child rows.")
             if link.parent_id == link.child_id:
                 raise ValueError(f"Agent link for {parent.name} cannot call itself.")
-            if link.step_id and link.step_id not in {step.id for step in parent.steps}:
-                raise ValueError(f"{parent.name}: agent link references a missing step.")
-            if child.volume_source != "derived":
-                raise ValueError(f"{child.name}: convert to derived volume before adding an incoming link.")
             incoming[child.id] += 1
             outgoing[parent.id].append(child.id)
-            if link.branch_group:
-                for scenario_name, probability in (
-                    ("Expected", link.trigger_probability),
-                    (
-                        "Low",
-                        link.low.trigger_probability
-                        if link.low.trigger_probability is not None
-                        else link.trigger_probability,
-                    ),
-                    (
-                        "High",
-                        link.high.trigger_probability
-                        if link.high.trigger_probability is not None
-                        else link.trigger_probability,
-                    ),
-                ):
-                    key = (
-                        parent.id,
-                        link.step_id,
-                        link.branch_group,
-                        scenario_name,
-                        link.branch_event_id or link.id,
-                    )
-                    if key in branch_events and branch_events[key] != probability:
-                        raise ValueError(
-                            "Links sharing a branch event must use the same probability in each scenario."
-                        )
-                    branch_events[key] = probability
-        branch_probabilities = {}
-        for (parent_id, step_id, group, scenario_name, _), probability in branch_events.items():
-            key = (parent_id, step_id, group, scenario_name)
-            branch_probabilities[key] = branch_probabilities.get(key, Decimal(0)) + probability
-        if any(total > 1 for total in branch_probabilities.values()):
-            raise ValueError("Mutually exclusive branch probabilities cannot exceed 1 for any scenario.")
         for row in self.agents:
             if row.volume_source == "derived" and incoming[row.id] == 0:
                 raise ValueError(f"{row.name}: derived volume needs at least one incoming agent link.")
@@ -419,7 +447,7 @@ class Estimate(Record):
             cycle = next((found for node in rows if node not in visited if (found := find_cycle(node))), None)
             names = " → ".join(rows[node].name for node in cycle) if cycle else "agent links"
             raise ValueError(
-                f"Adding this link creates a cycle: {names}. Model bounded work with multiplicity."
+                f"Adding this link creates a cycle: {names}. Represent additional invocations with separate steps without a dependency cycle."
             )
         for row_number, row in enumerate(self.agents, start=2):
             try:

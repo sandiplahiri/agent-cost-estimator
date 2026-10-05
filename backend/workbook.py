@@ -6,8 +6,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.workbook.properties import CalcProperties
 from pydantic import ValidationError
 
-from .engine import PLANNING_DAYS_PER_MONTH, calculate
-from .models import AgentRow, Estimate
+from .engine import PLANNING_DAYS_PER_MONTH, calculate, effective_step_probability
+from .models import AgentRow, Estimate, Step, valid_distribution
 
 OVERRIDE_COLUMNS = [
     "model_id",
@@ -32,6 +32,31 @@ IMPORT_COLUMNS = [
     *VOLUME_COLUMNS,
     "agent_id",
     "business_use_case_description",
+    "row_id",
+]
+
+STEP_OPTION_COLUMNS = [
+    "row_id",
+    "step_id",
+    "step_name",
+    "order",
+    "action_type",
+    "execution_probability",
+    "complexity",
+    "option_id",
+    "probability",
+    "model_id",
+    "child_agent_id",
+    "calls",
+    "input_tokens",
+    "output_tokens",
+    "retry_rate",
+    "cache_fraction",
+    "cache_write_fraction",
+    "low_execution_probability",
+    "high_execution_probability",
+    "low_probability",
+    "high_probability",
 ]
 
 
@@ -85,6 +110,8 @@ def import_template():
             "Classifies incoming documents",
         ],
     )
+    step_options = wb.create_sheet("Step options")
+    literal(step_options, STEP_OPTION_COLUMNS)
     notes = wb.create_sheet("Instructions")
     literal(notes, ["Field", "Meaning"])
     for key, value in [
@@ -103,11 +130,11 @@ def import_template():
         ),
         (
             "Daily volume",
-            "Monthly invocations per agent = users_per_day × invocations_per_user_per_agent_per_day × 30 days. The invocations column is a legacy manual fallback and is ignored for daily rows.",
+            "Monthly invocations per agent = users_per_day × invocations_per_user_per_agent_per_day × 30 days. The invocations column supplies explicit manual monthly volume and is ignored for daily rows.",
         ),
         (
-            "Legacy import",
-            "Old manual rows with invocations are accepted for compatibility and labeled in the app; enter both daily inputs to convert them.",
+            "Manual volume",
+            "Manual rows use invocations per agent per month. Daily rows use the two daily inputs.",
         ),
         ("Overrides", "Blank execution cells inherit the profile. Zero is an explicit override."),
         (
@@ -118,7 +145,14 @@ def import_template():
             "Complexity",
             "Use simple, medium, high, or a custom complexity category already attached to the current estimate. Categories classify token consumption, not business use cases.",
         ),
-        ("Safety", "Values only: formulas, macros and external links are not supported. Maximum 1,000 rows."),
+        (
+            "Step options",
+            "Optional values-only sheet, maximum 5,000 option rows. Agents.row_id identifies each agent definition; each step has unique integer order and action_type=model or agent. Options in each step have explicit probabilities in [0,1] totaling 1.0. Model IDs use frozen/current prices; child_agent_id identifies an individual Agents.agent_id in this import; shared rows and complexity profiles cannot be targets. An executed agent step selects one individual and invokes it once; additional invocations require additional steps. Each individual appears at most once per step. Model options have calls (model calls when selected), tokens/call, retry attempt rate, and cache fractions. execution_probability is the chance the step runs, separate from option selection. Shared step fields must agree across its rows. Imports replace the full inventory after validation and preview.",
+        ),
+        (
+            "Safety",
+            "Values only: formulas, macros and external links are not supported. Maximum 1,000 agent rows and 5,000 step-option rows.",
+        ),
     ]:
         literal(notes, [key, value])
     return finish(wb)
@@ -158,7 +192,9 @@ def read_import(data: bytes):
             values = {key: c.value for key, c in zip(headers, cells) if c.value is not None and c.value != ""}
             missing = {"name", "complexity", "count"} - values.keys()
             source = values.get("volume_source", "manual")
-            if source == "derived":
+            if source == "derived" and (
+                "Step options" not in wb.sheetnames or wb["Step options"].max_row < 2
+            ):
                 errors.append(
                     f"Row {index}, volume_source: derived agent links cannot be imported from Agents. Import direct-volume rows, then add links in the app."
                 )
@@ -170,9 +206,12 @@ def read_import(data: bytes):
             if missing:
                 errors.append(f"Row {index}: required values missing: {', '.join(sorted(missing))}.")
                 continue
-            if source == "daily_users" and "invocations" not in values:
+            if source in ("daily_users", "derived") and "invocations" not in values:
                 values["invocations"] = 0
             overrides = {k: values.pop(k) for k in list(values) if k in OVERRIDE_COLUMNS}
+            row_id = values.pop("row_id", None)
+            if row_id:
+                values["id"] = str(row_id)
             agent_id = values.pop("agent_id", None)
             business_description = values.pop("business_use_case_description", None)
             if agent_id and values.get("count") != 1:
@@ -180,6 +219,8 @@ def read_import(data: bytes):
                 continue
             if business_description:
                 values["use_case_description"] = business_description
+            if agent_id and not row_id:
+                values["id"] = str(agent_id)
             if agent_id:
                 values["members"] = [
                     {
@@ -195,6 +236,114 @@ def read_import(data: bytes):
                 errors.extend(
                     f"Row {index}, {'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()
                 )
+        if "Step options" in wb.sheetnames:
+            options_sheet = wb["Step options"]
+            if options_sheet.max_row > 5001 or options_sheet.max_column > len(STEP_OPTION_COLUMNS):
+                raise ValueError("Step options: use at most 5,000 rows and the template columns.")
+            option_headers = [str(cell.value or "").strip() for cell in next(options_sheet.iter_rows())]
+            if len(set(option_headers)) != len(option_headers) or set(option_headers) - set(
+                STEP_OPTION_COLUMNS
+            ):
+                raise ValueError("Step options: use unique column names from the template.")
+            rows_by_id = {row["id"]: row for row in agents}
+            if len(rows_by_id) != len(agents):
+                errors.append("Agents row_id values must be unique.")
+            definitions = {}
+            for index, cells in enumerate(options_sheet.iter_rows(min_row=2), 2):
+                if all(cell.value is None for cell in cells):
+                    continue
+                if any(cell.data_type == "f" for cell in cells):
+                    errors.append(f"Step options row {index}: formulas are not allowed.")
+                    continue
+                record = {
+                    key: cell.value
+                    for key, cell in zip(option_headers, cells)
+                    if cell.value not in (None, "")
+                }
+                required = {"row_id", "step_id", "step_name", "order", "action_type", "probability"}
+                if not required.issubset(record):
+                    errors.append(
+                        f"Step options row {index}: missing {', '.join(sorted(required - record.keys()))}."
+                    )
+                    continue
+                owner = rows_by_id.get(str(record["row_id"]))
+                if owner is None:
+                    errors.append(f"Step options row {index}, row_id: unknown agent.")
+                    continue
+                key = (owner["id"], str(record["step_id"]))
+                shared = {
+                    "low_execution_probability": str(record["low_execution_probability"])
+                    if "low_execution_probability" in record
+                    else None,
+                    "high_execution_probability": str(record["high_execution_probability"])
+                    if "high_execution_probability" in record
+                    else None,
+                    "id": str(record["step_id"]),
+                    "name": str(record["step_name"]),
+                    "action_type": record["action_type"],
+                    "execution_probability": str(record.get("execution_probability", 1)),
+                    "complexity": str(record.get("complexity", owner["complexity"])),
+                }
+                try:
+                    order = int(record["order"])
+                    if order < 1 or order != float(record["order"]):
+                        raise ValueError()
+                except (ValueError, TypeError, OverflowError):
+                    errors.append(f"Step options row {index}, order: use a positive integer.")
+                    continue
+                if key not in definitions:
+                    definitions[key] = {
+                        "shared": shared,
+                        "order": order,
+                        "model_calls": [],
+                        "agent_calls": [],
+                    }
+                definition = definitions[key]
+                if definition["shared"] != shared or definition["order"] != order:
+                    errors.append(f"Step options row {index}: shared step fields disagree.")
+                    continue
+                option = {"probability": str(record["probability"])}
+                if record.get("option_id"):
+                    option["id"] = str(record["option_id"])
+                if record["action_type"] == "model" and not record.get("child_agent_id"):
+                    option.update(
+                        {field: str(record[field]) for field in OVERRIDE_COLUMNS if field in record}
+                    )
+                    if not option.get("model_id"):
+                        errors.append(f"Step options row {index}, model_id: required for model actions.")
+                    definition["model_calls"].append(option)
+                elif record["action_type"] == "agent" and not record.get("model_id"):
+                    option.update(
+                        child_agent_id=str(record.get("child_agent_id", "")),
+                    )
+                    for scenario_name in ("low", "high"):
+                        option[scenario_name] = {
+                            "trigger_probability": str(record[f"{scenario_name}_probability"])
+                            if f"{scenario_name}_probability" in record
+                            else None,
+                        }
+                    definition["agent_calls"].append(option)
+                else:
+                    errors.append(
+                        f"Step options row {index}: choose one action type and its matching target."
+                    )
+            orders = {}
+            for (owner_id, _), definition in sorted(definitions.items(), key=lambda item: item[1]["order"]):
+                if definition["order"] in orders.setdefault(owner_id, set()):
+                    errors.append(f"Step options: duplicate step order for {owner_id}.")
+                orders[owner_id].add(definition["order"])
+                try:
+                    parsed = Step(
+                        **definition["shared"],
+                        model_calls=definition["model_calls"],
+                        agent_calls=definition["agent_calls"],
+                    )
+                    matching = parsed.model_calls if parsed.action_type == "model" else parsed.agent_calls
+                    if not matching or not valid_distribution(option.probability for option in matching):
+                        raise ValueError("option probabilities must total 1.0")
+                    rows_by_id[owner_id]["steps"].append(parsed.model_dump(mode="json"))
+                except (ValueError, ValidationError) as exc:
+                    errors.append(f"Step options {owner_id} / {definition['shared']['name']}: {exc}")
         if not agents and not errors:
             errors.append("No agent rows found.")
         member_ids = [member["id"] for row in agents for member in row["members"]]
@@ -391,8 +540,84 @@ def export_estimate(estimate: Estimate):
                 ),
                 row.members[0].id if row.count == 1 else "",
                 row.members[0].business_use_case_description if row.count == 1 else "",
+                row.id,
             ],
         )
+    option_sheet = wb.create_sheet("Step options")
+    literal(option_sheet, STEP_OPTION_COLUMNS)
+    for row in estimate.agents:
+        for order, step in enumerate(row.steps, 1):
+            for option in step.model_calls if step.action_type == "model" else step.agent_calls:
+                record = {
+                    "row_id": row.id,
+                    "step_id": step.id,
+                    "step_name": step.name,
+                    "order": order,
+                    "action_type": step.action_type,
+                    "execution_probability": str(step.execution_probability),
+                    "complexity": step.complexity or row.complexity,
+                    "option_id": option.id,
+                    "probability": str(option.probability),
+                }
+                record.update(option.model_dump(mode="json"))
+                for scenario_name in ("low", "high"):
+                    record[f"{scenario_name}_execution_probability"] = (
+                        str(getattr(step, f"{scenario_name}_execution_probability"))
+                        if getattr(step, f"{scenario_name}_execution_probability") is not None
+                        else None
+                    )
+                    if step.action_type == "agent":
+                        override = getattr(option, scenario_name)
+                        record[f"{scenario_name}_probability"] = (
+                            str(override.trigger_probability)
+                            if override.trigger_probability is not None
+                            else None
+                        )
+                literal(option_sheet, [record.get(column) for column in STEP_OPTION_COLUMNS])
+    actions = wb.create_sheet("Step actions")
+    literal(
+        actions,
+        [
+            "Scenario",
+            "Agent",
+            "Step",
+            "Action",
+            "Step probability",
+            "Option ID",
+            "Target",
+            "Selection probability",
+            "Option USD/execution (precomputed)",
+            "Weighted USD/execution (precomputed)",
+            "Step USD/month incl children (precomputed)",
+            "Status",
+        ],
+    )
+    for scenario in result["scenarios"]:
+        for row in estimate.agents:
+            for step in row.steps:
+                detail = scenario["step_costs"][row.id][step.id]
+                for option in detail["options"]:
+                    literal(
+                        actions,
+                        [
+                            scenario["name"],
+                            row.name,
+                            step.name,
+                            step.action_type,
+                            str(
+                                effective_step_probability(
+                                    step, next(s for s in estimate.scenarios if s.name == scenario["name"])
+                                )
+                            ),
+                            option["id"],
+                            option["target_id"],
+                            float(option["probability"]),
+                            float(option["cost"]),
+                            float(option["weighted_cost"]),
+                            float(detail["monthly_cost"]),
+                            "Complete" if option["complete"] else "INCOMPLETE",
+                        ],
+                    )
     identities = wb.create_sheet("Agent identities")
     literal(
         identities, ["Source ID", "Source name", "Agent ID", "Agent name", "Business use case description"]
@@ -413,7 +638,7 @@ def export_estimate(estimate: Estimate):
             "Users per agent per day",
             "Invocations per user per agent per day",
             "Planning days per month",
-            "Legacy manual invocations per agent per month",
+            "Manual invocations per agent per month",
             "Total monthly invocations per agent",
             "Total monthly invocations all agents",
             "Agent row ID",
@@ -455,9 +680,8 @@ def export_estimate(estimate: Estimate):
             "Scenario",
             "Caller agent",
             "Child agent",
-            "Exclusive branch",
-            "Trigger probability",
-            "Child invocations per trigger",
+            "Caller step",
+            "Selection probability",
             "Parent invocations/month (precomputed)",
             "Child invocations/month",
             "Status",
@@ -477,9 +701,14 @@ def export_estimate(estimate: Estimate):
                     scenario["name"],
                     row_names[link.parent_id],
                     row_names[link.child_id],
-                    link.branch_group,
+                    next(
+                        step.name
+                        for row in estimate.agents
+                        if row.id == link.parent_id
+                        for step in row.steps
+                        if step.id == link.step_id
+                    ),
                     float(contribution["trigger_probability"]),
-                    float(contribution["invocations_per_trigger"]),
                     float(contribution["parent_total"]),
                     None,
                     "Complete" if contribution["complete"] else "INCOMPLETE — parent volume",
@@ -490,7 +719,7 @@ def export_estimate(estimate: Estimate):
                 ],
             )
             r = links.max_row
-            links[f"H{r}"] = f"=E{r}*F{r}*G{r}*M{r}"
+            links[f"G{r}"] = f"=E{r}*F{r}*L{r}"
     tools = wb.create_sheet("Tool costs")
     literal(
         tools,
@@ -870,7 +1099,7 @@ def export_estimate(estimate: Estimate):
         ),
         (
             "Agent links",
-            "Agent links shows effective Low/Expected/High probability, fanout, and child contributions. Parent totals are precomputed in topological order by the app; changing edges or parent totals in this workbook does not update derived rows in Calculations or Volume. Re-export from the app for a revised graph. Derived rows in Agents cannot be reimported without rebuilding links in the app.",
+            "Agent links shows effective Low/Expected/High selection and step execution probabilities and child contributions (one invocation per selected target). Parent totals are precomputed in topological order by the app; changing edges or parent totals in this workbook does not update derived rows in Calculations or Volume. Re-export from the app for a revised graph. Derived rows in Agents cannot be reimported without rebuilding links in the app.",
         ),
         (
             "Category token usage",
@@ -906,7 +1135,7 @@ def export_estimate(estimate: Estimate):
         ),
         (
             "Detailed workflows",
-            "Each model row appears in Calculations and replaces the aggregate. Column G is raw calls in AJ multiplied by step x model probability in AK; edit AJ/AK to recalculate. The Agents sheet is an aggregate import template, not a lossless backup of detailed steps.",
+            "Each model row appears in Calculations and replaces the aggregate. Column G is raw calls in AJ multiplied by step x model probability in AK; edit AJ/AK to recalculate. Step options preserves model-or-agent choices for import, with row IDs, execution probabilities, and model assumptions. Step actions shows probability-weighted costs including children as precomputed explanatory results; do not add these to suite direct costs. Step options includes Low/High execution probabilities and agent-option probabilities/multiplicities; blank scenario values inherit Expected. Global Scenarios and frozen Pricing remain the current estimate when replacing inventory; use JSON for a complete scenario/pricing backup. Use JSON for a lossless backup.",
         ),
         (
             "Tools, harness, and use cases",
