@@ -469,6 +469,12 @@ textarea {
   overflow: hidden;
   margin-bottom: 24px;
 }
+.harness-form-grid {
+  padding: 0 25px;
+}
+.harness-note {
+  margin-inline: 25px;
+}
 .section-heading {
   display: flex;
   align-items: center;
@@ -1737,6 +1743,12 @@ tr:last-child td {
   }
   .section-heading {
     padding: 18px;
+  }
+  .harness-form-grid {
+    padding-inline: 18px;
+  }
+  .harness-note {
+    margin-inline: 18px;
   }
   .section-heading .button-row {
     flex-wrap: wrap;

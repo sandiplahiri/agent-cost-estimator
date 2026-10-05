@@ -1375,7 +1375,7 @@ export default function App() {
                   </p>
                 </div>
               </div>
-              <div className="form-grid two">
+              <div className="form-grid two harness-form-grid">
                 <Field label="Harness name">
                   <input
                     value={estimate.harness.name}
@@ -1442,7 +1442,7 @@ export default function App() {
                   </select>
                 </Field>
               </div>
-              <p className="muted small">
+              <p className="muted small harness-note">
                 The fixed fee remains in the suite total at zero volume. Allocation changes unit economics
                 only.
               </p>
