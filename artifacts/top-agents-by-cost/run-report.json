@@ -1,0 +1,45 @@
+{
+  "executedAt": "2026-10-05T00:13:34.654Z",
+  "command": "npm run test:e2e -- e2e/budget.spec.ts --grep 'Cost drivers and sensitivity preview'",
+  "prerequisites": "npm run build and npm run check completed before this run.",
+  "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
+  "note": "Workbook formulas independently recalculated with HyperFormula; Excel desktop UI was not automated.",
+  "checks": [
+    {
+      "journey": "Cost-driver sensitivity preview, split ownership, backend validation, and unchanged export",
+      "evidence": "sensitivity-fixture.json and sensitivity-budget.xlsx",
+      "expected": {
+        "baselineUsd": 16.32,
+        "inputPreviewUsd": 20.4,
+        "callsPreviewUsd": 32.64,
+        "doubledVolumeInputPreviewUsd": 40.8,
+        "individualPreviewUsd": 4.08,
+        "workbookUsd": 16.32,
+        "invalidFractionStatus": 422,
+        "incompleteComparison": true,
+        "rankedCostsUsd": [
+          8.16,
+          4.08
+        ]
+      },
+      "actual": {
+        "baselineUi": "$16.32/mo",
+        "inputPreview": "Group monthly LLM\n$16.32 \u2192 $20.40\n+$4.08 / month\nSuite monthly LLM\n$16.32 \u2192 $20.40\n+$4.08 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "callsPreview": "Group monthly LLM\n$16.32 \u2192 $32.64\n+$16.32 / month\nSuite monthly LLM\n$16.32 \u2192 $32.64\n+$16.32 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "scenarioPreview": "Group monthly LLM\n$32.64 \u2192 $40.80\n+$8.16 / month\nSuite monthly LLM\n$32.64 \u2192 $40.80\n+$8.16 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "individualPreview": "Group monthly LLM\n$8.16 \u2192 $4.08\n-$4.08 / month\nSuite monthly LLM\n$16.32 \u2192 $12.24\n-$4.08 / month\nPreview only. The estimate and Excel export still use the current value.",
+        "workbookUsd": 16.32,
+        "invalidFractionStatus": 422,
+        "incompletePreview": "Group comparison is incomplete. Missing cache read price.\n\nPreview only. The estimate and Excel export still use the current value.",
+        "rankedDrivers": [
+          "Simple agents\n1 agent \u00b7 simple\n$8.16\n66.7% of suite\nRank 1 of visible cost drivers.",
+          "Simple agent 2\n1 agent \u00b7 simple\n$4.08\n33.3% of suite\nRank 2 of visible cost drivers."
+        ]
+      }
+    }
+  ],
+  "build_and_check": "passed",
+  "e2e_result": "1 passed",
+  "scope": "Renamed section to Top agents by cost; full E2E suite was not rerun.",
+  "failures": []
+}

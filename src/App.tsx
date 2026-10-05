@@ -83,13 +83,6 @@ function uniqueAgentName(base: string, estimate: Estimate): string {
   }
   return name;
 }
-const tokenTypeLabels = {
-  input: 'Uncached input',
-  cache_read: 'Cached input read',
-  cache_write: 'Input cache write',
-  output: 'Output, incl. reasoning',
-};
-const tokenTypes = ['input', 'cache_read', 'cache_write', 'output'] as const;
 const emptyPrices: Record<string, Price> = {};
 const clone = <T,>(value: T): T => structuredClone(value);
 const quantityLabel = (total: string, complete: boolean) =>
@@ -229,6 +222,7 @@ export default function App() {
     result: Results;
   } | null>(null);
   const [search, setSearch] = useState('');
+  const [editingSingleAgent, setEditingSingleAgent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const jsonFileRef = useRef<HTMLInputElement>(null);
   const estimateRef = useRef(estimate);
@@ -416,6 +410,7 @@ export default function App() {
     return split.individual_id;
   }
   function openInventoryAgent(row: AgentRow, memberId: string) {
+    setEditingSingleAgent(true);
     if (row.count === 1) {
       setEditingMemberId(null);
       setEditing(clone(row));
@@ -437,6 +432,7 @@ export default function App() {
     const profile = current?.profiles.simple;
     if (!profile) return;
     const name = uniqueAgentName('New agent', current);
+    setEditingSingleAgent(tab === 'inventory');
     setEditing({
       id: id(),
       name,
@@ -896,18 +892,15 @@ export default function App() {
           ))}
 
           {tab === 'inventory' && (
-            <AgentInventory
-              estimate={estimate}
-              expected={expected}
-              onEdit={openInventoryAgent}
-              onAdd={startNewAgent}
-              busy={!!busy}
-            />
-          )}
-
-          {tab === 'suite' && (
-            <div className="suite-workspace">
-              <section className="panel suite-panel">
+            <>
+              <AgentInventory
+                estimate={estimate}
+                expected={expected}
+                onEdit={openInventoryAgent}
+                onAdd={startNewAgent}
+                busy={!!busy}
+              />
+              <section className="panel suite-panel" aria-label="Agent groups">
                 <div className="section-heading">
                   <div>
                     <h2>
@@ -1212,297 +1205,119 @@ export default function App() {
                       </table>
                     </div>
                     {filteredRows.length === 0 && <p className="empty-inline">No matching agents.</p>}
-                    <div className="category-volume-grid" aria-label="Monthly invocations by complexity">
-                      {categoryKeys.map((complexity) => {
-                        const volume = result?.category_invocations[complexity];
-                        const tokens = result?.category_tokens[complexity];
-                        return (
-                          <div key={complexity}>
-                            <span>{complexity === 'high' ? 'High (complex)' : complexity} agents</span>
-                            <strong data-testid={`category-invocations-${complexity}`}>
-                              {volume ? quantityLabel(volume.total, volume.complete) : '—'}
-                            </strong>
-                            <small>invocations/month · all agents</small>
-                            <dl className="category-token-list">
-                              <div>
-                                <dt>Tokens/day</dt>
-                                <dd data-testid={`category-tokens-daily-${complexity}`}>
-                                  {tokens ? quantityLabel(tokens.daily_total, tokens.complete) : '—'}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt>Tokens/month</dt>
-                                <dd
-                                  data-testid={`category-tokens-monthly-${complexity}`}
-                                  title={
-                                    tokens
-                                      ? `Input ${tokens.monthly_input} + output ${tokens.monthly_output}`
-                                      : undefined
-                                  }
-                                >
-                                  {tokens ? quantityLabel(tokens.monthly_total, tokens.complete) : '—'}
-                                </dd>
-                              </div>
-                            </dl>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="category-token-note">
-                      Tokens are Expected-scenario input + output usage, including additional attempts. Daily
-                      values average the 30-day planning month.
-                    </p>
+                  </>
+                ) : (
+                  <p className="empty-inline">Add an agent or use Quick setup to start your suite.</p>
+                )}
+              </section>
+            </>
+          )}
+
+          {tab === 'suite' && (
+            <div className="suite-workspace">
+              <section className="panel suite-panel">
+                {estimate.agents.length > 0 ? (
+                  <>
                     <section className="monthly-category-summary" aria-label="Monthly token and cost summary">
                       <h3>Monthly token and cost summary</h3>
-                      <p>Expected scenario · All agents in each category · USD</p>
+                      <p>Entire agent suite · Monthly usage · USD</p>
                       <div className="monthly-summary-scroll">
                         <table>
                           <thead>
                             <tr>
-                              <th scope="col">Category</th>
+                              <th scope="col">Scenario</th>
                               <th scope="col">Input tokens</th>
                               <th scope="col">Input cost</th>
                               <th scope="col">Output tokens</th>
                               <th scope="col">Output cost</th>
                               <th scope="col">Total tokens</th>
-                              <th scope="col">LLM cost total</th>
+                              <th scope="col">Total token cost</th>
+                              <th scope="col">Harness cost</th>
+                              <th scope="col">Other costs</th>
+                              <th scope="col">Total cost</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {categoryKeys.map((complexity) => {
-                              const tokens = result?.category_tokens[complexity];
-                              const costs = result?.category_costs[complexity];
-                              return (
-                                <tr key={complexity}>
-                                  <th scope="row">{complexity === 'high' ? 'High (complex)' : complexity}</th>
-                                  <td data-testid={`monthly-summary-${complexity}-input-tokens`}>
-                                    {tokens ? quantityLabel(tokens.monthly_input, tokens.complete) : '—'}
-                                  </td>
-                                  <td data-testid={`monthly-summary-${complexity}-input-cost`}>
-                                    {costs
-                                      ? costLabel(costs.monthly_input_cost, costs.input_complete, rateMoney)
-                                      : '—'}
-                                  </td>
-                                  <td data-testid={`monthly-summary-${complexity}-output-tokens`}>
-                                    {tokens ? quantityLabel(tokens.monthly_output, tokens.complete) : '—'}
-                                  </td>
-                                  <td data-testid={`monthly-summary-${complexity}-output-cost`}>
-                                    {costs
-                                      ? costLabel(costs.monthly_output_cost, costs.output_complete, rateMoney)
-                                      : '—'}
-                                  </td>
-                                  <td>
-                                    {tokens ? quantityLabel(tokens.monthly_total, tokens.complete) : '—'}
-                                  </td>
-                                  <td data-testid={`monthly-summary-${complexity}-total-cost`}>
-                                    {costs ? costLabel(costs.monthly_cost, costs.complete, rateMoney) : '—'}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                            {result && (
-                              <tr className="monthly-summary-total">
-                                <th scope="row">Suite total</th>
-                                <td data-testid="monthly-summary-suite-input-tokens">
+                            {result?.scenarios.map((scenario) => (
+                              <tr
+                                key={scenario.name}
+                                className={scenario.name === 'Expected' ? 'monthly-summary-total' : undefined}
+                                aria-label={scenario.name}
+                              >
+                                <th scope="row">{scenario.name}</th>
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-input-tokens`}
+                                >
                                   {quantityLabel(
-                                    result.monthly_token_summary.input_tokens,
-                                    result.monthly_token_summary.tokens_complete,
+                                    scenario.monthly_token_summary.input_tokens,
+                                    scenario.monthly_token_summary.tokens_complete,
                                   )}
                                 </td>
-                                <td data-testid="monthly-summary-suite-input-cost">
+                                <td data-testid={`monthly-summary-${scenario.name.toLowerCase()}-input-cost`}>
                                   {costLabel(
-                                    result.monthly_token_summary.input_cost,
-                                    result.monthly_token_summary.input_complete,
+                                    scenario.monthly_token_summary.input_cost,
+                                    scenario.monthly_token_summary.input_complete,
                                     rateMoney,
                                   )}
                                 </td>
-                                <td data-testid="monthly-summary-suite-output-tokens">
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-output-tokens`}
+                                >
                                   {quantityLabel(
-                                    result.monthly_token_summary.output_tokens,
-                                    result.monthly_token_summary.tokens_complete,
+                                    scenario.monthly_token_summary.output_tokens,
+                                    scenario.monthly_token_summary.tokens_complete,
                                   )}
                                 </td>
-                                <td data-testid="monthly-summary-suite-output-cost">
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-output-cost`}
+                                >
                                   {costLabel(
-                                    result.monthly_token_summary.output_cost,
-                                    result.monthly_token_summary.output_complete,
+                                    scenario.monthly_token_summary.output_cost,
+                                    scenario.monthly_token_summary.output_complete,
                                     rateMoney,
                                   )}
                                 </td>
-                                <td>
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-total-tokens`}
+                                >
                                   {quantityLabel(
-                                    result.monthly_token_summary.total_tokens,
-                                    result.monthly_token_summary.tokens_complete,
+                                    scenario.monthly_token_summary.total_tokens,
+                                    scenario.monthly_token_summary.tokens_complete,
                                   )}
                                 </td>
-                                <td data-testid="monthly-summary-suite-total-cost">
+                                <td data-testid={`monthly-summary-${scenario.name.toLowerCase()}-total-cost`}>
                                   {costLabel(
-                                    result.monthly_token_summary.total_cost,
-                                    result.monthly_token_summary.complete,
+                                    scenario.monthly_token_summary.total_cost,
+                                    scenario.monthly_token_summary.complete,
                                     rateMoney,
                                   )}
+                                </td>
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-harness-cost`}
+                                >
+                                  {costLabel(scenario.harness_cost, scenario.harness_complete, rateMoney)}
+                                </td>
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-other-costs`}
+                                >
+                                  {costLabel(scenario.other_cost, scenario.other_complete, rateMoney)}
+                                </td>
+                                <td
+                                  data-testid={`monthly-summary-${scenario.name.toLowerCase()}-suite-total-cost`}
+                                >
+                                  {costLabel(scenario.monthly_total, scenario.complete, rateMoney)}
                                 </td>
                               </tr>
-                            )}
+                            ))}
                           </tbody>
                         </table>
                       </div>
                       <p>
                         Input includes uncached input, cached reads, and cache writes. Output includes
-                        billable reasoning.
+                        billable reasoning. Other costs includes tools and recurring additional costs. Total
+                        cost includes tokens, harness, and other costs.
                       </p>
                     </section>
-                    <div className="category-cost-grid" aria-label="Token cost calculation by category">
-                      {categoryKeys.map((complexity) => {
-                        const breakdown = result?.category_costs[complexity];
-                        const categoryTokens = result?.category_tokens[complexity];
-                        return (
-                          <details className="category-cost-detail" key={complexity}>
-                            <summary>
-                              <span>{complexity === 'high' ? 'High (complex)' : complexity} token cost</span>
-                              <strong data-testid={`category-cost-${complexity}`}>
-                                {breakdown ? costLabel(breakdown.monthly_cost, breakdown.complete) : '—'}
-                              </strong>
-                            </summary>
-                            {breakdown && (
-                              <div className="category-cost-content">
-                                <div className="category-cost-scroll">
-                                  <table className="category-type-table">
-                                    <thead>
-                                      <tr>
-                                        <th scope="col">Token type</th>
-                                        <th scope="col">Tokens/day</th>
-                                        <th scope="col">Tokens/month</th>
-                                        <th scope="col">USD/day</th>
-                                        <th scope="col">USD/month</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {tokenTypes.map((tokenType) => {
-                                        const type = breakdown.types[tokenType];
-                                        return (
-                                          <tr
-                                            key={tokenType}
-                                            data-testid={`category-type-${complexity}-${tokenType}`}
-                                          >
-                                            <th scope="row">{tokenTypeLabels[tokenType]}</th>
-                                            <td title={type.daily_tokens}>
-                                              {quantityLabel(
-                                                type.daily_tokens,
-                                                categoryTokens?.complete ?? false,
-                                              )}
-                                            </td>
-                                            <td title={type.monthly_tokens}>
-                                              {quantityLabel(
-                                                type.monthly_tokens,
-                                                categoryTokens?.complete ?? false,
-                                              )}
-                                            </td>
-                                            <td title={type.daily_cost}>
-                                              {costLabel(type.daily_cost, type.complete, rateMoney)}
-                                            </td>
-                                            <td title={type.monthly_cost}>
-                                              {costLabel(type.monthly_cost, type.complete, rateMoney)}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                      <tr className="category-type-total">
-                                        <th scope="row">Total</th>
-                                        <td>
-                                          {categoryTokens
-                                            ? quantityLabel(
-                                                categoryTokens.daily_total,
-                                                categoryTokens.complete,
-                                              )
-                                            : '—'}
-                                        </td>
-                                        <td>
-                                          {categoryTokens
-                                            ? quantityLabel(
-                                                categoryTokens.monthly_total,
-                                                categoryTokens.complete,
-                                              )
-                                            : '—'}
-                                        </td>
-                                        <td data-testid={`category-cost-daily-${complexity}`}>
-                                          {costLabel(breakdown.daily_cost, breakdown.complete, rateMoney)}
-                                        </td>
-                                        <td>
-                                          {costLabel(breakdown.monthly_cost, breakdown.complete, rateMoney)}
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </div>
-                                {breakdown.entries.length ? (
-                                  <div className="category-cost-scroll model-cost-section">
-                                    <h4>Model rates and monthly calculation</h4>
-                                    <table className="model-cost-table">
-                                      <thead>
-                                        <tr>
-                                          <th scope="col">Token type</th>
-                                          <th scope="col">Model</th>
-                                          <th scope="col">Tokens/month</th>
-                                          <th scope="col">USD/1M</th>
-                                          <th scope="col">Cost/month</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {breakdown.entries.map((entry, i) => (
-                                          <tr key={`${entry.token_type}-${entry.model_id}-${i}`}>
-                                            <th scope="row">{tokenTypeLabels[entry.token_type]}</th>
-                                            <td>{entry.model_id || 'Unselected'}</td>
-                                            <td title={entry.monthly_tokens}>
-                                              {displayVolume(entry.monthly_tokens)}
-                                            </td>
-                                            <td>
-                                              {entry.rate_per_million === null
-                                                ? 'Missing'
-                                                : rateMoney(entry.rate_per_million)}
-                                            </td>
-                                            <td title={entry.issues.join(' ')}>
-                                              {costLabel(entry.monthly_cost, entry.complete, rateMoney)}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                ) : (
-                                  <p>
-                                    {breakdown.complete
-                                      ? 'No tokens in this category.'
-                                      : 'Token usage is incomplete for this category.'}
-                                  </p>
-                                )}
-                                <p>
-                                  Each cost = tokens × model rate / 1,000,000. Rates reflect the selected
-                                  per-call pricing tier. Incomplete costs include only fully priced agent
-                                  lines; token counts include all supplied volume.
-                                </p>
-                              </div>
-                            )}
-                          </details>
-                        );
-                      })}
-                    </div>
-                    <div className="table-footer">
-                      <span>Expected scenario · LLM costs only</span>
-                      <strong>
-                        Suite total{' '}
-                        <span>
-                          {expected && !expected.complete && Number(expected.llm_cost) === 0
-                            ? 'Incomplete'
-                            : expected
-                              ? money(expected.llm_cost)
-                              : '—'}
-                          {expected && !expected.complete && Number(expected.llm_cost) !== 0
-                            ? ' (partial)'
-                            : ''}
-                        </span>
-                      </strong>
-                    </div>
                   </>
                 ) : (
                   <div className="empty-state">
@@ -1558,30 +1373,6 @@ export default function App() {
                 </section>
               )}
               <CostImpact estimate={estimate} result={result} />
-              <section className="panel assumption-note">
-                <div className="section-heading">
-                  <div>
-                    <h2>A budget you can explain</h2>
-                    <p>Transparent inputs. Repeatable estimates.</p>
-                  </div>
-                  <ShieldCheck size={20} />
-                </div>
-                <p>
-                  Profiles are starting assumptions, not measured benchmarks. Review calls, context sizes and
-                  retries for your architecture.
-                </p>
-                <div className="metric-line">
-                  <span>Monthly input tokens</span>
-                  <strong>{number(expected?.input_tokens || 0)}</strong>
-                </div>
-                <div className="metric-line">
-                  <span>Monthly output tokens</span>
-                  <strong>{number(expected?.output_tokens || 0)}</strong>
-                </div>
-                <button className="text-button" onClick={() => setTab('profiles')}>
-                  Review complexity profiles <ArrowUpRight size={14} />
-                </button>
-              </section>
             </div>
           )}
 
@@ -2275,7 +2066,7 @@ export default function App() {
                   n.links = [];
                 });
                 setModal(null);
-                setTab('suite');
+                setTab('inventory');
               }}
             >
               Create suite
@@ -2290,10 +2081,11 @@ export default function App() {
           row={editing}
           estimate={estimate}
           prices={available}
-          singleAgent={tab === 'inventory'}
+          singleAgent={editingSingleAgent}
           pendingGroupMember={Boolean(editingMemberId)}
           onClose={() => {
             setEditing(null);
+            setEditingSingleAgent(false);
             setEditingMemberId(null);
           }}
           onSave={async (row) => {
@@ -2324,6 +2116,7 @@ export default function App() {
               setEstimate(split.estimate);
               setIsSaved(false);
               setEditing(null);
+              setEditingSingleAgent(false);
               setEditingMemberId(null);
               return;
             }
@@ -2336,6 +2129,7 @@ export default function App() {
             setEstimate(next);
             setIsSaved(false);
             setEditing(null);
+            setEditingSingleAgent(false);
             setEditingMemberId(null);
           }}
           onRemove={() => {
@@ -2350,6 +2144,7 @@ export default function App() {
               n.agents = n.agents.filter((r) => r.id !== editing.id);
             });
             setEditing(null);
+            setEditingSingleAgent(false);
           }}
           onSplit={async (draft) => {
             await customizeOne(draft);

@@ -32,3 +32,15 @@ Harness cost is `fixed monthly + per invocation × all agent invocations + per s
 Direct cost per completion is calculated from each model and tool row before monthly volume is applied, so a newly copied agent can show hypothetical unit economics while contributing zero to the monthly suite bill.
 
 The [calculation failure modes](AGENTIC_CALCULATION_FAILURE_MODES.md), [customization failure modes](AGENT_CUSTOMIZATION_FAILURE_MODES.md), and [E2E artifacts](../artifacts/agent-customization/verification.json) record independently calculated acceptance fixtures.
+
+Dashboard shows the Monthly token and cost summary and budget breakdowns. Agent inventory contains the group editor, Quick setup, import/template controls, and the individual agent list.
+
+Dashboard keeps the Monthly token and cost summary without profile overview cards or expandable token cost breakdowns. Detailed daily and model-rate calculations remain in Excel exports.
+
+The Dashboard monthly summary has one suite-wide row for each of Low, Expected, and High, with Scenario followed by six token/cost columns ending in Total token cost. Each row uses its canonical scenario token summary, including incomplete/partial labels. The Expected summary remains available in the existing result field for category worksheets; the Monthly scenario summary Excel sheet recalculates all scenarios from the priced calculation rows.
+
+The monthly scenario table also shows Harness cost and Total cost. Total cost uses the canonical monthly suite amount, including tools and recurring extras. Harness completeness depends on its billed invocation/step volumes, independently of model pricing; fixed-only or disabled harness charges remain known. The Excel scenario summary references the existing Summary harness and monthly-total formulas.
+
+Other costs appears between Harness cost and Total cost and combines scenario tool charges with recurring additional items using Decimal arithmetic in the canonical calculation. It excludes one-time items and marks missing billed tool workload partial. Missing model prices do not affect this component's completeness. The Excel column sums existing Summary tool and recurring-extra formulas.
+
+Top agents by cost displays at most five individual agents in a table: index, member name, use case name, and Expected monthly token cost. The canonical backend divides each group's priced token cost evenly among members, sorts Decimal values descending with name/ID tie breaks, and returns the top five. Missing workload/prices remain incomplete or partial. Tools, harness, and additional costs are excluded. Search, Show all, and the change-preview form are removed. The existing sensitivity backend remains available; edit estimate inputs in Agent inventory or Scenarios.

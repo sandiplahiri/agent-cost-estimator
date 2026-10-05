@@ -178,6 +178,37 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await expect(tuned.locator('td').nth(5)).toHaveText('2');
   await expect(research.locator('td').nth(3)).toHaveText('2');
 
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  const monthlySummary = page.getByRole('region', { name: 'Monthly token and cost summary' });
+  await expect(monthlySummary.locator('tbody tr')).toHaveCount(3);
+  const scenarioSummaryExpected = [
+    ['Low', ['1,597,500', '$2.745', '159,750', '$1.098', '1,757,250', '$3.843', '$0.00', '$0.00', '$3.843']],
+    [
+      'Expected',
+      ['2,130,000', '$3.66', '213,000', '$1.464', '2,343,000', '$5.124', '$0.00', '$0.00', '$5.124'],
+    ],
+    ['High', ['3,195,000', '$5.49', '319,500', '$2.196', '3,514,500', '$7.686', '$0.00', '$0.00', '$7.686']],
+  ] as const;
+  const displayedScenarioSummaries: Record<string, string[]> = {};
+  for (const [name, values] of scenarioSummaryExpected) {
+    const row = monthlySummary.getByRole('row', { name, exact: true });
+    await expect(row.getByRole('cell')).toHaveText([...values]);
+    displayedScenarioSummaries[name] = await row.getByRole('cell').allTextContents();
+  }
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-input-tokens')).toHaveText('2,130,000');
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-output-tokens')).toHaveText('213,000');
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-total-tokens')).toHaveText('2,343,000');
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-input-cost')).toHaveText('$3.66');
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-output-cost')).toHaveText('$1.464');
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-total-cost')).toHaveText('$5.124');
+  const dashboardMonthlySummaryUsd = Number(
+    (await monthlySummary.getByTestId('monthly-summary-expected-total-cost').innerText()).replace(
+      /[^\d.]/g,
+      '',
+    ),
+  );
+  await page.screenshot({ path: path.join(directory, 'dashboard-summary.png'), fullPage: true });
+
   await page.getByRole('button', { name: 'Save estimate', exact: true }).click();
   const saved = await (await request.get(`/api/estimates/${estimate.id}`)).json();
   await fs.writeFile(path.join(directory, 'saved.json'), JSON.stringify(saved, null, 2));
@@ -253,6 +284,19 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   const summary = formulas.getSheetId('Summary')!;
   const workbookCost = Number(formulas.getCellValue({ sheet: summary, row: 2, col: 1 }));
   expect(workbookCost).toBeCloseTo(5.124, 9);
+  const scenarioSheet = formulas.getSheetId('Monthly scenario summary')!;
+  const scenarioWorkbookExpected = [
+    [1597500, 2.745, 159750, 1.098, 1757250, 3.843, 0, 0, 3.843],
+    [2130000, 3.66, 213000, 1.464, 2343000, 5.124, 0, 0, 5.124],
+    [3195000, 5.49, 319500, 2.196, 3514500, 7.686, 0, 0, 7.686],
+  ];
+  const scenarioWorkbookActual = scenarioWorkbookExpected.map((values, row) =>
+    values.map((expectedValue, column) => {
+      const actual = Number(formulas.getCellValue({ sheet: scenarioSheet, row: row + 1, col: column + 1 }));
+      expect(actual).toBeCloseTo(expectedValue, 9);
+      return actual;
+    }),
+  );
   formulas.destroy();
   await fs.writeFile(
     path.join(directory, 'run-report.json'),
@@ -264,6 +308,8 @@ test('inventory edits one linked group member and preserves reconciled costs', a
         expected: {
           baselineMonthlyLlm: 2.856,
           editedMonthlyLlm: 5.124,
+          dashboardMonthlySummaryUsd: 5.124,
+          scenarioWorkbookExpected,
           agentCount: 4,
           researchCallers: 2,
           perAgentMonthlyUsd: {
@@ -276,6 +322,9 @@ test('inventory edits one linked group member and preserves reconciled costs', a
         actual: {
           baselineMonthlyLlm: baselineCost,
           editedMonthlyLlm: editedCost,
+          dashboardMonthlySummaryUsd,
+          displayedScenarioSummaries,
+          scenarioWorkbookActual,
           workbookMonthlyLlm: workbookCost,
           agentCount: saved.agents.reduce((sum: number, agent: { count: number }) => sum + agent.count, 0),
           researchCallers,
@@ -360,8 +409,11 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
   fixture.harness.harness_type = 'managed_platform';
   fixture.harness.fixed_monthly = '6';
   fixture.harness.per_invocation = '0.1';
+  fixture.scenarios.find((scenario: { name: string }) => scenario.name === 'Low').volume_factor = '0.5';
+  fixture.scenarios.find((scenario: { name: string }) => scenario.name === 'High').volume_factor = '2';
   fixture.additional_costs = [
     { id: 'suite-extra', name: 'Suite storage', amount: '5', quantity: '1', frequency: 'monthly' },
+    { id: 'setup', name: 'Setup', amount: '100', quantity: '1', frequency: 'one-time' },
   ];
   await fs.writeFile(path.join(directory, 'input.json'), JSON.stringify(fixture, null, 2));
   const calculated = await (await request.post('/api/calculate', { data: fixture })).json();
@@ -380,6 +432,22 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
       localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft));
   }, fixture);
   await page.goto('/');
+  const summaryTable = page.getByRole('region', { name: 'Monthly token and cost summary' });
+  const scenarioCostsExpected = [
+    ['Low', '$0.063', '$9.00', '$20.00', '$29.063'],
+    ['Expected', '$0.168', '$12.00', '$35.00', '$47.168'],
+    ['High', '$0.504', '$18.00', '$65.00', '$83.504'],
+  ] as const;
+  const displayedCosts: Record<string, string[]> = {};
+  for (const [name, tokens, harness, other, total] of scenarioCostsExpected) {
+    const row = summaryTable.getByRole('row', { name, exact: true });
+    await expect(row.getByRole('cell').nth(5)).toHaveText(tokens);
+    await expect(row.getByRole('cell').nth(6)).toHaveText(harness);
+    await expect(row.getByRole('cell').nth(7)).toHaveText(other);
+    await expect(row.getByRole('cell').nth(8)).toHaveText(total);
+    displayedCosts[name] = (await row.getByRole('cell').allTextContents()).slice(5);
+  }
+  await page.screenshot({ path: path.join(directory, 'dashboard-harness-total.png'), fullPage: true });
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   const inventory = page.getByRole('region', { name: 'Agent inventory' });
   await expect(inventory.getByTestId('inventory-total-cost-paired-a')).toHaveText('$21.08/mo');
@@ -420,6 +488,19 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
     formulas.getCellValue({ sheet: formulas.getSheetId('Summary')!, row: 2, col: 3 }),
   );
   expect(workbookTotal).toBeCloseTo(47.168, 9);
+  const scenarioSheet = formulas.getSheetId('Monthly scenario summary')!;
+  const scenarioCostsWorkbook = [
+    [9, 20, 29.063],
+    [12, 35, 47.168],
+    [18, 65, 83.504],
+  ];
+  const recalculatedCosts = scenarioCostsWorkbook.map((values, row) =>
+    values.map((expectedValue, column) => {
+      const actual = Number(formulas.getCellValue({ sheet: scenarioSheet, row: row + 1, col: column + 7 }));
+      expect(actual).toBeCloseTo(expectedValue, 9);
+      return actual;
+    }),
+  );
   formulas.destroy();
 
   const unpriced = structuredClone(fixture);
@@ -433,8 +514,51 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
     unpriced,
   );
   await page.reload();
+  await expect(summaryTable.getByTestId('monthly-summary-expected-harness-cost')).toHaveText('$12.00');
+  await expect(summaryTable.getByTestId('monthly-summary-expected-other-costs')).toHaveText('$35.00');
+  await expect(summaryTable.getByTestId('monthly-summary-expected-suite-total-cost')).toHaveText(
+    '$47.00 (partial)',
+  );
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await expect(page.getByTestId('inventory-total-cost-paired-a')).toHaveText('$21.00/mo (partial)');
+
+  const missingVolume = structuredClone(fixture);
+  missingVolume.agents[0].users_per_day = null;
+  await page.evaluate(
+    (draft) => localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft)),
+    missingVolume,
+  );
+  await page.reload();
+  await expect(summaryTable.getByTestId('monthly-summary-expected-harness-cost')).toHaveText(
+    '$6.00 (partial)',
+  );
+  await expect(summaryTable.getByTestId('monthly-summary-expected-suite-total-cost')).toHaveText(
+    '$11.00 (partial)',
+  );
+  await expect(summaryTable.getByTestId('monthly-summary-expected-other-costs')).toHaveText(
+    '$5.00 (partial)',
+  );
+  missingVolume.harness.per_invocation = '0';
+  await page.evaluate(
+    (draft) => localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft)),
+    missingVolume,
+  );
+  await page.reload();
+  await expect(summaryTable.getByTestId('monthly-summary-expected-harness-cost')).toHaveText('$6.00');
+  missingVolume.harness.harness_type = 'none';
+  await page.evaluate(
+    (draft) => localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft)),
+    missingVolume,
+  );
+  await page.reload();
+  await expect(summaryTable.getByTestId('monthly-summary-expected-harness-cost')).toHaveText('$0.00');
+  missingVolume.agents[0].tool_costs[0].probability = '0';
+  await page.evaluate(
+    (draft) => localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft)),
+    missingVolume,
+  );
+  await page.reload();
+  await expect(summaryTable.getByTestId('monthly-summary-expected-other-costs')).toHaveText('$5.00');
 
   await fs.writeFile(
     path.join(directory, 'run-report.json'),
@@ -443,9 +567,18 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
         command: 'npx playwright test e2e/agent-inventory.spec.ts',
         pricing: 'Synthetic USD 2/M input and USD 8/M output',
         assumptions:
-          'Two agents, 30 invocations each/month, 1000 input and 100 output tokens/call, USD 0.50 tool/invocation, USD 6 fixed plus USD 0.10/invocation harness, USD 5 suite extra',
-        expected: { model: 0.168, tools: 30, harness: 12, eachAgent: 21.084, suite: 47.168 },
+          'Two agents, 30 invocations each/month, 1000 input and 100 output tokens/call, USD 0.50 tool/invocation, USD 6 fixed plus USD 0.10/invocation harness, USD 5 recurring suite extra, USD 100 one-time setup excluded from monthly costs; Low 0.5x volume/0.75x tokens, High 2x volume/1.5x tokens',
+        expected: {
+          model: 0.168,
+          tools: 30,
+          harness: 12,
+          eachAgent: 21.084,
+          suite: 47.168,
+          scenarioCostsWorkbook,
+        },
         actual: {
+          displayedCosts,
+          recalculatedCosts,
           model: Number(expected.llm_cost),
           tools: Number(expected.tool_cost),
           harness: Number(expected.harness_cost),

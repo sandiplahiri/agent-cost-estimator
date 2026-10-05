@@ -1,0 +1,215 @@
+{
+  "schema_version": 8,
+  "defaults_version": 1,
+  "id": "5cd4f40e-fa45-4087-878f-faf1dd150004",
+  "name": "Mortgage fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "cd914d68-377e-47e3-89df-9e26366eb567",
+      "name": "Simple agents",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "d8156f09-0a85-454e-85e1-567ddbc18390",
+          "name": "Simple agent 1",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "33.3333333333333333333333333333",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "Fixture A"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "2df99a91-396a-4b4f-8a80-a3783f89cef8",
+      "name": "Medium agents",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [],
+      "complexity": "medium",
+      "count": 0,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "b7680e13-2786-47fe-9430-02c1939e28ed",
+      "name": "High agents",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [],
+      "complexity": "high",
+      "count": 0,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "0",
+      "invocations_per_user_per_agent_per_day": "0",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": null
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "4ef11371-211f-4c58-899a-9602432ec569",
+      "name": "Simple agent 2",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "b823fdc9-2974-4684-968e-c0739c4313dd",
+          "name": "Simple agent 2",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "33.3333333333333333333333333333",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "Fixture A"
+      },
+      "steps": [],
+      "tool_costs": []
+    }
+  ],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Fixture A": {
+      "id": "Fixture A",
+      "provider": "Custom",
+      "source_type": "custom",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Architect-supplied custom rates",
+      "retrieved_at": "2026-10-05T00:16:57.800Z",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

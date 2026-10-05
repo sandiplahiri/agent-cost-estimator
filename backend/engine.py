@@ -15,6 +15,36 @@ TOKEN_TYPES = (
 )
 
 
+def summarize_tokens(lines: list[dict], volumes: dict) -> dict:
+    """Sum priced Decimal line components for one scenario's entire suite."""
+    input_tokens = sum((line["input_tokens"] for line in lines), ZERO)
+    output_tokens = sum((line["output_tokens"] for line in lines), ZERO)
+    input_cost = sum(
+        (
+            line["costs"]["input"] + line["costs"]["cache"] + line["costs"]["cache_write"]
+            for line in lines
+            if line["costs"] is not None
+        ),
+        ZERO,
+    )
+    output_cost = sum((line["costs"]["output"] for line in lines if line["costs"] is not None), ZERO)
+    tokens_complete = all(volume["complete"] for volume in volumes.values())
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+        "tokens_complete": tokens_complete,
+        "input_complete": tokens_complete
+        and all(line["costs"] is not None for line in lines if line["input_tokens"] > ZERO),
+        "output_complete": tokens_complete
+        and all(line["costs"] is not None for line in lines if line["output_tokens"] > ZERO),
+        "complete": tokens_complete and all(not line["issues"] for line in lines),
+    }
+
+
 def direct_monthly_invocations(row):
     if row.volume_source == "daily_users":
         if row.users_per_day is None or row.invocations_per_user_per_agent_per_day is None:
@@ -378,6 +408,13 @@ def calculate(estimate: Estimate):
                     }
                 )
         tool_cost = sum((item["monthly_cost"] for item in tool_lines), ZERO)
+        other_cost = tool_cost + recurring
+        billed_tool_rows = {item["row_id"] for item in tool_lines if item["cost_per_invocation"] > ZERO}
+        other_complete = all(
+            scenario_volumes[row.id]["complete"]
+            for row in estimate.agents
+            if row.count > 0 and row.id in billed_tool_rows
+        )
         total_invocations = sum((item["total"] for item in scenario_volumes.values()), ZERO)
         step_executions = sum(
             (
@@ -395,6 +432,18 @@ def calculate(estimate: Estimate):
             if harness.harness_type != "none"
             else ZERO
         )
+        harness_complete = harness.harness_type == "none" or all(
+            scenario_volumes[row.id]["complete"]
+            for row in estimate.agents
+            if row.count > 0
+            and (
+                harness.per_invocation > ZERO
+                or (
+                    harness.per_step_execution > ZERO
+                    and any(step.execution_probability > ZERO for step in row.steps)
+                )
+            )
+        )
         harness_allocations = {
             row.id: (
                 harness_cost * scenario_volumes[row.id]["total"] / total_invocations
@@ -405,9 +454,7 @@ def calculate(estimate: Estimate):
         }
         model_cost_by_row = {row.id: ZERO for row in estimate.agents}
         tool_cost_by_row = {row.id: ZERO for row in estimate.agents}
-        monthly_complete_by_row = {
-            row.id: scenario_volumes[row.id]["complete"] for row in estimate.agents
-        }
+        monthly_complete_by_row = {row.id: scenario_volumes[row.id]["complete"] for row in estimate.agents}
         for line in lines:
             model_cost_by_row[line["row_id"]] += line["cost"] or ZERO
             monthly_complete_by_row[line["row_id"]] &= not line["issues"]
@@ -415,9 +462,7 @@ def calculate(estimate: Estimate):
             tool_cost_by_row[item["row_id"]] += item["monthly_cost"]
         agent_costs = {}
         for row in estimate.agents:
-            monthly_total = (
-                model_cost_by_row[row.id] + tool_cost_by_row[row.id] + harness_allocations[row.id]
-            )
+            monthly_total = model_cost_by_row[row.id] + tool_cost_by_row[row.id] + harness_allocations[row.id]
             agent_costs[row.id] = {
                 "monthly_total": monthly_total,
                 "per_agent_monthly": monthly_total / Decimal(row.count) if row.count else ZERO,
@@ -517,12 +562,16 @@ def calculate(estimate: Estimate):
                 "llm_cost": known,
                 "tool_cost": tool_cost,
                 "harness_cost": harness_cost,
-                "monthly_total": known + tool_cost + harness_cost + recurring,
-                "annual_total": (known + tool_cost + harness_cost + recurring) * 12 + one_time,
-                "first_month": known + tool_cost + harness_cost + recurring + one_time,
+                "harness_complete": harness_complete,
+                "other_cost": other_cost,
+                "other_complete": other_complete,
+                "monthly_total": known + harness_cost + other_cost,
+                "annual_total": (known + harness_cost + other_cost) * 12 + one_time,
+                "first_month": known + harness_cost + other_cost + one_time,
                 "input_tokens": sum((line["input_tokens"] for line in lines), ZERO),
                 "output_tokens": sum((line["output_tokens"] for line in lines), ZERO),
                 "monthly_calls": sum((line["monthly_calls"] for line in lines), ZERO),
+                "monthly_token_summary": summarize_tokens(lines, scenario_volumes),
                 "lines": lines,
                 "tool_lines": tool_lines,
                 "harness_allocations": harness_allocations,
@@ -555,6 +604,20 @@ def calculate(estimate: Estimate):
             }
         )
     cost_drivers.sort(key=lambda item: (-item["known_cost"], item["name"].lower()))
+    drivers_by_row = {item["row_id"]: item for item in cost_drivers}
+    top_agents = [
+        {
+            "agent_id": member.id,
+            "name": member.name,
+            "use_case_name": row.use_case_name,
+            "monthly_token_cost": drivers_by_row[row.id]["known_cost"] / Decimal(row.count),
+            "complete": drivers_by_row[row.id]["complete"] and not drivers_by_row[row.id]["issues"],
+        }
+        for row in estimate.agents
+        if row.count > 0
+        for member in row.members
+    ]
+    top_agents.sort(key=lambda item: (-item["monthly_token_cost"], item["name"].casefold(), item["agent_id"]))
     category_tokens = {}
     category_costs = {}
     for complexity in estimate.profiles:
@@ -632,18 +695,9 @@ def calculate(estimate: Estimate):
             "types": type_totals,
             "entries": list(entries.values()),
         }
-    monthly_token_summary = {
-        "input_tokens": sum((item["monthly_input"] for item in category_tokens.values()), ZERO),
-        "output_tokens": sum((item["monthly_output"] for item in category_tokens.values()), ZERO),
-        "total_tokens": sum((item["monthly_total"] for item in category_tokens.values()), ZERO),
-        "input_cost": sum((item["monthly_input_cost"] for item in category_costs.values()), ZERO),
-        "output_cost": sum((item["monthly_output_cost"] for item in category_costs.values()), ZERO),
-        "total_cost": sum((item["monthly_cost"] for item in category_costs.values()), ZERO),
-        "tokens_complete": all(item["complete"] for item in category_tokens.values()),
-        "input_complete": all(item["input_complete"] for item in category_costs.values()),
-        "output_complete": all(item["output_complete"] for item in category_costs.values()),
-        "complete": all(item["complete"] for item in category_costs.values()),
-    }
+    monthly_token_summary = next(
+        scenario["monthly_token_summary"] for scenario in scenarios if scenario["name"] == "Expected"
+    )
     warnings = []
     if all(s["complete"] for s in scenarios) and not (
         scenarios[0]["llm_cost"] <= scenarios[1]["llm_cost"] <= scenarios[2]["llm_cost"]
@@ -661,6 +715,7 @@ def calculate(estimate: Estimate):
         "base_volumes": base_volumes,
         "base_links": base_links,
         "cost_drivers": cost_drivers,
+        "top_agents": top_agents[:5],
         "monthly_token_summary": monthly_token_summary,
         "agent_count": sum(r.count for r in estimate.agents),
         "recurring": recurring,

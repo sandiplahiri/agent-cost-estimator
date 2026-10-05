@@ -1,0 +1,241 @@
+{
+  "schema_version": 8,
+  "defaults_version": 1,
+  "id": "a8536285-af27-40e3-bf89-2aa8f29e4710",
+  "name": "Top five individual agents fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "1000",
+      "output_tokens": "0",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "group",
+      "name": "group group",
+      "description": "",
+      "use_case_name": "Shared analysis",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "group-0",
+          "name": "Group C",
+          "business_use_case_description": "Shared analysis"
+        },
+        {
+          "id": "group-1",
+          "name": "Group B",
+          "business_use_case_description": "Shared analysis"
+        },
+        {
+          "id": "group-2",
+          "name": "Group A",
+          "business_use_case_description": "Shared analysis"
+        }
+      ],
+      "complexity": "simple",
+      "count": 3,
+      "invocations": "3000",
+      "volume_source": "manual",
+      "prior_volume_source": null,
+      "users_per_day": null,
+      "invocations_per_user_per_agent_per_day": null,
+      "overrides": {
+        "model_id": "Rank fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "middle",
+      "name": "middle group",
+      "description": "",
+      "use_case_name": "Review cases",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "middle-0",
+          "name": "Middle",
+          "business_use_case_description": "Review cases"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "4000",
+      "volume_source": "manual",
+      "prior_volume_source": null,
+      "users_per_day": null,
+      "invocations_per_user_per_agent_per_day": null,
+      "overrides": {
+        "model_id": "Rank fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "highest",
+      "name": "highest group",
+      "description": "",
+      "use_case_name": "Plan responses",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "highest-0",
+          "name": "Highest",
+          "business_use_case_description": "Plan responses"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "6000",
+      "volume_source": "manual",
+      "prior_volume_source": null,
+      "users_per_day": null,
+      "invocations_per_user_per_agent_per_day": null,
+      "overrides": {
+        "model_id": "Rank fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "tools",
+      "name": "tools group",
+      "description": "",
+      "use_case_name": "Look up records",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "tools-0",
+          "name": "Tool spender",
+          "business_use_case_description": "Look up records"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "2000",
+      "volume_source": "manual",
+      "prior_volume_source": null,
+      "users_per_day": null,
+      "invocations_per_user_per_agent_per_day": null,
+      "overrides": {
+        "model_id": "Rank fixture"
+      },
+      "steps": [],
+      "tool_costs": [
+        {
+          "id": "lookup",
+          "name": "Lookup",
+          "unit_cost": "0.05",
+          "expected_units_per_invocation": "1",
+          "probability": "1",
+          "step_id": null
+        }
+      ]
+    },
+    {
+      "id": "second",
+      "name": "second group",
+      "description": "",
+      "use_case_name": "Draft responses",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "second-0",
+          "name": "Second",
+          "business_use_case_description": "Draft responses"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "5000",
+      "volume_source": "manual",
+      "prior_volume_source": null,
+      "users_per_day": null,
+      "invocations_per_user_per_agent_per_day": null,
+      "overrides": {
+        "model_id": "Rank fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    }
+  ],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Rank fixture": {
+      "id": "Rank fixture",
+      "provider": "Synthetic fixture",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Versioned E2E fixture",
+      "retrieved_at": "2026-10-04",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

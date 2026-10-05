@@ -174,12 +174,28 @@ export interface Line {
   monthly_calls: Numeric;
   issues: string[];
 }
+export interface MonthlyTokenSummary {
+  input_tokens: Numeric;
+  output_tokens: Numeric;
+  total_tokens: Numeric;
+  input_cost: Numeric;
+  output_cost: Numeric;
+  total_cost: Numeric;
+  tokens_complete: boolean;
+  input_complete: boolean;
+  output_complete: boolean;
+  complete: boolean;
+}
 export interface ScenarioResult {
+  monthly_token_summary: MonthlyTokenSummary;
   name: ScenarioName;
   complete: boolean;
   llm_cost: Numeric;
   tool_cost: Numeric;
   harness_cost: Numeric;
+  harness_complete: boolean;
+  other_cost: Numeric;
+  other_complete: boolean;
   monthly_total: Numeric;
   annual_total: Numeric;
   first_month: Numeric;
@@ -241,6 +257,13 @@ export interface LinkContribution {
   complete: boolean;
 }
 export interface Results {
+  top_agents: {
+    agent_id: string;
+    name: string;
+    use_case_name: string;
+    monthly_token_cost: Numeric;
+    complete: boolean;
+  }[];
   scenarios: ScenarioResult[];
   base_volumes: Record<string, VolumeResult>;
   base_links: Record<string, LinkContribution>;
@@ -295,18 +318,7 @@ export interface Results {
       }[];
     }
   >;
-  monthly_token_summary: {
-    input_tokens: Numeric;
-    output_tokens: Numeric;
-    total_tokens: Numeric;
-    input_cost: Numeric;
-    output_cost: Numeric;
-    total_cost: Numeric;
-    tokens_complete: boolean;
-    input_complete: boolean;
-    output_complete: boolean;
-    complete: boolean;
-  };
+  monthly_token_summary: MonthlyTokenSummary;
   agent_count: number;
   recurring: Numeric;
   one_time: Numeric;

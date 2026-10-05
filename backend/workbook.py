@@ -700,6 +700,60 @@ def export_estimate(estimate: Estimate):
         category_costs[f"D{r}"] = f"=SUM(D{first}:D{last})"
         category_costs[f"G{r}"] = f"=C{r}/I{r}"
         category_costs[f"H{r}"] = f"=D{r}/I{r}"
+    scenario_summary = wb.create_sheet("Monthly scenario summary")
+    literal(
+        scenario_summary,
+        [
+            "Scenario",
+            "Input tokens/month",
+            "Input cost USD/month",
+            "Output tokens/month",
+            "Output cost USD/month",
+            "Total tokens/month",
+            "Total token cost USD/month",
+            "Harness cost USD/month",
+            "Other costs USD/month",
+            "Total cost USD/month",
+            "Status",
+        ],
+    )
+    for scenario in result["scenarios"]:
+        status = (
+            "Complete"
+            if scenario["complete"] and scenario["harness_complete"] and scenario["other_complete"]
+            else "INCOMPLETE — known costs only"
+        )
+        literal(
+            scenario_summary,
+            [scenario["name"], None, None, None, None, None, None, None, None, None, status],
+        )
+        r = scenario_summary.max_row
+
+        def scenario_sum(source):
+            return (
+                f"SUMIFS(Calculations!{source}2:{source}{last_calc_row},"
+                f"Calculations!A2:A{last_calc_row},A{r})"
+                if last_calc_row >= 2
+                else "0"
+            )
+
+        scenario_summary[f"B{r}"] = "=" + scenario_sum("R")
+        scenario_summary[f"C{r}"] = "=" + "+".join(scenario_sum(col) for col in ("T", "V", "W"))
+        scenario_summary[f"D{r}"] = "=" + scenario_sum("S")
+        scenario_summary[f"E{r}"] = "=" + scenario_sum("U")
+        scenario_summary[f"F{r}"] = f"=B{r}+D{r}"
+        scenario_summary[f"G{r}"] = f"=C{r}+E{r}"
+        last_summary_row = summary.max_row
+        scenario_summary[f"H{r}"] = (
+            f"=SUMIF(Summary!A2:A{last_summary_row},A{r},Summary!J2:J{last_summary_row})"
+        )
+        scenario_summary[f"I{r}"] = (
+            f"=SUMIF(Summary!A2:A{last_summary_row},A{r},Summary!C2:C{last_summary_row})"
+            f"+SUMIF(Summary!A2:A{last_summary_row},A{r},Summary!I2:I{last_summary_row})"
+        )
+        scenario_summary[f"J{r}"] = (
+            f"=SUMIF(Summary!A2:A{last_summary_row},A{r},Summary!D2:D{last_summary_row})"
+        )
     monthly_summary = wb.create_sheet("Monthly category summary")
     literal(
         monthly_summary,

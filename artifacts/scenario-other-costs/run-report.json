@@ -1,0 +1,101 @@
+{
+  "command": "npm run test:e2e",
+  "pricing": "Synthetic USD 2/M input and USD 8/M output",
+  "assumptions": "Two agents, 30 invocations each/month, 1000 input and 100 output tokens/call, USD 0.50 tool/invocation, USD 6 fixed plus USD 0.10/invocation harness, USD 5 recurring suite extra, USD 100 one-time setup excluded from monthly costs; Low 0.5x volume/0.75x tokens, High 2x volume/1.5x tokens",
+  "expected": {
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "scenarioCostsWorkbook": [
+      [
+        9,
+        20,
+        29.063
+      ],
+      [
+        12,
+        35,
+        47.168
+      ],
+      [
+        18,
+        65,
+        83.504
+      ]
+    ],
+    "other_costs": [
+      20,
+      35,
+      65
+    ]
+  },
+  "actual": {
+    "displayedCosts": {
+      "Low": [
+        "$0.063",
+        "$9.00",
+        "$20.00",
+        "$29.063"
+      ],
+      "Expected": [
+        "$0.168",
+        "$12.00",
+        "$35.00",
+        "$47.168"
+      ],
+      "High": [
+        "$0.504",
+        "$18.00",
+        "$65.00",
+        "$83.504"
+      ]
+    },
+    "recalculatedCosts": [
+      [
+        9,
+        20,
+        29.063
+      ],
+      [
+        12,
+        35,
+        47.168
+      ],
+      [
+        18,
+        65,
+        83.504
+      ]
+    ],
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "workbookSuite": 47.168,
+    "other_costs": [
+      20,
+      35,
+      65
+    ]
+  },
+  "unpricedModelPartial": true,
+  "failures": [],
+  "checks": {
+    "npm run build": "passed",
+    "npm run check": "passed",
+    "npm run test:e2e": "19 passed"
+  },
+  "spreadsheet_calculation_engine": "HyperFormula",
+  "other_cost_definition": "Scenario tools plus recurring additional costs; excludes tokens, harness, and one-time items.",
+  "incomplete_estimates": {
+    "missing_model_price": "Other costs USD 35 complete",
+    "missing_tool_workload": "Other costs USD 5 partial",
+    "zero_tool_probability_with_missing_workload": "Other costs USD 5 complete"
+  },
+  "limitations": [
+    "Microsoft Excel desktop was not automated; formulas were evaluated with HyperFormula."
+  ]
+}

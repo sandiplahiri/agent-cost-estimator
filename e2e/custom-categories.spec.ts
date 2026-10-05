@@ -72,7 +72,7 @@ test('global custom category is assignable and reconciles through save, import a
   });
   expect(reserved.status()).toBe(422);
 
-  await page.getByRole('button', { name: /Dashboard/ }).click();
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');
@@ -82,7 +82,10 @@ test('global custom category is assignable and reconciles through save, import a
   await quick.getByLabel('Simple users per agent per day *').fill('1');
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
-  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Edit Simple agents' })
+    .click();
   const modelEditor = page.getByRole('dialog', { name: 'Configure agent group' });
   await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
   await page
@@ -92,7 +95,10 @@ test('global custom category is assignable and reconciles through save, import a
   await modelEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.48/mo');
 
-  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Edit Simple agents' })
+    .click();
   await page
     .getByRole('dialog', { name: 'Configure agent group' })
     .getByRole('button', { name: 'Customize one agent' })
@@ -102,23 +108,16 @@ test('global custom category is assignable and reconciles through save, import a
   await editor.getByLabel('Complexity').selectOption('Research intensive');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.60/mo');
-  await expect(page.getByTestId('category-invocations-Research intensive')).toHaveText('30');
-  await expect(page.getByTestId('category-tokens-monthly-Research intensive')).toHaveText('90,000');
-  await expect(page.getByTestId('monthly-summary-Research intensive-total-cost')).toHaveText('$0.36');
-  await expect(page.getByTestId('category-cost-Research intensive')).toHaveText('$0.36');
-  await expect(page.getByTestId('monthly-summary-simple-total-cost')).toHaveText('$0.24');
-  await expect(page.getByTestId('monthly-summary-suite-total-cost')).toHaveText('$0.60');
-  const actualSimple = Number(
-    (await page.getByTestId('monthly-summary-simple-total-cost').innerText()).replace(/[^\d.]/g, ''),
-  );
-  const actualCustom = Number(
-    (await page.getByTestId('monthly-summary-Research intensive-total-cost').innerText()).replace(
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  const monthlySummary = page.getByRole('region', { name: 'Monthly token and cost summary' });
+  await expect(monthlySummary.locator('tbody tr')).toHaveCount(3);
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-total-tokens')).toHaveText('165,000');
+  await expect(monthlySummary.getByTestId('monthly-summary-expected-total-cost')).toHaveText('$0.60');
+  const dashboardSuiteUsd = Number(
+    (await monthlySummary.getByTestId('monthly-summary-expected-total-cost').innerText()).replace(
       /[^\d.]/g,
       '',
     ),
-  );
-  const actualTokens = Number(
-    (await page.getByTestId('category-tokens-monthly-Research intensive').innerText()).replace(/,/g, ''),
   );
 
   await page.getByRole('button', { name: 'Save estimate', exact: true }).click();
@@ -188,6 +187,11 @@ test('global custom category is assignable and reconciles through save, import a
   const workbookSuite = engine.getCellValue({ sheet: monthly, row: 5, col: 6 });
   expect(workbookCustom).toBeCloseTo(0.36, 8);
   expect(workbookSuite).toBeCloseTo(0.6, 8);
+  const actualSimple = engine.getCellValue({ sheet: monthly, row: 1, col: 6 });
+  const actualCustom = workbookCustom;
+  const actualTokens = engine.getCellValue({ sheet: monthly, row: 4, col: 5 });
+  expect(actualSimple).toBeCloseTo(0.24, 8);
+  expect(actualTokens).toBeCloseTo(90000, 8);
   expect(engine.getCellValue({ sheet: summary, row: 2, col: 1 })).toBeCloseTo(0.6, 8);
   engine.destroy();
   expect(workbook.getWorksheet('Profiles')!.getColumn(1).values).toContain('Research intensive');
@@ -242,11 +246,18 @@ test('global custom category is assignable and reconciles through save, import a
         command: 'npx playwright test e2e/custom-categories.spec.ts',
         fixture:
           'Fixed custom model USD 2/M input and USD 8/M output; 30 invocations/agent/month; no retries or cache',
-        expected: { simpleUsd: 0.24, customUsd: 0.36, suiteUsd: 0.6, customTokens: 90000 },
+        expected: {
+          simpleUsd: 0.24,
+          customUsd: 0.36,
+          suiteUsd: 0.6,
+          dashboardSuiteUsd: 0.6,
+          customTokens: 90000,
+        },
         actual: {
           simpleUsd: actualSimple,
           customUsd: actualCustom,
           suiteUsd: workbookSuite,
+          dashboardSuiteUsd,
           customTokens: actualTokens,
         },
         duplicateNamesRejected: true,

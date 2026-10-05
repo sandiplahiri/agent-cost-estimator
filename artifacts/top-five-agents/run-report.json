@@ -1,0 +1,87 @@
+{
+  "command": "npm run test:e2e",
+  "pricing": "Fixed USD 2/M input and USD 8/M output; 1000 input and zero output per call; no retries",
+  "assumptions": "Manual monthly invocations per member: 6000/5000/4000/3000/2000. Three 3000-invocation members share a group; tools cost USD 100 on the USD 4 token agent.",
+  "expected": {
+    "rows": [
+      [
+        "1",
+        "Highest",
+        "Plan responses",
+        "$12.00"
+      ],
+      [
+        "2",
+        "Second",
+        "Draft responses",
+        "$10.00"
+      ],
+      [
+        "3",
+        "Middle",
+        "Review cases",
+        "$8.00"
+      ],
+      [
+        "4",
+        "Group A",
+        "Shared analysis",
+        "$6.00"
+      ],
+      [
+        "5",
+        "Group B",
+        "Shared analysis",
+        "$6.00"
+      ]
+    ],
+    "suiteTokenCost": 52,
+    "suiteTotal": 152
+  },
+  "actual": {
+    "rows": [
+      [
+        "1",
+        "Highest",
+        "Plan responses",
+        "$12.00"
+      ],
+      [
+        "2",
+        "Second",
+        "Draft responses",
+        "$10.00"
+      ],
+      [
+        "3",
+        "Middle",
+        "Review cases",
+        "$8.00"
+      ],
+      [
+        "4",
+        "Group A",
+        "Shared analysis",
+        "$6.00"
+      ],
+      [
+        "5",
+        "Group B",
+        "Shared analysis",
+        "$6.00"
+      ]
+    ],
+    "suiteTokenCost": 52,
+    "suiteTotal": 152
+  },
+  "calculationEngine": "HyperFormula",
+  "failures": [],
+  "checks": {
+    "npm run build": "passed",
+    "npm run check": "passed",
+    "npm run test:e2e": "20 passed"
+  },
+  "limitations": [
+    "Microsoft Excel desktop was not automated; formulas were evaluated with HyperFormula."
+  ]
+}

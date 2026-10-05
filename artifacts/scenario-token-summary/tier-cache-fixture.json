@@ -1,0 +1,111 @@
+{
+  "schema_version": 8,
+  "defaults_version": 1,
+  "id": "f2e5f09f-acb9-4c8c-b54a-66a1f263aed0",
+  "name": "Tier and cache fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "200000",
+      "output_tokens": "1000",
+      "retry_rate": "0",
+      "cache_fraction": "0.25",
+      "cache_write_fraction": "0.25"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "tier-agent",
+      "name": "Tiered agent",
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "10",
+      "overrides": {
+        "model_id": "Tier Fixture"
+      },
+      "steps": []
+    }
+  ],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Tier Fixture": {
+      "id": "Tier Fixture",
+      "provider": "Synthetic provider",
+      "input": "2",
+      "output": "8",
+      "cache_read": "0.5",
+      "cache_write": "3",
+      "tiers": [
+        {
+          "above": "200000",
+          "input": "4",
+          "output": "12",
+          "cache_read": "1",
+          "cache_write": "6"
+        }
+      ],
+      "max_input": null,
+      "max_output": null,
+      "source": "Fixed E2E fixture; not provider prices",
+      "retrieved_at": "2026-01-01T00:00:00Z",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

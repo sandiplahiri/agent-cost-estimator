@@ -1,0 +1,37 @@
+{
+  "executedAt": "2026-10-05T00:17:30.459Z",
+  "command": "npm run test:e2e",
+  "prerequisites": "npm run build and npm run check completed before this run.",
+  "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
+  "note": "Workbook formulas independently recalculated with HyperFormula; Excel desktop UI was not automated.",
+  "checks": [
+    {
+      "journey": "Top agent ranking, scenario changes, split ownership, search, incomplete prices, and Excel reconciliation",
+      "evidence": "sensitivity-fixture.json and sensitivity-budget.xlsx",
+      "expected": {
+        "baselineUsd": 16.32,
+        "workbookUsd": 16.32,
+        "invalidFractionStatus": 422,
+        "incompleteRanking": true,
+        "rankedCostsUsd": [
+          8.16,
+          4.08
+        ]
+      },
+      "actual": {
+        "baselineUi": "$16.32/mo",
+        "workbookUsd": 16.32,
+        "invalidFractionStatus": 422,
+        "incompleteRanking": "Top agents by cost\n\nExpected monthly LLM spend \u00b7 Highest cost first\n\nFind an agent group\nSimple agent 2\n1 agent \u00b7 simple\nIncomplete\n$0.00 known\nRank 1 of visible cost drivers.\nSimple agents\n1 agent \u00b7 simple\nIncomplete\n$0.00 known\nRank 2 of visible cost drivers.\n\nRanking uses known costs; unpriced groups may rank differently.",
+        "rankedDrivers": [
+          "Simple agents\n1 agent \u00b7 simple\n$8.16\n66.7% of suite\nRank 1 of visible cost drivers.",
+          "Simple agent 2\n1 agent \u00b7 simple\n$4.08\n33.3% of suite\nRank 2 of visible cost drivers."
+        ]
+      }
+    }
+  ],
+  "e2e_result": "19 passed",
+  "scope": "Removed the Dashboard change-preview form; retained ranked list and search.",
+  "screenshot_assumptions": "After exporting baseline USD 16.32, set Simple agent 2 output tokens to zero; costs USD 8.16 and USD 4.08 sum to USD 12.24.",
+  "failures": []
+}

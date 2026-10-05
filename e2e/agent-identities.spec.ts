@@ -11,7 +11,7 @@ test('suite members receive editable identities that survive save and Excel expo
   await fs.mkdir(directory, { recursive: true });
   await page.goto('/');
   await page.getByLabel('Estimate name').fill('Identity fixture');
-  await page.getByRole('button', { name: /Dashboard/ }).click();
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');
@@ -27,7 +27,11 @@ test('suite members receive editable identities that survive save and Excel expo
   await expect(page.getByText('This group has no agents. Edit the group to add members.')).toBeVisible();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
 
-  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Edit Simple agents' })
+    .click();
   const editor = page.getByRole('dialog', { name: 'Configure agent group' });
   await expect(editor.getByLabel('Agent 1 name')).toHaveValue('Simple agent 1');
   await expect(editor.getByLabel('Agent 2 name')).toHaveValue('Simple agent 2');
@@ -76,12 +80,16 @@ test('suite members receive editable identities that survive save and Excel expo
   expect(new Set(migratedNames.map((name: string) => name.toLowerCase())).size).toBe(3);
 
   await page.reload();
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page.getByRole('button', { name: /Open estimate/ }).click();
   await page
     .getByRole('dialog', { name: 'Saved estimates' })
     .getByRole('button', { name: /Identity fixture/ })
     .click();
-  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Edit Simple agents' })
+    .click();
   await expect(page.getByRole('dialog').getByLabel('Agent 1 ID')).toHaveValue('triage-1');
   await page.getByRole('dialog').getByRole('button', { name: 'Close dialog' }).click();
 
@@ -99,7 +107,10 @@ test('suite members receive editable identities that survive save and Excel expo
   expect(sheet.getCell('E2').value).toBe('Classifies support requests');
   expect(sheet.getCell('C3').value).toBe('draft-2');
 
-  await page.getByRole('button', { name: 'Edit Simple agents' }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Edit Simple agents' })
+    .click();
   const duplicate = page.getByRole('dialog', { name: 'Configure agent group' });
   await duplicate.getByLabel('Agent 2 ID').fill('triage-1');
   await duplicate.getByRole('button', { name: 'Apply changes' }).click();

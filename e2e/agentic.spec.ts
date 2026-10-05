@@ -212,6 +212,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     .click();
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
   const jsonDownloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page.getByRole('button', { name: 'Export JSON' }).click();
   const jsonFile = path.join(artifactDir, 'agentic-export.json');
   await (await jsonDownloadPromise).saveAs(jsonFile);
@@ -220,8 +221,11 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   expect(exportedJson.agents[0].steps[1].model_calls[0].probability).toBe('0.5');
   await page.getByRole('button', { name: 'Agent harness' }).click();
   await expect(page.getByText('$11.68', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /Dashboard/ }).click();
-  await page.getByRole('button', { name: 'Copy Resolve inquiry' }).click();
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Copy Resolve inquiry' })
+    .click();
   await expect(page.getByRole('dialog', { name: 'Configure agent group' })).toBeVisible();
   await page
     .getByRole('dialog', { name: 'Configure agent group' })
@@ -239,7 +243,10 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   expect(
     Number(copyResult.scenarios[1].use_case_costs[copiedAgent.id].loaded_cost_per_completion),
   ).toBeCloseTo(0.06, 2);
-  await page.getByRole('button', { name: 'Edit Resolve inquiry', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('button', { name: 'Edit Resolve inquiry', exact: true })
+    .click();
   const editor = page.getByRole('dialog', { name: 'Configure agent group' });
   await editor.getByLabel('Model invocation probability (0–1)').nth(1).fill('0');
   await editor.getByRole('button', { name: 'Add model to step' }).first().click();

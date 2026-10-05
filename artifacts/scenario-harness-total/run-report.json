@@ -1,0 +1,82 @@
+{
+  "command": "npm run test:e2e",
+  "pricing": "Synthetic USD 2/M input and USD 8/M output",
+  "assumptions": "Two agents, 30 invocations each/month, 1000 input and 100 output tokens/call, USD 0.50 tool/invocation, USD 6 fixed plus USD 0.10/invocation harness, USD 5 suite extra; Low uses 0.5x volume and 0.75x tokens, Expected 1x/1x, High 2x volume and 1.5x tokens",
+  "expected": {
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "scenarioCostsWorkbook": [
+      [
+        9,
+        29.063
+      ],
+      [
+        12,
+        47.168
+      ],
+      [
+        18,
+        83.504
+      ]
+    ]
+  },
+  "actual": {
+    "displayedCosts": {
+      "Low": [
+        "$0.063",
+        "$9.00",
+        "$29.063"
+      ],
+      "Expected": [
+        "$0.168",
+        "$12.00",
+        "$47.168"
+      ],
+      "High": [
+        "$0.504",
+        "$18.00",
+        "$83.504"
+      ]
+    },
+    "recalculatedCosts": [
+      [
+        9,
+        29.063
+      ],
+      [
+        12,
+        47.168
+      ],
+      [
+        18,
+        83.504
+      ]
+    ],
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "workbookSuite": 47.168
+  },
+  "unpricedModelPartial": true,
+  "failures": [],
+  "checks": {
+    "npm run build": "passed",
+    "npm run check": "passed",
+    "npm run test:e2e": "19 passed"
+  },
+  "spreadsheet_calculation_engine": "HyperFormula",
+  "incomplete_estimates": {
+    "missing_model_price": "Harness remains USD 12 complete; total USD 47 partial",
+    "missing_workload": "Harness USD 6 partial; total USD 11 partial",
+    "fixed_only_harness_with_missing_workload": "USD 6 complete",
+    "disabled_harness_with_missing_workload": "USD 0 complete"
+  },
+  "limitations": [
+    "Microsoft Excel desktop was not automated; formulas were evaluated with HyperFormula."
+  ]
+}

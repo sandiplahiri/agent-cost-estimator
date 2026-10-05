@@ -1,0 +1,140 @@
+{
+  "schema_version": 8,
+  "defaults_version": 1,
+  "id": "inventory-total-1791158210276",
+  "name": "Agent inventory total cost fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "1000",
+      "output_tokens": "100",
+      "retry_rate": "0",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "paired",
+      "name": "Paired agents",
+      "description": "",
+      "use_case_name": "Resolve customer request",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "paired-a",
+          "name": "Agent A",
+          "business_use_case_description": "First customer segment"
+        },
+        {
+          "id": "paired-b",
+          "name": "Agent B",
+          "business_use_case_description": "Second customer segment"
+        }
+      ],
+      "complexity": "simple",
+      "count": 2,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "model_id": "Fixture model"
+      },
+      "steps": [],
+      "tool_costs": [
+        {
+          "id": "tool",
+          "name": "External lookup",
+          "unit_cost": "0.5",
+          "expected_units_per_invocation": "1",
+          "probability": "1",
+          "step_id": null
+        }
+      ]
+    }
+  ],
+  "links": [],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "0.5",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "2",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Fixture model": {
+      "id": "Fixture model",
+      "provider": "Synthetic fixture",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Versioned E2E fixture",
+      "retrieved_at": "2026-10-04",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [
+    {
+      "id": "suite-extra",
+      "name": "Suite storage",
+      "amount": "5",
+      "quantity": "1",
+      "frequency": "monthly"
+    }
+  ],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "managed_platform",
+    "fixed_monthly": "6",
+    "per_invocation": "0.1",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}
