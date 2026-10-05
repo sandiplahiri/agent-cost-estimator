@@ -1,0 +1,19 @@
+{
+  "command": "npm run test:e2e",
+  "assumptions": "100 monthly invocations; 0.25 step probability and 0.5 model probability; 200 input and 50 output tokens per call; USD 2/M input and 8/M output; excludes tools, harness and delegated specialist",
+  "expected": [
+    "2,500",
+    "$0.005",
+    "625",
+    "$0.005",
+    "$0.01"
+  ],
+  "actual": [
+    "2,500",
+    "$0.005",
+    "625",
+    "$0.005",
+    "$0.01"
+  ],
+  "failures": []
+}

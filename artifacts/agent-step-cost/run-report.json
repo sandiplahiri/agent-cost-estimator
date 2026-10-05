@@ -1,0 +1,103 @@
+{
+  "commands": [
+    "npm run build",
+    "npm run check",
+    "npm run test:e2e",
+    "npm run test:e2e -- e2e/agent-inventory.spec.ts --grep \"inventory edits one linked\""
+  ],
+  "results": {
+    "build": "passed",
+    "check": "passed",
+    "fullE2E": "19 passed, 1 test locator timeout",
+    "correctedJourney": "1 passed",
+    "verifiedJourneysAcrossRuns": 20
+  },
+  "resolvedFailure": "Step-card filter incorrectly included the dialog as a descendant selector. Changed the inner filter to locate the labeled input relative to the card. Targeted rerun passed; no application changes were needed.",
+  "pricingFixture": "Synthetic Fixture model: USD 2/M input, USD 8/M output; Fixture review model: USD 1/M input, USD 4/M output; 1,000 input and 100 output tokens per call; 30 planning days",
+  "columns": [
+    "Total input tokens",
+    "Input token cost",
+    "Total output tokens",
+    "Output token cost",
+    "Total token cost"
+  ],
+  "expected": {
+    "editedSteps": [
+      [
+        "600,000",
+        "$1.20",
+        "60,000",
+        "$0.48",
+        "$1.68"
+      ],
+      [
+        "600,000",
+        "$0.60",
+        "60,000",
+        "$0.24",
+        "$0.84"
+      ]
+    ],
+    "agentTotal": [
+      "1,200,000",
+      "$1.80",
+      "120,000",
+      "$0.72",
+      "$2.52"
+    ],
+    "conditionalModelStep": [
+      "2,500",
+      "$0.005",
+      "625",
+      "$0.005",
+      "$0.01"
+    ]
+  },
+  "actual": {
+    "editedSteps": [
+      [
+        "600,000",
+        "$1.20",
+        "60,000",
+        "$0.48",
+        "$1.68"
+      ],
+      [
+        "600,000",
+        "$0.60",
+        "60,000",
+        "$0.24",
+        "$0.84"
+      ]
+    ],
+    "agentTotal": [
+      "1,200,000",
+      "$1.80",
+      "120,000",
+      "$0.72",
+      "$2.52"
+    ],
+    "conditionalModelStep": [
+      "2,500",
+      "$0.005",
+      "625",
+      "$0.005",
+      "$0.01"
+    ]
+  },
+  "verified": [
+    "per-member preview with regenerated step IDs",
+    "copied step contributes separately",
+    "costs move with reordered steps",
+    "step probability 0.5 and zero",
+    "conditional step and model probability applied once",
+    "unpriced step leaves priced step complete and parent partial",
+    "missing workload",
+    "invalid draft and recovery",
+    "derived agent workload",
+    "preview does not persist",
+    "save/reopen and Excel recalculation: linked suite USD 5.124, conditional suite USD 13.305, suite with extras USD 47.168"
+  ],
+  "scope": "Expected monthly scenario, USD, current draft and frozen prices. Tools, harness, and delegated agents are excluded from step token costs. Both Edit agent layouts display step costs; bulk setup covers all agents in the edited entry.",
+  "unresolvedFailures": []
+}

@@ -4,6 +4,17 @@ Recorded before implementing calculation behavior.
 
 ## Design
 
+### Per-step Cost preview: failure cases and independent outcomes
+
+Recorded before implementation. Return step summaries alongside the agent summary in one local preview calculation, using canonical Decimal line components and the same Expected monthly workload. Render the same Cost table inside every step in both agent edit layouts. Keep loading/error states shared; do not send a calculation request per step.
+
+- Filtering the wrong step, or failing to map regenerated IDs after selecting an individual, can show zero or another step's costs. In the inventory fixture at 600 monthly invocations, Main step has 600,000 input tokens / USD 1.20, 60,000 output tokens / USD 0.48, total USD 1.68; Review plan has 600,000 / USD 0.60, 60,000 / USD 0.24, total USD 0.84. Together they reconcile to USD 2.52.
+- Applying step probability twice or ignoring it misstates usage. Review plan at 0.5 execution probability has 300,000 input tokens / USD 0.30, 30,000 output tokens / USD 0.12, total USD 0.42. At zero it has complete zero tokens/costs. Restoring probability 1 restores the original values without applying the draft.
+- Copied/reordered steps must retain their own summaries by identity. Moving Review plan before Main step must move its USD 0.84 cost with it; moving Main step back must restore the same figures. Copying must create another contribution rather than reusing or dropping an ID.
+- Conditional model calls must sum within their owning step without attributing delegated agents or tools to it. In the agentic fixture, Verify executes for 25% of 100 monthly invocations and its model executes for 50% of those: 2,500 input tokens / USD 0.005, 625 output tokens / USD 0.005, total USD 0.01. Classify costs USD 0.28; the agent's token cost is USD 0.29, excluding its linked specialist, tools, and harness.
+- Missing model pricing keeps known step tokens visible and costs incomplete; missing workload marks usage and costs incomplete. One incomplete step must not hide a different fully priced step's amounts. Existing cache/tier accounting is reused without new pricing arithmetic.
+- Step edits, removal, and reordered results must not display stale summaries or persist previews. Save/reopen and exported Excel must still reconcile with the existing numeric fixture.
+
 ### Edit agent Cost preview: failure cases and independent outcomes
 
 Recorded before implementation. The Cost section reports Expected monthly tokens and token costs for the current draft, before Steps. It uses the canonical calculation and frozen pricing; tools, harness, and suite extras are excluded.

@@ -1,0 +1,136 @@
+{
+  "config": {
+    "argv": [
+      "/Users/sandiplahiri/.nvm/versions/node/v24.15.0/bin/node",
+      "/Users/sandiplahiri/llm/token-cost-estimator/node_modules/.bin/playwright",
+      "test",
+      "e2e/agent-inventory.spec.ts",
+      "--grep",
+      "inventory edits one linked"
+    ],
+    "configFile": "/Users/sandiplahiri/llm/token-cost-estimator/playwright.config.ts",
+    "rootDir": "/Users/sandiplahiri/llm/token-cost-estimator/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/sandiplahiri/llm/token-cost-estimator/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/sandiplahiri/llm/token-cost-estimator/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "artifacts/e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": {
+      "command": ".venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8011",
+      "url": "http://127.0.0.1:8011/api/health",
+      "reuseExistingServer": false,
+      "env": {
+        "ESTIMATOR_DB": "artifacts/e2e-1791166898507.sqlite3"
+      },
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "agent-inventory.spec.ts",
+      "file": "agent-inventory.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "inventory edits one linked group member and preserves reconciled costs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6839,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T02:21:39.482Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ae63d1dfd53d0723fead-4081016acb4d0ebc4978",
+          "file": "agent-inventory.spec.ts",
+          "line": 7,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-05T02:21:38.521Z",
+    "duration": 8381.38,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

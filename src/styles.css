@@ -1324,6 +1324,13 @@ tr:last-child td {
 .editor-section > h3 {
   margin-bottom: 7px;
 }
+.step-cost {
+  margin-top: 18px;
+}
+.step-cost > h4 {
+  margin: 0 0 7px;
+  font-size: 14px;
+}
 .editor-section > .button {
   margin-top: 15px;
 }

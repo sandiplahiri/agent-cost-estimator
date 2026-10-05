@@ -171,6 +171,8 @@ def agent_cost_preview(request: AgentCostRequest):
     """Calculate an unsaved edit with the same transformation used by Apply."""
     updated = request.estimate.model_copy(deep=True)
     row_id = request.draft.id
+    # Splitting regenerates step IDs. Preserve draft IDs for the editor's lookup.
+    draft_step_ids = [step.id for step in request.draft.steps]
     try:
         if request.member_id is not None:
             updated, row_id = split_agent(updated, row_id, request.draft, request.member_id)
@@ -186,10 +188,18 @@ def agent_cost_preview(request: AgentCostRequest):
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     expected = next(item for item in calculate(updated)["scenarios"] if item["name"] == "Expected")
-    summary = summarize_tokens(
-        [line for line in expected["lines"] if line["row_id"] == row_id],
-        {row_id: expected["volumes"][row_id]},
-    )
+    row_lines = [line for line in expected["lines"] if line["row_id"] == row_id]
+    row_volume = {row_id: expected["volumes"][row_id]}
+    preview_row = next(row for row in updated.agents if row.id == row_id)
+    step_lines = {step.id: [] for step in preview_row.steps}
+    for line in row_lines:
+        if line["step_id"] in step_lines:
+            step_lines[line["step_id"]].append(line)
+    summary = summarize_tokens(row_lines, row_volume)
+    summary["steps"] = {
+        draft_id: summarize_tokens(step_lines[step.id], row_volume)
+        for draft_id, step in zip(draft_step_ids, preview_row.steps, strict=True)
+    }
     return JSONResponse(jsonable_encoder(summary, custom_encoder={Decimal: str}))
 
 

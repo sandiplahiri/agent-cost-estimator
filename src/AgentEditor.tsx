@@ -9,6 +9,7 @@ import {
   rateMoney,
   resizeMembers,
   type AgentRow,
+  type AgentCostPreview,
   type Estimate,
   type Execution,
   type ModelCall,
@@ -18,22 +19,12 @@ import {
 } from './types';
 const clone = <T,>(value: T): T => structuredClone(value);
 
-function AgentCost({
-  draft,
-  estimate,
-  prices,
-  memberId,
-}: {
-  draft: AgentRow;
-  estimate: Estimate;
-  prices: Record<string, Price>;
-  memberId?: string;
-}) {
+function useAgentCost(draft: AgentRow, estimate: Estimate, prices: Record<string, Price>, memberId?: string) {
   const [preview, setPreview] = useState<{
     draft: AgentRow;
     estimate: Estimate;
     prices: Record<string, Price>;
-    summary?: MonthlyTokenSummary;
+    summary?: AgentCostPreview;
     error?: string;
   } | null>(null);
   useEffect(() => {
@@ -49,7 +40,7 @@ function AgentCost({
         if (modelId && !snapshot.prices[modelId] && prices[modelId])
           snapshot.prices[modelId] = clone(prices[modelId]);
       try {
-        const summary = await api<MonthlyTokenSummary>(
+        const summary = await api<AgentCostPreview>(
           '/agents/cost',
           { estimate: snapshot, draft, member_id: memberId },
           controller.signal,
@@ -71,7 +62,28 @@ function AgentCost({
     };
   }, [draft, estimate, prices, memberId]);
   const current = preview?.draft === draft && preview.estimate === estimate && preview.prices === prices;
-  const summary = current ? preview.summary : undefined;
+  return {
+    summary: current ? preview.summary : undefined,
+    error: current ? preview.error : undefined,
+    pending: !current,
+  };
+}
+
+type CostPreviewState = ReturnType<typeof useAgentCost>;
+
+function CostSection({
+  summary,
+  error,
+  pending,
+  agentCount,
+  stepNumber,
+}: {
+  summary?: MonthlyTokenSummary;
+  error?: string;
+  pending: boolean;
+  agentCount: number;
+  stepNumber?: number;
+}) {
   const cost = (value: string, complete: boolean) =>
     complete ? rateMoney(value) : Number(value) === 0 ? 'Incomplete' : `${rateMoney(value)} (partial)`;
   const tokens = (value: string) =>
@@ -81,10 +93,14 @@ function AgentCost({
         ? 'Incomplete'
         : `${displayVolume(value)} (partial)`;
   return (
-    <section className="editor-section agent-cost" aria-label="Agent cost" aria-busy={!current}>
-      <h3>Cost</h3>
+    <section
+      className={`editor-section ${stepNumber ? 'step-cost' : 'agent-cost'}`}
+      aria-label={stepNumber ? `Step ${stepNumber} cost` : 'Agent cost'}
+      aria-busy={pending}
+    >
+      {stepNumber ? <h4>Cost</h4> : <h3>Cost</h3>}
       <p className="muted small">
-        Expected monthly · USD{draft.count > 1 ? ` · All ${draft.count} agents in this entry` : ''}. Updates
+        Expected monthly · USD{agentCount > 1 ? ` · All ${agentCount} agents in this entry` : ''}. Updates
         with your edits. Token costs exclude harness, tools, and other costs.
       </p>
       {summary ? (
@@ -110,8 +126,8 @@ function AgentCost({
             </tbody>
           </table>
         </div>
-      ) : current && preview.error ? (
-        <p role="alert">Could not calculate cost: {preview.error}</p>
+      ) : error ? (
+        <p role="alert">Could not calculate cost: {error}</p>
       ) : (
         <p role="status" className="muted small">
           Calculating cost…
@@ -162,6 +178,12 @@ export function AgentEditor({
   const [saving, setSaving] = useState(false);
   const [memberPage, setMemberPage] = useState(0);
   const execution = effective(estimate, draft);
+  const costPreview = useAgentCost(
+    draft,
+    estimate,
+    prices,
+    pendingGroupMember ? draft.members[0]?.id : undefined,
+  );
   const hasLinks = estimate.links.some((link) => link.parent_id === row.id || link.child_id === row.id);
   return (
     <Modal title="Edit agent" onClose={onClose} wide>
@@ -357,14 +379,15 @@ export function AgentEditor({
           )}
         </div>
       )}
-      <AgentCost
-        draft={draft}
-        estimate={estimate}
-        prices={prices}
-        memberId={pendingGroupMember ? draft.members[0]?.id : undefined}
-      />
+      <CostSection {...costPreview} agentCount={draft.count} />
       {singleAgent ? (
-        <AgentStepList draft={draft} setDraft={setDraft} estimate={estimate} prices={prices} />
+        <AgentStepList
+          draft={draft}
+          setDraft={setDraft}
+          estimate={estimate}
+          prices={prices}
+          costPreview={costPreview}
+        />
       ) : (
         <div className="editor-section">
           <h3>Execution assumptions</h3>
@@ -481,6 +504,12 @@ export function AgentEditor({
                       <Trash2 size={17} />
                     </button>
                   </div>
+                  <CostSection
+                    {...costPreview}
+                    summary={costPreview.summary?.steps[step.id]}
+                    agentCount={draft.count}
+                    stepNumber={i + 1}
+                  />
                   {step.model_calls.length === 0 ? (
                     <ExecutionFields
                       value={step}
@@ -861,11 +890,13 @@ function AgentStepList({
   setDraft,
   estimate,
   prices,
+  costPreview,
 }: {
   draft: AgentRow;
   setDraft: (next: AgentRow) => void;
   estimate: Estimate;
   prices: Record<string, Price>;
+  costPreview: CostPreviewState;
 }) {
   const updateStep = (stepId: string, patch: Partial<Step>) =>
     setDraft({
@@ -1042,6 +1073,12 @@ function AgentStepList({
             >
               <Plus size={14} /> Add model to step
             </button>
+            <CostSection
+              {...costPreview}
+              summary={costPreview.summary?.steps[step.id]}
+              agentCount={draft.count}
+              stepNumber={index + 1}
+            />
             <details className="step-details">
               <summary>Step execution details</summary>
               <Numeric

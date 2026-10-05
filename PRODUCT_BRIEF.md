@@ -70,6 +70,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 ## Confirmed requirements
 
+**Per-step Cost section (confirmed 2026-10-04):** Add the same **Cost** section to every step in an agent: Expected monthly input/output token counts and costs, plus total token cost in USD. Use each step's contribution to the current draft's canonical calculation, including conditional model calls, step probabilities, and retry/cache assumptions. Step costs reconcile to the agent token total and remain visible without expanding execution details. Missing pricing/workload and calculation failures retain the same incomplete/error treatment as the agent summary.
+
 - Support cost estimates for a single agent through a suite of agents.
 - Let users begin with an initial set of estimation assumptions and progressively fine-tune those assumptions as they learn more about the agents and workload.
 - Tie each agent to a business use case.

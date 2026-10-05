@@ -186,6 +186,9 @@ export interface MonthlyTokenSummary {
   output_complete: boolean;
   complete: boolean;
 }
+export interface AgentCostPreview extends MonthlyTokenSummary {
+  steps: Record<string, MonthlyTokenSummary>;
+}
 export interface ScenarioResult {
   monthly_token_summary: MonthlyTokenSummary;
   name: ScenarioName;

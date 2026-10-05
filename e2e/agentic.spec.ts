@@ -213,6 +213,40 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
   const jsonDownloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent setup' })
+    .getByRole('button', { name: 'Edit Resolve inquiry', exact: true })
+    .click();
+  const costEditor = page.getByRole('dialog', { name: 'Edit agent' });
+  const conditionalStepCost = costEditor.getByRole('region', { name: 'Step 2 cost', exact: true });
+  await expect(
+    costEditor.getByRole('region', { name: 'Step 1 cost', exact: true }).getByRole('cell'),
+  ).toHaveText(['≈100,000', '$0.20', '≈10,000', '$0.08', '$0.28']);
+  await expect(conditionalStepCost.getByRole('cell')).toHaveText([
+    '2,500',
+    '$0.005',
+    '625',
+    '$0.005',
+    '$0.01',
+  ]);
+  const conditionalStepCostActual = await conditionalStepCost.getByRole('cell').allTextContents();
+  await conditionalStepCost.screenshot({ path: path.join(artifactDir, 'conditional-step-cost.png') });
+  await fs.writeFile(
+    path.join(artifactDir, 'step-cost-report.json'),
+    JSON.stringify(
+      {
+        command: 'npm run test:e2e',
+        assumptions:
+          '100 monthly invocations; 0.25 step probability and 0.5 model probability; 200 input and 50 output tokens per call; USD 2/M input and 8/M output; excludes tools, harness and delegated specialist',
+        expected: ['2,500', '$0.005', '625', '$0.005', '$0.01'],
+        actual: conditionalStepCostActual,
+        failures: [],
+      },
+      null,
+      2,
+    ),
+  );
+  await costEditor.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: 'Export JSON' }).click();
   const jsonFile = path.join(artifactDir, 'agentic-export.json');
   await (await jsonDownloadPromise).saveAs(jsonFile);
