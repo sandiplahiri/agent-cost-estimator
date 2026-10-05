@@ -179,7 +179,7 @@ export function AgentEditor({
     pendingGroupMember ? draft.members[0]?.id : undefined,
   );
   const hasLinks = estimate.links.some((link) => link.parent_id === row.id || link.child_id === row.id);
-  const addingAgent = singleAgent && !estimate.agents.some((agent) => agent.id === row.id);
+  const addingAgent = !estimate.agents.some((agent) => agent.id === row.id);
   return (
     <Modal title={addingAgent ? 'Add agent' : 'Edit agent'} onClose={onClose} wide>
       <div className="form-grid">
@@ -567,7 +567,7 @@ export function AgentEditor({
             }
           }}
         >
-          Apply changes
+          {addingAgent ? 'Add agent' : 'Apply changes'}
         </button>
       </div>
     </Modal>
