@@ -27,8 +27,9 @@ test('suite members receive editable identities that survive save and Excel expo
   await quick.getByRole('button', { name: 'Create suite' }).click();
   await expectBaseVolume(page, 'Simple agents', 30, 60);
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await page.getByRole('button', { name: 'Select agent Medium agents' }).click();
-  await expect(page.getByText('No agents are defined here. Edit this entry to add agents.')).toBeVisible();
+  await expect(page.locator('.graph-node')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Select agent Simple agent 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Select agent Simple agent 2', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
 
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();

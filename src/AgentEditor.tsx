@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Copy, Plus, Trash2 } from 'lucide-react';
 import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './components';
 import {
   effective,
@@ -148,6 +148,7 @@ export function AgentEditor({
   onSave,
   onRemove,
   onSplit,
+  onCopy,
   singleAgent = false,
   pendingGroupMember = false,
 }: {
@@ -158,6 +159,7 @@ export function AgentEditor({
   onSave: (row: AgentRow) => Promise<void>;
   onRemove: () => void;
   onSplit: (draft: AgentRow) => Promise<void>;
+  onCopy: () => void;
   singleAgent?: boolean;
   pendingGroupMember?: boolean;
 }) {
@@ -523,6 +525,12 @@ export function AgentEditor({
       )}
       <div className="modal-actions spread">
         <div className="button-row">
+          {estimate.agents.some((r) => r.id === row.id) && (singleAgent || row.count === 1) && (
+            <button className="button subtle" disabled={saving} onClick={onCopy}>
+              <Copy size={14} aria-hidden="true" />
+              Copy agent
+            </button>
+          )}
           {estimate.agents.some((r) => r.id === row.id) && (singleAgent || row.count === 1) && (
             <button className="button danger" disabled={saving} onClick={onRemove}>
               <Trash2 size={14} />

@@ -1,13 +1,12 @@
 import { expect, type Page } from '@playwright/test';
 
-// Shared settings remain available through the graph; inventory edits one member.
+// Existing bulk journeys explicitly edit the stored shared settings. Individual
+// graph journeys click the node directly, using the same editor as inventory.
 export async function openAgentEditor(page: Page, name: string) {
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await page.getByRole('button', { name: `Select agent ${name}`, exact: true }).click();
-  await page
-    .locator('.graph-inspector-agent')
-    .getByRole('button', { name: /^(Edit all \d+ agents|Edit steps and tools)$/ })
-    .click();
+  const shared = page.locator('.graph-shared-settings');
+  if ((await shared.getAttribute('open')) === null) await shared.locator('summary').click();
+  await shared.getByRole('button', { name: `Edit shared settings for ${name}`, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit agent' });
   for (const details of await dialog.locator('details.step-details').all())
     if ((await details.getAttribute('open')) === null) await details.locator('summary').click();

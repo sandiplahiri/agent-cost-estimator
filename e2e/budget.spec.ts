@@ -604,7 +604,7 @@ test('Agent steps derive individual child volume, preserve scenarios, and export
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
   await expect(graph).toBeHidden();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(3);
+  await expect(graph.locator('.graph-relationship')).toHaveCount(2);
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export Excel', exact: true }).click();
   const file = path.join(artifacts, 'agent-graph-budget.xlsx');
@@ -634,12 +634,7 @@ test('Agent steps derive individual child volume, preserve scenarios, and export
   expect(reimport.ok()).toBe(true);
   expect((await reimport.json()).errors).toEqual([]);
 
-  await graph
-    .locator('.graph-edge')
-    .filter({ hasText: 'Researcher' })
-    .first()
-    .getByRole('button', { name: 'Edit link' })
-    .click();
+  await graph.getByRole('button', { name: 'Select agent Planner', exact: true }).click();
   const callerEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await callerEditor
     .locator('article')
@@ -652,11 +647,7 @@ test('Agent steps derive individual child volume, preserve scenarios, and export
   await expect(page.getByTestId('cost-expected')).toHaveText('$5.75/mo');
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');
-  await graph
-    .locator('.graph-edge')
-    .filter({ hasText: 'Reviewer' })
-    .getByRole('button', { name: 'Edit link' })
-    .click();
+  await graph.getByRole('button', { name: 'Select agent Planner', exact: true }).click();
   await callerEditor.getByLabel('Remove step 3').click();
   await callerEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(callerEditor).toBeHidden();
@@ -688,17 +679,17 @@ test('Agent steps derive individual child volume, preserve scenarios, and export
   await expect(importPreview).toContainText('3 agent links will be removed');
   await importPreview.getByRole('button', { name: 'Replace inventory' }).click();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(0);
+  await expect(graph.locator('.graph-relationship')).toHaveCount(0);
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(3);
+  await expect(graph.locator('.graph-relationship')).toHaveCount(2);
   await page.getByRole('button', { name: 'Complexity profiles', exact: true }).click();
   await page.getByRole('button', { name: 'Reset parameters', exact: true }).click();
   const resetDialog = page.getByRole('dialog', { name: 'Reset execution parameters' });
   await expect(resetDialog).toContainText('link scenario overrides');
   await resetDialog.getByRole('button', { name: 'Reset parameters', exact: true }).click();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await expect(graph.locator('.graph-edge')).toHaveCount(3);
+  await expect(graph.locator('.graph-relationship')).toHaveCount(2);
   await expect(page.getByTestId('cost-low')).toHaveText('$4.50/mo');
   await expect(page.getByTestId('cost-high')).toHaveText('$9.00/mo');
   await page.getByRole('button', { name: 'Undo last replacement / reset' }).click();
@@ -1032,7 +1023,7 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await editor.getByLabel('Users per agent per day *').fill('1');
   await editor.getByLabel('Invocations per user per agent per day *').fill('1');
   await chooseModel(page, editor.getByRole('button', { name: 'Step 1 model name: Select model' }));
-  await editor.getByRole('button', { name: 'Apply changes' }).click();
+  await editor.getByRole('button', { name: 'Add agent', exact: true }).click();
   await expectBaseVolume(page, 'Another simple group', 30, 30);
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$1.71/mo');
@@ -1162,7 +1153,7 @@ test('Individual overrides, zero output, detailed replacement and incomplete pri
   await expect(page.getByTestId('cost-expected')).toHaveText('$8.00/mo');
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Select agent Simple agent 2' })).toContainText(
-    'Incomplete LLM cost',
+    'Incomplete cost',
   );
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await expect(

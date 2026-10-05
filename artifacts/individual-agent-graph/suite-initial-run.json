@@ -1,0 +1,15 @@
+{
+  "command": "npx playwright test e2e/agent-graph.spec.ts e2e/agent-identities.spec.ts e2e/individual-agent-targets.spec.ts e2e/agent-deletion.spec.ts e2e/agentic.spec.ts e2e/budget.spec.ts e2e/custom-categories.spec.ts",
+  "observed": {
+    "total": 19,
+    "passed": 18,
+    "failed": 1
+  },
+  "failures": [
+    {
+      "file": "e2e/budget.spec.ts",
+      "journey": "Daily users derive per-agent monthly volume across all complexity groups",
+      "reason": "The Add agent dialog already uses an Add agent submit button; the test still requested Apply changes. Updated the selector and reran the journey successfully."
+    }
+  ]
+}

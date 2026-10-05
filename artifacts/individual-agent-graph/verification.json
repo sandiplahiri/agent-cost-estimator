@@ -1,0 +1,29 @@
+{
+  "command": "npx playwright test e2e/agent-graph.spec.ts",
+  "fixture": "input.json; A USD 2/M input, 0/M output; 1000 tokens/call (Cara edited to 2000); 30-day month; no retries/cache/harness/tools",
+  "expected": {
+    "initialUsd": 2.52,
+    "editedCallerUsd": 3.72,
+    "reroutedUsd": 3.66,
+    "editedChildUsd": 4.26,
+    "agents": 6,
+    "aliceInvocations": 540,
+    "bobInvocations": 60,
+    "caraInvocations": 300,
+    "danaInvocations": 30
+  },
+  "actual": {
+    "initialUsd": 2.52,
+    "editedCallerUsd": 3.72,
+    "reroutedUsd": 3.66,
+    "editedChildUsd": 4.26,
+    "agents": 6,
+    "aliceInvocations": 540,
+    "bobInvocations": 60,
+    "caraInvocations": 300,
+    "danaInvocations": 30,
+    "excelUsd": 4.26
+  },
+  "failures": [],
+  "completed": true
+}

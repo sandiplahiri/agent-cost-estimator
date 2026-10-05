@@ -1,0 +1,25 @@
+{
+  "command": "npx playwright test e2e/agent-graph.spec.ts",
+  "stats": {
+    "startTime": "2026-10-05T19:53:43.646Z",
+    "duration": 4995.7080000000005,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "change": "Center the agent nodes and arrows together within the graph viewport in both directions; retain native scrolling for oversized graphs.",
+  "checks": {
+    "npm run check": "passed",
+    "npm run build": "passed"
+  },
+  "artifacts": [
+    "input.json",
+    "saved.json",
+    "budget.xlsx",
+    "graph-desktop.png",
+    "graph-mobile.png",
+    "verification.json"
+  ],
+  "previewCapture": "Reset document scroll before desktop and mobile captures so sticky navigation starts at the top."
+}

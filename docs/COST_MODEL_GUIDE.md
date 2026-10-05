@@ -150,7 +150,7 @@ For reproducibility, saved estimates keep their prices. **Refresh catalog** expl
 
 ## 7. Link agents and derive child workload
 
-Create the agents first, then configure the caller's **Invoke agent** steps. Open **Agent suite graph** to inspect the resulting relationships. Links come from step options; the graph is not a separate workload model.
+Create the agents first, then configure the caller's **Invoke agent** steps. Open **Agent suite graph** to inspect the resulting relationships between individual agents. Click any node to edit that agent; Apply changes updates the graph, workloads, and costs. Closing the dialog preserves the current estimate. Each compact canvas node shows only the individual name and Expected monthly model/tool cost plus allocated harness. Workload and other settings are available in its editor. Links come from step options; the graph is not a separate workload model.
 
 For each agent option:
 

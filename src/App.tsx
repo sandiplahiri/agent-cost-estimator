@@ -26,7 +26,7 @@ import { AgentEditor } from './AgentEditor';
 import { AgentInventory } from './AgentInventory';
 import { CustomPrice } from './CustomPrice';
 import { CostImpact } from './CostImpact';
-import { AgentGraph, type GraphAgentDrafts } from './AgentGraph';
+import { AgentGraph } from './AgentGraph';
 import {
   api,
   syncAgentActions,
@@ -135,8 +135,6 @@ export default function App() {
   const [deletingAgent, setDeletingAgent] = useState<{ memberId: string; name: string } | null>(null);
   const [deleteAgentBusy, setDeleteAgentBusy] = useState(false);
   const [deleteAgentError, setDeleteAgentError] = useState('');
-  const [graphSelectedId, setGraphSelectedId] = useState<string | null>(null);
-  const [graphAgentDrafts, setGraphAgentDrafts] = useState<GraphAgentDrafts>({});
   const [undo, setUndo] = useState<Estimate | null>(null);
   const [clearOverrides, setClearOverrides] = useState(true);
   const [quick, setQuick] = useState({
@@ -162,10 +160,6 @@ export default function App() {
   useLayoutEffect(() => {
     estimateRef.current = estimate;
   }, [estimate]);
-  useEffect(() => {
-    setGraphSelectedId(null);
-    setGraphAgentDrafts({});
-  }, [estimate?.id]);
   const available = useMemo(
     () => ({ ...(catalog?.prices || emptyPrices), ...(estimate?.prices || emptyPrices) }),
     [catalog, estimate?.prices],
@@ -390,9 +384,6 @@ export default function App() {
       });
       if (estimateRef.current !== base)
         throw new Error('The estimate changed. Review the agent and try again.');
-      const source = base.agents.find((row) =>
-        row.members.some((member) => member.id === deletingAgent.memberId),
-      );
       setUndo(clone(base));
       setEstimate(next);
       setIsSaved(false);
@@ -400,14 +391,6 @@ export default function App() {
         setEditing(null);
         setEditingSingleAgent(false);
         setEditingMemberId(null);
-      }
-      if (source) {
-        setGraphAgentDrafts((previous) => {
-          const drafts = { ...previous };
-          delete drafts[source.id];
-          return drafts;
-        });
-        if (!next.agents.some((row) => row.id === source.id)) setGraphSelectedId(null);
       }
       setNotice(
         `${deletingAgent.name} deleted from this draft. Workloads recalculated. Undo is available; Save persists the deletion.`,
@@ -424,7 +407,7 @@ export default function App() {
     const profile = current?.profiles.simple;
     if (!profile) return;
     const name = uniqueAgentName('New agent', current);
-    setEditingSingleAgent(tab === 'inventory');
+    setEditingSingleAgent(tab === 'inventory' || tab === 'graph');
     setEditing({
       id: id(),
       name,
@@ -481,6 +464,8 @@ export default function App() {
     update((next) => {
       next.agents.push(copy);
     });
+    setEditingMemberId(null);
+    setEditingSingleAgent(true);
     setEditing(copy);
     setNotice(
       'Copied agent starts with zero direct use cases. Attach it or enter usage to include it in the budget.',
@@ -1044,23 +1029,14 @@ export default function App() {
             <AgentGraph
               estimate={estimate}
               result={result}
-              prices={available}
-              selectedId={graphSelectedId}
-              setSelectedId={setGraphSelectedId}
-              agentDrafts={graphAgentDrafts}
-              setAgentDrafts={setGraphAgentDrafts}
-              onEditAgent={(row) => setEditing(clone(row))}
-              onCustomize={(row) => customizeOne(clone(row))}
-              onAddAgent={startNewAgent}
-              onCopyAgent={copyAgent}
-              onApply={(next, base, message) => {
-                if (estimateRef.current !== base)
-                  throw new Error('The estimate changed. Preview the link again.');
-                setUndo(clone(base));
-                setEstimate(next);
-                setIsSaved(false);
-                setNotice(message);
+              busy={Boolean(busy)}
+              onEditAgent={openInventoryAgent}
+              onEditShared={(row) => {
+                setEditingSingleAgent(false);
+                setEditingMemberId(null);
+                setEditing(clone(row));
               }}
+              onAddAgent={startNewAgent}
             />
           )}
 
@@ -1747,6 +1723,7 @@ export default function App() {
           prices={available}
           singleAgent={editingSingleAgent}
           pendingGroupMember={Boolean(editingMemberId)}
+          onCopy={() => copyAgent(editing)}
           onClose={() => {
             setEditing(null);
             setEditingSingleAgent(false);

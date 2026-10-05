@@ -1,0 +1,44 @@
+{
+  "checks": {
+    "npm run build": "passed",
+    "npm run check": "passed",
+    "git diff --check": "passed"
+  },
+  "e2e": {
+    "uniqueJourneys": 25,
+    "latestOutcome": "All 25 journeys passed across the initial three recorded runs.",
+    "runs": [
+      "suite-initial-run.json",
+      "suite-additional-run.json",
+      "suite-rerun.json"
+    ],
+    "scope": "Initial individual graph implementation, before compact icon simplification."
+  },
+  "graphJourney": "verification.json",
+  "workbook": "budget.xlsx",
+  "formulaVerification": "HyperFormula recalculated Expected Summary cost to USD 4.26; Excel desktop was not automated.",
+  "limitations": [
+    "Automatic layered layout with scrolling; no dragging or zooming.",
+    "Repeated steps between the same two agents share one arrow with details on hover and available to screen readers."
+  ],
+  "compactIcons": {
+    "record": "compact-icons-run.json",
+    "journeysPassed": 3,
+    "build": "passed",
+    "check": "passed",
+    "numericalVerification": "verification.json",
+    "workbook": "budget.xlsx"
+  },
+  "spacingAdjustment": {
+    "record": "spacing-run.json",
+    "journeysPassed": 1,
+    "build": "passed",
+    "check": "passed"
+  },
+  "centeringAdjustment": {
+    "record": "centering-run.json",
+    "journeysPassed": 1,
+    "build": "passed",
+    "check": "passed"
+  }
+}

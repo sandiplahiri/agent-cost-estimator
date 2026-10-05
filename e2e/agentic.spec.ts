@@ -237,7 +237,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await page.getByRole('button', { name: 'Select agent Resolve inquiry', exact: true }).click();
   await page
-    .locator('.graph-inspector-agent')
+    .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Copy agent', exact: true })
     .click();
   await expect(page.getByRole('dialog', { name: 'Edit agent' })).toBeVisible();
@@ -528,11 +528,8 @@ test('Linked group members become independently editable without changing graph 
   await page.screenshot({ path: path.join(outputDir, 'graph-workspace.png') });
   await graph.screenshot({ path: path.join(outputDir, 'graph-before.png') });
   await graph.getByRole('button', { name: 'Select agent Research group 2' }).click();
-  await expect(
-    graph.locator('.graph-inspector-agent').getByText('Individual agent · Volume from callers'),
-  ).toBeVisible();
-  await graph.getByRole('button', { name: 'Edit steps and tools' }).click();
   const editor = page.getByRole('dialog', { name: 'Edit agent' });
+  await expect(editor.getByText(/This agent receives work from agent links/)).toBeVisible();
   await expect(editor.getByLabel('Agent name')).toHaveValue('Research group 2');
   await expect(page.getByTestId('cost-expected')).toContainText('$4.03');
   await editor.getByLabel('Agent name').fill('Research tuned');
@@ -552,43 +549,39 @@ test('Linked group members become independently editable without changing graph 
   await expect(graph.getByRole('button', { name: 'Select agent Research tuned' })).toBeVisible();
   await graph.screenshot({ path: path.join(outputDir, 'graph-after.png') });
   await graph.getByRole('button', { name: 'Select agent Research tuned' }).click();
-  const settings = graph.locator('.graph-agent-settings');
-  await settings.getByLabel('Output tokens / call').fill('225');
-  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
-  await expect(graph).toBeHidden();
-  await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
-  await expect(settings.getByLabel('Output tokens / call')).toHaveValue('225');
-  await expect(page.getByTestId('cost-expected')).toContainText('$4.27');
+  const settings = page.getByRole('dialog', { name: 'Edit agent' });
+  const expandExecution = async () => {
+    const details = settings.locator('details.step-details').first();
+    if ((await details.getAttribute('open')) === null) await details.locator('summary').click();
+  };
+  await expandExecution();
   await settings.getByLabel('Output tokens / call').fill('-1');
-  await settings.getByRole('button', { name: 'Apply agent changes' }).click();
+  await settings.getByRole('button', { name: 'Apply changes' }).click();
   await expect(settings.getByRole('alert')).toBeVisible();
   await expect(settings.getByLabel('Output tokens / call')).toHaveValue('-1');
   await expect(page.getByTestId('cost-expected')).toContainText('$4.27');
   await settings.getByLabel('Output tokens / call').fill('250');
-  await settings.getByLabel('Selected agent use case').fill('Analyze documents');
-  await settings.getByRole('button', { name: 'Apply agent changes' }).click();
+  await settings.getByLabel('Business use case name').fill('Analyze documents');
+  await settings.getByRole('button', { name: 'Apply changes' }).click();
+  await expect(settings).toBeHidden();
   await expect(page.getByTestId('cost-expected')).toContainText('$4.39');
-  await expect(graph.getByRole('button', { name: 'Select agent Research tuned' })).toContainText(
-    'Analyze documents',
-  );
-  await settings.getByRole('button', { name: 'Model: Fixture A' }).click();
+  await graph.getByRole('button', { name: 'Select agent Research tuned' }).click();
+  await expect(settings.getByLabel('Business use case name')).toHaveValue('Analyze documents');
+  await settings.getByRole('button', { name: 'Step 1 model name: Fixture A' }).click();
   await page
     .getByRole('dialog', { name: 'Choose a model' })
     .getByRole('button', { name: /Fixture B/ })
     .click();
-  await settings.getByRole('button', { name: 'Apply agent changes' }).click();
+  await settings.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toContainText('$3.79');
-  await settings.getByLabel('Selected agent complexity').selectOption('medium');
-  await settings.getByRole('button', { name: 'Apply agent changes' }).click();
+  await graph.getByRole('button', { name: 'Select agent Research tuned' }).click();
+  await settings.getByLabel('Step 1 complexity profile').selectOption('medium');
+  await settings.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toContainText('$3.79');
-  await expect(graph.getByRole('button', { name: 'Select agent Research tuned' })).toHaveAttribute(
-    'data-complexity',
-    'medium',
-  );
   await expect(graph.getByRole('button', { name: 'Select agent Research group 1' })).toContainText(
-    '$0.84 LLM',
+    '$0.84/mo',
   );
-  await graph.screenshot({ path: path.join(outputDir, 'graph-inspector-after.png') });
+  await graph.screenshot({ path: path.join(outputDir, 'graph-editor-after.png') });
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(graph).toBeHidden();
   await page.screenshot({ path: path.join(outputDir, 'suite-without-graph.png'), fullPage: true });
@@ -677,7 +670,7 @@ test('Linked group members become independently editable without changing graph 
             'graph-workspace.png',
             'graph-before.png',
             'graph-after.png',
-            'graph-inspector-after.png',
+            'graph-editor-after.png',
             'suite-without-graph.png',
           ],
         },

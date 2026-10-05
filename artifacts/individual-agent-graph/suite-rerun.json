@@ -1,0 +1,11 @@
+{
+  "command": "npx playwright test e2e/budget.spec.ts --grep 'Daily users derive'",
+  "stats": {
+    "startTime": "2026-10-05T19:42:12.490Z",
+    "duration": 9253.404999999999,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
