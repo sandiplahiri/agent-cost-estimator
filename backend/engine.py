@@ -16,7 +16,7 @@ TOKEN_TYPES = (
 
 
 def summarize_tokens(lines: list[dict], volumes: dict) -> dict:
-    """Sum priced Decimal line components for one scenario's entire suite."""
+    """Sum priced Decimal line components for the selected rows in one scenario."""
     input_tokens = sum((line["input_tokens"] for line in lines), ZERO)
     output_tokens = sum((line["output_tokens"] for line in lines), ZERO)
     input_cost = sum(

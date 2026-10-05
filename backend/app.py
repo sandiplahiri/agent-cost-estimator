@@ -13,7 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import pricing, store, workbook
 from .customize import split_agent
-from .engine import calculate
+from .engine import calculate, summarize_tokens
 from .models import (
     PREDEFINED_COMPLEXITIES,
     AgentRow,
@@ -158,6 +158,39 @@ class SplitRequest(Record):
     row_id: str = Field(min_length=1, max_length=100)
     individual: AgentRow | None = None
     member_id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class AgentCostRequest(Record):
+    estimate: Estimate
+    draft: AgentRow
+    member_id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+@app.post("/api/agents/cost")
+def agent_cost_preview(request: AgentCostRequest):
+    """Calculate an unsaved edit with the same transformation used by Apply."""
+    updated = request.estimate.model_copy(deep=True)
+    row_id = request.draft.id
+    try:
+        if request.member_id is not None:
+            updated, row_id = split_agent(updated, row_id, request.draft, request.member_id)
+        else:
+            index = next((i for i, row in enumerate(updated.agents) if row.id == row_id), None)
+            if index is None:
+                updated.agents.append(request.draft)
+            else:
+                updated.agents[index] = request.draft
+            updated = Estimate.model_validate(updated.model_dump())
+    except ValidationError as exc:
+        raise HTTPException(422, exc.errors()[0]["msg"]) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    expected = next(item for item in calculate(updated)["scenarios"] if item["name"] == "Expected")
+    summary = summarize_tokens(
+        [line for line in expected["lines"] if line["row_id"] == row_id],
+        {row_id: expected["volumes"][row_id]},
+    )
+    return JSONResponse(jsonable_encoder(summary, custom_encoder={Decimal: str}))
 
 
 @app.post("/api/agents/split")

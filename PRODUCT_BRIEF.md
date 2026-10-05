@@ -66,6 +66,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 **Follow-up confirmed decision, amended 2026-10-04:** Users may delete a custom complexity profile only when no step or optional agent default references it. A global deletion must account for the current draft and saved estimates. Predefined profiles cannot be deleted. If a profile is in use, block deletion and identify the references that need to be changed.
 
+**Edit agent Cost section (confirmed 2026-10-04):** Add **Cost** before **Steps**. Show Expected monthly total input tokens and input cost, total output tokens and output cost, and total token cost, in USD. Use the current draft and canonical calculation with frozen prices; opening or previewing an edit must not change the estimate. A selected individual receives its own workload share. Token costs exclude harness, tools, and other costs. Missing pricing or workload remains visibly incomplete.
+
 ## Confirmed requirements
 
 - Support cost estimates for a single agent through a suite of agents.

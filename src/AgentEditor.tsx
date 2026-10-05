@@ -1,18 +1,125 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { ExecutionFields, Field, Modal, ModelPicker, Numeric } from './components';
 import {
   effective,
+  api,
+  displayVolume,
   id,
+  rateMoney,
   resizeMembers,
   type AgentRow,
   type Estimate,
   type Execution,
   type ModelCall,
+  type MonthlyTokenSummary,
   type Price,
   type Step,
 } from './types';
 const clone = <T,>(value: T): T => structuredClone(value);
+
+function AgentCost({
+  draft,
+  estimate,
+  prices,
+  memberId,
+}: {
+  draft: AgentRow;
+  estimate: Estimate;
+  prices: Record<string, Price>;
+  memberId?: string;
+}) {
+  const [preview, setPreview] = useState<{
+    draft: AgentRow;
+    estimate: Estimate;
+    prices: Record<string, Price>;
+    summary?: MonthlyTokenSummary;
+    error?: string;
+  } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      // Fill only newly selected prices; retain every frozen estimate price.
+      const snapshot = clone(estimate);
+      const modelIds = [
+        draft.overrides.model_id,
+        ...draft.steps.flatMap((step) => [step.model_id, ...step.model_calls.map((call) => call.model_id)]),
+      ];
+      for (const modelId of modelIds)
+        if (modelId && !snapshot.prices[modelId] && prices[modelId])
+          snapshot.prices[modelId] = clone(prices[modelId]);
+      try {
+        const summary = await api<MonthlyTokenSummary>(
+          '/agents/cost',
+          { estimate: snapshot, draft, member_id: memberId },
+          controller.signal,
+        );
+        if (!controller.signal.aborted) setPreview({ draft, estimate, prices, summary });
+      } catch (cause) {
+        if (!controller.signal.aborted)
+          setPreview({
+            draft,
+            estimate,
+            prices,
+            error: cause instanceof Error ? cause.message : String(cause),
+          });
+      }
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [draft, estimate, prices, memberId]);
+  const current = preview?.draft === draft && preview.estimate === estimate && preview.prices === prices;
+  const summary = current ? preview.summary : undefined;
+  const cost = (value: string, complete: boolean) =>
+    complete ? rateMoney(value) : Number(value) === 0 ? 'Incomplete' : `${rateMoney(value)} (partial)`;
+  const tokens = (value: string) =>
+    summary?.tokens_complete
+      ? displayVolume(value)
+      : Number(value) === 0
+        ? 'Incomplete'
+        : `${displayVolume(value)} (partial)`;
+  return (
+    <section className="editor-section agent-cost" aria-label="Agent cost" aria-busy={!current}>
+      <h3>Cost</h3>
+      <p className="muted small">
+        Expected monthly · USD{draft.count > 1 ? ` · All ${draft.count} agents in this entry` : ''}. Updates
+        with your edits. Token costs exclude harness, tools, and other costs.
+      </p>
+      {summary ? (
+        <div className="table-scroll">
+          <table className="agent-table">
+            <thead>
+              <tr>
+                <th>Total input tokens</th>
+                <th>Input token cost</th>
+                <th>Total output tokens</th>
+                <th>Output token cost</th>
+                <th>Total token cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{tokens(summary.input_tokens)}</td>
+                <td>{cost(summary.input_cost, summary.input_complete)}</td>
+                <td>{tokens(summary.output_tokens)}</td>
+                <td>{cost(summary.output_cost, summary.output_complete)}</td>
+                <td>{cost(summary.total_cost, summary.complete)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : current && preview.error ? (
+        <p role="alert">Could not calculate cost: {preview.error}</p>
+      ) : (
+        <p role="status" className="muted small">
+          Calculating cost…
+        </p>
+      )}
+    </section>
+  );
+}
 
 export function AgentEditor({
   row,
@@ -250,6 +357,12 @@ export function AgentEditor({
           )}
         </div>
       )}
+      <AgentCost
+        draft={draft}
+        estimate={estimate}
+        prices={prices}
+        memberId={pendingGroupMember ? draft.members[0]?.id : undefined}
+      />
       {singleAgent ? (
         <AgentStepList draft={draft} setDraft={setDraft} estimate={estimate} prices={prices} />
       ) : (

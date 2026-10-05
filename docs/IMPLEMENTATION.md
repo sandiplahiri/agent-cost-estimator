@@ -4,6 +4,18 @@ Recorded before implementing calculation behavior.
 
 ## Design
 
+### Edit agent Cost preview: failure cases and independent outcomes
+
+Recorded before implementation. The Cost section reports Expected monthly tokens and token costs for the current draft, before Steps. It uses the canonical calculation and frozen pricing; tools, harness, and suite extras are excluded.
+
+- A selected member must not receive the entire counted entry's usage. In the inventory fixture, Planner A alone has 300,000 input tokens / USD 0.60, 30,000 output tokens / USD 0.24, and USD 0.84 total.
+- Editing workload and adding a second model step must update the preview without applying or persisting the draft. Planner A at 600 monthly invocations with the fixture main and review steps has 1,200,000 input tokens / USD 1.80, 120,000 output tokens / USD 0.72, and USD 2.52 total. Closing without applying must preserve the original estimate.
+- Derived workload must use the actual invocation links, including splitting incoming shares for an individual. Research after the Planner edit has 450 invocations, 450,000 input tokens / USD 0.90, 45,000 output tokens / USD 0.36, and USD 1.26 total.
+- Token cost must exclude other costs: Agent A in the tool/harness fixture has 30,000 input tokens / USD 0.06, 3,000 output tokens / USD 0.024, and USD 0.084 token cost despite USD 21.084 total inventory cost.
+- Missing pricing retains known token counts and labels costs incomplete; missing workload labels both usage and costs incomplete. Explicit zero workload produces complete zeros.
+- Invalid drafts and calculation failures must show an actionable error, preserve unsaved fields, and hide stale numbers. Canceled/older requests must not replace newer previews.
+- Cache reads and writes belong in input cost, billable output in output cost; reuse Decimal line components without new pricing arithmetic or rounding before aggregation. Existing cache/tier and workbook journeys remain applicable.
+
 FastAPI serves a built React/TypeScript app on loopback. SQLite stores versioned estimate JSON and pricing snapshots. A pure Decimal calculation module consumes validated domain records. LiteLLM supplies its bundled catalog offline; explicit refresh retrieves its published catalog. There are no paid model calls. The first detailed workflow is an ordered list of model-call steps with bounded expected repetitions; child agents remain separate rows with inclusive volumes.
 
 The pricing adapter uses LiteLLM's `cache_read_input_token_cost` where present and falls back to `input_cost_per_token_cache_hit` for catalog entries that only provide that field. LiteLLM [documents the latter as a legacy cache-hit field](https://github.com/BerriAI/litellm/issues/28854). The normalized catalog carries a version; older bundled catalogs are rebuilt from the installed LiteLLM package on load. Previously refreshed catalogs need another explicit refresh to pick up this normalization change. Saved estimate price snapshots are never changed by this migration. A save records the draft at the time Save is clicked; edits made during the request remain marked unsaved. Price refresh previews and import validation use the latest draft after their asynchronous work, and reject a preview if the draft changes again before it can be applied. Import preview validates imported rows against the current profile assumptions before enabling replacement.

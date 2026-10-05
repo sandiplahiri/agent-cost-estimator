@@ -1,0 +1,90 @@
+{
+  "command": "npx playwright test e2e/agent-inventory.spec.ts",
+  "pricing": "Synthetic USD 2/M input and USD 8/M output",
+  "assumptions": "Two agents, 30 invocations each/month, 1000 input and 100 output tokens/call, USD 0.50 tool/invocation, USD 6 fixed plus USD 0.10/invocation harness, USD 5 recurring suite extra, USD 100 one-time setup excluded from monthly costs; Low 0.5x volume/0.75x tokens, High 2x volume/1.5x tokens",
+  "expected": {
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "editorTokenCosts": [
+      "30,000",
+      "$0.06",
+      "3,000",
+      "$0.024",
+      "$0.084"
+    ],
+    "scenarioCostsWorkbook": [
+      [
+        9,
+        20,
+        29.063
+      ],
+      [
+        12,
+        35,
+        47.168
+      ],
+      [
+        18,
+        65,
+        83.504
+      ]
+    ]
+  },
+  "actual": {
+    "displayedCosts": {
+      "Low": [
+        "$0.063",
+        "$9.00",
+        "$20.00",
+        "$29.063"
+      ],
+      "Expected": [
+        "$0.168",
+        "$12.00",
+        "$35.00",
+        "$47.168"
+      ],
+      "High": [
+        "$0.504",
+        "$18.00",
+        "$65.00",
+        "$83.504"
+      ]
+    },
+    "editorTokenCosts": [
+      "30,000",
+      "$0.06",
+      "3,000",
+      "$0.024",
+      "$0.084"
+    ],
+    "recalculatedCosts": [
+      [
+        9,
+        20,
+        29.063
+      ],
+      [
+        12,
+        35,
+        47.168
+      ],
+      [
+        18,
+        65,
+        83.504
+      ]
+    ],
+    "model": 0.168,
+    "tools": 30,
+    "harness": 12,
+    "eachAgent": 21.084,
+    "suite": 47.168,
+    "workbookSuite": 47.168
+  },
+  "unpricedModelPartial": true,
+  "failures": []
+}

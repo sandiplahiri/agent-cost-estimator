@@ -151,6 +151,12 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await expect(editor.getByLabel('Agent 1 ID')).toHaveCount(0);
   await expect(editor.getByText('Execution assumptions')).toHaveCount(0);
   await expect(editor.getByRole('region', { name: 'Agent steps' })).toBeVisible();
+  const agentCost = editor.getByRole('region', { name: 'Agent cost' });
+  const readAgentCost = async (values: string[]) => {
+    await expect(agentCost.getByRole('cell')).toHaveText(values);
+    return agentCost.getByRole('cell').allTextContents();
+  };
+  const initialAgentCost = await readAgentCost(['300,000', '$0.60', '30,000', '$0.24', '$0.84']);
   await expect(editor.getByRole('button', { name: 'Step 1 model name: Fixture model' })).toBeVisible();
   await editor.screenshot({ path: path.join(directory, 'edit-agent-panel.png') });
   await editor.getByLabel('Agent name').fill('Planner A tuned');
@@ -165,6 +171,12 @@ test('inventory edits one linked group member and preserves reconciled costs', a
     .getByRole('dialog', { name: 'Choose a model' })
     .getByRole('button', { name: /Fixture review model/ })
     .click();
+  const editedAgentCost = await readAgentCost(['1,200,000', '$1.80', '120,000', '$0.72', '$2.52']);
+  // Previewing must not split or persist the selected member before Apply.
+  const previewDraft = await page.evaluate(() => JSON.parse(localStorage.getItem('agent-ledger-draft-v1')!));
+  expect(previewDraft.agents).toHaveLength(3);
+  expect(previewDraft.agents[0].users_per_day).toBe('1');
+  await agentCost.screenshot({ path: path.join(directory, 'edit-agent-cost.png') });
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(editor).not.toBeVisible();
   await expect(page.getByTestId('cost-expected')).toContainText('$5.12');
@@ -177,6 +189,10 @@ test('inventory edits one linked group member and preserves reconciled costs', a
   await expect(tuned.locator('td').nth(2)).toHaveText('2');
   await expect(tuned.locator('td').nth(5)).toHaveText('2');
   await expect(research.locator('td').nth(3)).toHaveText('2');
+
+  await inventory.getByRole('button', { name: 'Edit Research', exact: true }).click();
+  const derivedAgentCost = await readAgentCost(['450,000', '$0.90', '45,000', '$0.36', '$1.26']);
+  await editor.getByRole('button', { name: 'Close dialog' }).click();
 
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   const monthlySummary = page.getByRole('region', { name: 'Monthly token and cost summary' });
@@ -312,6 +328,11 @@ test('inventory edits one linked group member and preserves reconciled costs', a
           scenarioWorkbookExpected,
           agentCount: 4,
           researchCallers: 2,
+          editorCosts: {
+            initial: ['300,000', '$0.60', '30,000', '$0.24', '$0.84'],
+            edited: ['1,200,000', '$1.80', '120,000', '$0.72', '$2.52'],
+            derived: ['450,000', '$0.90', '45,000', '$0.36', '$1.26'],
+          },
           perAgentMonthlyUsd: {
             'Planner A tuned': 2.52,
             'Planner B': 0.84,
@@ -324,6 +345,7 @@ test('inventory edits one linked group member and preserves reconciled costs', a
           editedMonthlyLlm: editedCost,
           dashboardMonthlySummaryUsd,
           displayedScenarioSummaries,
+          editorCosts: { initial: initialAgentCost, edited: editedAgentCost, derived: derivedAgentCost },
           scenarioWorkbookActual,
           workbookMonthlyLlm: workbookCost,
           agentCount: saved.agents.reduce((sum: number, agent: { count: number }) => sum + agent.count, 0),
@@ -452,6 +474,18 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
   const inventory = page.getByRole('region', { name: 'Agent inventory' });
   await expect(inventory.getByTestId('inventory-total-cost-paired-a')).toHaveText('$21.08/mo');
   await expect(inventory.getByTestId('inventory-total-cost-paired-b')).toHaveText('$21.08/mo');
+  await inventory.getByRole('button', { name: 'Edit Agent A', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
+  const agentCost = editor.getByRole('region', { name: 'Agent cost' });
+  await expect(agentCost.getByRole('cell')).toHaveText(['30,000', '$0.06', '3,000', '$0.024', '$0.084']);
+  const editorTokenCosts = await agentCost.getByRole('cell').allTextContents();
+  await editor.getByLabel('Users per agent per day *').fill('-1');
+  await expect(agentCost.getByRole('alert')).toContainText('greater than or equal to 0');
+  await expect(agentCost.getByRole('cell')).toHaveCount(0);
+  await expect(editor.getByLabel('Agent name')).toHaveValue('Agent A');
+  await editor.getByLabel('Users per agent per day *').fill('0');
+  await expect(agentCost.getByRole('cell')).toHaveText(['0', '$0.00', '0', '$0.00', '$0.00']);
+  await editor.getByRole('button', { name: 'Close dialog' }).click();
   await expect(inventory.locator('tbody tr').first().locator('td').nth(1)).toHaveText(
     'Resolve customer request',
   );
@@ -521,6 +555,15 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
   );
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await expect(page.getByTestId('inventory-total-cost-paired-a')).toHaveText('$21.00/mo (partial)');
+  await page.getByRole('button', { name: 'Edit Agent A', exact: true }).click();
+  await expect(agentCost.getByRole('cell')).toHaveText([
+    '30,000',
+    'Incomplete',
+    '3,000',
+    'Incomplete',
+    'Incomplete',
+  ]);
+  await editor.getByRole('button', { name: 'Close dialog' }).click();
 
   const missingVolume = structuredClone(fixture);
   missingVolume.agents[0].users_per_day = null;
@@ -538,6 +581,10 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
   await expect(summaryTable.getByTestId('monthly-summary-expected-other-costs')).toHaveText(
     '$5.00 (partial)',
   );
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit Agent A', exact: true }).click();
+  await expect(agentCost.getByRole('cell')).toHaveText(Array(5).fill('Incomplete'));
+  await editor.getByRole('button', { name: 'Close dialog' }).click();
   missingVolume.harness.per_invocation = '0';
   await page.evaluate(
     (draft) => localStorage.setItem('agent-ledger-draft-v1', JSON.stringify(draft)),
@@ -574,10 +621,12 @@ test('inventory total includes tool and harness shares, excludes suite extras, a
           harness: 12,
           eachAgent: 21.084,
           suite: 47.168,
+          editorTokenCosts: ['30,000', '$0.06', '3,000', '$0.024', '$0.084'],
           scenarioCostsWorkbook,
         },
         actual: {
           displayedCosts,
+          editorTokenCosts,
           recalculatedCosts,
           model: Number(expected.llm_cost),
           tools: Number(expected.tool_cost),
