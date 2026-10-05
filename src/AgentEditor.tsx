@@ -57,9 +57,9 @@ export function AgentEditor({
   const execution = effective(estimate, draft);
   const hasLinks = estimate.links.some((link) => link.parent_id === row.id || link.child_id === row.id);
   return (
-    <Modal title={singleAgent ? 'Edit agent' : 'Configure agent group'} onClose={onClose} wide>
+    <Modal title="Edit agent" onClose={onClose} wide>
       <div className="form-grid">
-        <Field label={draft.count === 1 ? 'Agent name' : 'Group name'}>
+        <Field label="Agent name">
           <input
             value={draft.name}
             onChange={(e) =>
@@ -165,7 +165,7 @@ export function AgentEditor({
           ? 'This agent receives work from agent links. Daily inputs are retained for recovery and do not change derived volume while links remain.'
           : singleAgent
             ? '* Required for a directly invoked agent. Monthly invocations are calculated from these inputs using 30 days/month.'
-            : '* Required for every direct-volume group. Total monthly invocations per agent are calculated from these inputs using 30 days/month.'}
+            : '* Required for directly invoked agents. Total monthly invocations per agent are calculated from these inputs using 30 days/month.'}
         {draft.volume_source === 'manual' &&
           ' This saved row still uses a legacy manual volume until both daily inputs are entered.'}
       </p>
@@ -425,7 +425,7 @@ export function AgentEditor({
                               })
                             }
                           />
-                          <Field label="Exclusive group (optional)">
+                          <Field label="Exclusive choice (optional)">
                             <input
                               value={call.exclusive_group}
                               onChange={(e) =>
@@ -686,8 +686,8 @@ export function AgentEditor({
       )}
       {hasLinks && (
         <p className="muted small">
-          Linked group members can be customized. Incoming work is divided, and outgoing calls are copied for
-          the new individual. Remove links before deleting the group.
+          Linked agents can be customized individually. Incoming work is divided, and outgoing calls are
+          copied for the customized agent. Remove links before deleting linked agents.
         </p>
       )}
       <div className="modal-actions spread">
@@ -961,7 +961,7 @@ function AgentStepList({
                           onChange={(event) => updateCall(step.id, call.id, { role: event.target.value })}
                         />
                       </Field>
-                      <Field label={`Model ${callIndex + 1} exclusive group`}>
+                      <Field label={`Model ${callIndex + 1} exclusive choice`}>
                         <input
                           value={call.exclusive_group}
                           onChange={(event) =>

@@ -1,0 +1,74 @@
+{
+  "commands": [
+    "npm run build",
+    "npm run check",
+    "npm run test:e2e",
+    "npm run test:e2e -- e2e/agentic.spec.ts --grep 'Linked group members'"
+  ],
+  "results": {
+    "build": "passed",
+    "check": "passed",
+    "initial_e2e": "19 passed; one ambiguous inspector selector failed",
+    "targeted_recheck": "1 passed after scoping the selector to the inspector",
+    "journeys_verified": 20
+  },
+  "changes": "Edit agent modal title on every path; agent terminology in inventory setup, graph, validation messages, generated names, and Excel headings.",
+  "pricing_fixture": "Fixed synthetic Fixture A USD 2/M input and 8/M output, Fixture B USD 1/M input and 4/M output; no provider benchmarks.",
+  "expected": {
+    "completions": 100,
+    "childCompletions": 50,
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.675,
+    "total": 13.305,
+    "loadedPerRoot": 0.13305
+  },
+  "actual": {
+    "completions": 100,
+    "childCompletions": 50,
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.675,
+    "total": 13.305,
+    "loadedPerRoot": 0.13305
+  },
+  "exported": {
+    "model": 0.38,
+    "tools": 1.25,
+    "harness": 11.675,
+    "total": 13.305
+  },
+  "linked_expected": {
+    "scenarioModelCosts": [
+      1.9656,
+      4.032,
+      9.576
+    ],
+    "expectedBeforeCustomization": 4.032,
+    "expectedAfterCustomization": 4.272,
+    "expectedAfterGraphInspector": 3.792,
+    "researchMonthly": 600,
+    "reviewerMonthly": 240
+  },
+  "linked_actual": {
+    "scenarioModelCosts": [
+      1.9656,
+      4.032,
+      9.576
+    ],
+    "expectedBeforeCustomization": 4.032,
+    "expectedAfterCustomization": 4.272,
+    "expectedAfterGraphInspector": 3.792,
+    "researchMonthly": 600,
+    "reviewerMonthly": 240
+  },
+  "calculation_engine": "HyperFormula",
+  "resolved_failures": [
+    "The shorter graph label matched four elements. The existing selector now targets only the selected agent inspector; the affected journey passed."
+  ],
+  "limitations": [
+    "Excel desktop was not automated.",
+    "Persisted schema field names remain compatible with earlier estimates."
+  ],
+  "failures_remaining": []
+}

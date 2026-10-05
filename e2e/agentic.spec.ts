@@ -223,12 +223,12 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await expect(page.getByText('$11.68', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Copy Resolve inquiry' })
     .click();
-  await expect(page.getByRole('dialog', { name: 'Configure agent group' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Edit agent' })).toBeVisible();
   await page
-    .getByRole('dialog', { name: 'Configure agent group' })
+    .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Apply changes' })
     .click();
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
@@ -244,10 +244,11 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     Number(copyResult.scenarios[1].use_case_costs[copiedAgent.id].loaded_cost_per_completion),
   ).toBeCloseTo(0.06, 2);
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Resolve inquiry', exact: true })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
+  await page.screenshot({ path: path.join(artifactDir, 'edit-agent-dialog.png'), fullPage: true });
   await editor.getByLabel('Model invocation probability (0–1)').nth(1).fill('0');
   await editor.getByRole('button', { name: 'Add model to step' }).first().click();
   await editor.getByRole('button', { name: 'Apply changes' }).click();
@@ -529,9 +530,11 @@ test('Linked group members become independently editable without changing graph 
   await page.screenshot({ path: path.join(outputDir, 'graph-workspace.png') });
   await graph.screenshot({ path: path.join(outputDir, 'graph-before.png') });
   await graph.getByRole('button', { name: 'Select agent Research group' }).click();
-  await expect(graph.getByText('2 agents in this group')).toBeVisible();
+  await expect(
+    graph.locator('.graph-inspector-agent').getByText('2 agents · Volume from callers'),
+  ).toBeVisible();
   await graph.getByRole('button', { name: 'Customize one agent' }).click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await expect(editor.getByLabel('Agent name')).toHaveValue('Research group 2');
   await expect(page.getByTestId('cost-expected')).toContainText('$4.03');
   await editor.getByLabel('Agent name').fill('Research tuned');

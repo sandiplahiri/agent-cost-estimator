@@ -44,10 +44,10 @@ test('custom category deletion is blocked by draft and saved agents, then remove
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
-  const modelEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const modelEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
   await page
     .getByRole('dialog', { name: 'Choose a model' })
@@ -56,10 +56,10 @@ test('custom category deletion is blocked by draft and saved agents, then remove
   await modelEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await editor.getByLabel('Complexity').selectOption('Archive heavy');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.36/mo');
@@ -107,7 +107,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
     .click();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
   await editor.getByLabel('Complexity').selectOption('simple');

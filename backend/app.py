@@ -208,9 +208,9 @@ def sensitivity(request: SensitivityRequest):
     changed = original.model_copy(deep=True)
     row = next((item for item in changed.agents if item.id == request.row_id), None)
     if row is None:
-        raise HTTPException(422, "Choose an agent group that is still in this estimate.")
+        raise HTTPException(422, "Choose an agent that is still in this estimate.")
     if row.count == 0:
-        raise HTTPException(422, "Choose an agent group with at least one agent.")
+        raise HTTPException(422, "Choose an entry with at least one agent.")
     if request.field in ("users_per_day", "invocations_per_user_per_agent_per_day"):
         if row.volume_source != "daily_users":
             raise HTTPException(422, "This agent uses legacy monthly volume.")

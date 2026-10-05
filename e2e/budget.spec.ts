@@ -50,10 +50,10 @@ async function chooseModel(page: Page, locator: ReturnType<Page['getByRole']>, n
 async function assignGroupModel(page: Page, groupName: string, modelName = 'Fixture A') {
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: `Edit ${groupName}` })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await chooseModel(page, editor.getByRole('button', { name: /^Model:/ }), modelName);
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(editor).not.toBeVisible();
@@ -218,15 +218,15 @@ test('Top agents by cost follows scenario and individual edits and reconciles wi
 
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents', exact: true })
     .click();
   await page
-    .getByRole('dialog', { name: 'Configure agent group' })
+    .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Customize one agent', exact: true })
     .click();
   await page
-    .getByRole('dialog', { name: 'Configure agent group' })
+    .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Apply changes' })
     .click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$16.32/mo');
@@ -258,10 +258,10 @@ test('Top agents by cost follows scenario and individual edits and reconciles wi
   engine.destroy();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agent 2', exact: true })
     .click();
-  const individualEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const individualEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await individualEditor.getByLabel('Output tokens / call', { exact: true }).fill('0');
   await individualEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$12.24/mo');
@@ -544,7 +544,7 @@ test('Agent links derive pooled child volume, preserve scenarios, and export a r
   await expect(page.getByLabel('Researcher users per day')).toBeDisabled();
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
 
-  await graph.getByLabel('Child agent/group').selectOption('reviewer');
+  await graph.getByLabel('Child agent').selectOption('reviewer');
   await graph.getByLabel('Trigger probability (0–1)').fill('0.25');
   await graph.getByRole('button', { name: 'Preview link change' }).click();
   await expect(graph.getByRole('status')).toContainText('30 → 75');
@@ -1053,8 +1053,11 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
     },
   });
 
-  await page.getByRole('button', { name: 'Add group' }).click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  await page
+    .getByRole('region', { name: 'Agent setup' })
+    .getByRole('button', { name: 'Add agent', exact: true })
+    .click();
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await editor.getByLabel('Agent name').fill('Another simple group');
   await editor.getByLabel('Users per agent per day *').fill('1');
   await editor.getByLabel('Invocations per user per agent per day *').fill('1');
@@ -1089,10 +1092,10 @@ test('Daily users derive per-agent monthly volume across all complexity groups',
   await addModel(page, 'Fixture B', '4', '10');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Another simple group' })
     .click();
-  const mixedEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const mixedEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await chooseModel(page, mixedEditor.getByRole('button', { name: 'Model: Fixture A' }), 'Fixture B');
   await mixedEditor.getByRole('button', { name: 'Apply changes' }).click();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
@@ -1149,24 +1152,24 @@ test('Individual overrides, zero output, detailed replacement and incomplete pri
   await setup(page);
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents', exact: true })
     .click();
   await page
-    .getByRole('dialog', { name: 'Configure agent group' })
+    .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Customize one agent', exact: true })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await expect(editor.getByLabel('Agent name')).toHaveValue('Simple agent 2');
   await editor.getByLabel('Output tokens / call', { exact: true }).fill('0');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$12.24/mo');
-  await expect(page.getByRole('region', { name: 'Agent groups' }).locator('.count-chip')).toHaveText(
+  await expect(page.getByRole('region', { name: 'Agent setup' }).locator('.count-chip')).toHaveText(
     '2 agents',
   );
 
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents', exact: true })
     .click();
   await page.getByRole('button', { name: 'Use detailed workflow' }).click();
@@ -1184,7 +1187,7 @@ test('Individual overrides, zero output, detailed replacement and incomplete pri
   });
 
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agent 2', exact: true })
     .click();
   await editor.getByLabel('Cached read fraction', { exact: true }).fill('0.5');
@@ -1196,7 +1199,7 @@ test('Individual overrides, zero output, detailed replacement and incomplete pri
     'Incomplete LLM cost',
   );
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Agent groups' }).locator('.count-chip')).toHaveText(
+  await expect(page.getByRole('region', { name: 'Agent setup' }).locator('.count-chip')).toHaveText(
     '2 agents',
   );
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1293,7 +1296,7 @@ test('Spreadsheet import, literal text export, invalid import recovery and unpri
   await page.getByLabel('Import agent spreadsheet').setInputFiles(large);
   await page.getByRole('button', { name: 'Replace inventory' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$244.80/mo');
-  await expect(page.getByRole('region', { name: 'Agent groups' }).locator('.count-chip')).toHaveText(
+  await expect(page.getByRole('region', { name: 'Agent setup' }).locator('.count-chip')).toHaveText(
     '300 agents',
   );
   records.push({
@@ -1440,10 +1443,10 @@ test('Request-level tiers and cache partitions reconcile in the app and workbook
   });
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Tiered agent', exact: true })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await editor.getByLabel('Cached read fraction', { exact: true }).fill('0.9');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(editor.getByRole('alert')).toContainText('cannot exceed 100%');

@@ -399,13 +399,13 @@ export default function App() {
       member_id: memberId,
     });
     if (estimateRef.current !== base)
-      throw new Error('The estimate changed. Review the group and try again.');
+      throw new Error('The estimate changed. Review the agent and try again.');
     setUndo(clone(base));
     setEstimate(split.estimate);
     setIsSaved(false);
     setEditing(split.estimate.agents.find((row) => row.id === split.individual_id) || null);
     setNotice(
-      'One agent is now independent. Group count, invocation links, and total workload are preserved until you change its assumptions.',
+      'The agent can now be edited independently. Agent count, invocation links, and total workload are preserved until you change its assumptions.',
     );
     return split.individual_id;
   }
@@ -900,13 +900,13 @@ export default function App() {
                 onAdd={startNewAgent}
                 busy={!!busy}
               />
-              <section className="panel suite-panel" aria-label="Agent groups">
+              <section className="panel suite-panel" aria-label="Agent setup">
                 <div className="section-heading">
                   <div>
                     <h2>
-                      Agent inventory <span className="count-chip">{totalAgents} agents</span>
+                      Agent setup <span className="count-chip">{totalAgents} agents</span>
                     </h2>
-                    <p>Group similar agents. Refine the exceptions.</p>
+                    <p>Set up agents and their workload. Customize each agent as needed.</p>
                   </div>
                   <div className="button-row">
                     <a className="button subtle" href="/api/import/template">
@@ -969,14 +969,14 @@ export default function App() {
                         onClick={() =>
                           setEditing({
                             id: id(),
-                            name: uniqueAgentName('New agent group', estimate),
+                            name: uniqueAgentName('New agent', estimate),
                             description: '',
                             use_case_name: '',
                             use_case_description: '',
                             members: [
                               {
                                 id: id(),
-                                name: uniqueAgentName('New agent group', estimate),
+                                name: uniqueAgentName('New agent', estimate),
                                 business_use_case_description: pendingUseCase,
                               },
                             ],
@@ -994,25 +994,25 @@ export default function App() {
                         }
                       >
                         <Plus size={14} />
-                        Add group
+                        Add agent
                       </button>
                     </div>
                     <p className="volume-note">
-                      * Required for direct daily-volume groups. Their monthly invocations per agent = users
-                      per day × invocations per user per agent per day × 30 days. Derived groups receive work
-                      from agent links; their total is pooled across the group count.
+                      * Required for directly invoked agents. Monthly invocations per agent = users per day ×
+                      invocations per user per agent per day × 30 days. Linked agents receive work from
+                      callers; that work is divided evenly among agents sharing these assumptions.
                     </p>
                     {missingDaily.length > 0 && (
                       <p className="volume-note invalid-text" role="alert">
-                        Complete both required daily inputs for {missingDaily.length} group
-                        {missingDaily.length === 1 ? '' : 's'} before saving or exporting.
+                        Complete both required daily inputs for {missingDaily.length} agent setup{' '}
+                        {missingDaily.length === 1 ? 'entry' : 'entries'} before saving or exporting.
                       </p>
                     )}
                     <div className="table-scroll">
                       <table className="agent-table">
                         <thead>
                           <tr>
-                            <th>AGENT / GROUP</th>
+                            <th>AGENT</th>
                             <th>COUNT</th>
                             <th>USERS / AGENT / DAY *</th>
                             <th>INVOCATIONS / USER / AGENT / DAY *</th>
@@ -2093,7 +2093,7 @@ export default function App() {
               const base = estimateRef.current;
               const source = base?.agents.find((item) => item.id === row.id);
               if (!base || !source || !source.members.some((item) => item.id === editingMemberId))
-                throw new Error('The agent group changed. Reopen this agent and try again.');
+                throw new Error('The agent changed. Reopen it and try again.');
               const individual = {
                 ...clone(source),
                 ...row,

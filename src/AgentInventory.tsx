@@ -71,7 +71,7 @@ export function AgentInventory({
                 setPage(0);
               }}
             />
-            <span>Caller and callee counts include unique agent identities, including group members.</span>
+            <span>Caller and callee counts include all unique agent identities.</span>
             <span>
               Expected monthly models, tools, and allocated harness. Suite extras and unallocated fixed
               harness stay at suite level.

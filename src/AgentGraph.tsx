@@ -445,14 +445,14 @@ export function AgentGraph({
               </span>
               <p>{selected.use_case_name || 'Name the business use case this agent completes.'}</p>
               <p className="muted small">
-                {selected.count === 1 ? 'Individual agent' : `${selected.count} agents in this group`} ·{' '}
+                {selected.count === 1 ? 'Individual agent' : `${selected.count} agents`} ·{' '}
                 {selected.volume_source === 'derived' ? 'Volume from callers' : 'Direct volume'}
               </p>
               {selected.count !== 1 ? (
                 <p className="muted small">
                   {selected.count === 0
-                    ? 'This group has no agents. Edit the group to add members.'
-                    : 'This node is a group. Customize one agent to give it its own model, workload, and use case. Editing the group changes every remaining member.'}
+                    ? 'No agents are defined here. Edit this entry to add agents.'
+                    : 'Customize one agent to edit its model, workload, and use case. Editing all agents applies the settings to each listed agent.'}
                 </p>
               ) : (
                 <div className="graph-agent-settings" aria-label="Selected agent settings">
@@ -723,7 +723,7 @@ export function AgentGraph({
             )}
             <div className="form-grid two">
               <label className="field">
-                <span>Caller agent/group</span>
+                <span>Caller agent</span>
                 <select
                   value={parentId}
                   disabled={!!editingId}
@@ -737,7 +737,7 @@ export function AgentGraph({
                 </select>
               </label>
               <label className="field">
-                <span>Child agent/group</span>
+                <span>Child agent</span>
                 <select
                   value={childId}
                   disabled={!!editingId}
@@ -785,7 +785,7 @@ export function AgentGraph({
               </label>
             </div>
             <label className="field">
-              <span>Exclusive branch group (optional)</span>
+              <span>Exclusive branch (optional)</span>
               <input
                 value={form.branch_group}
                 onChange={(event) => change({ branch_group: event.target.value })}

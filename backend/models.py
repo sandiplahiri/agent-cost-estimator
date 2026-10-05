@@ -387,7 +387,7 @@ class Estimate(Record):
             if row.volume_source == "derived" and incoming[row.id] == 0:
                 raise ValueError(f"{row.name}: derived volume needs at least one incoming agent link.")
             if row.volume_source == "derived" and row.count == 0:
-                raise ValueError(f"{row.name}: a derived group needs at least one agent to receive work.")
+                raise ValueError(f"{row.name}: at least one agent is required to receive linked work.")
         degrees = incoming.copy()
         ready = [row.id for row in self.agents if degrees[row.id] == 0]
         seen = 0

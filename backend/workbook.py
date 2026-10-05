@@ -94,7 +94,7 @@ def import_template():
         ),
         (
             "Agent identity",
-            "A count-one row may provide agent_id; otherwise a unique ID is generated. Counted groups generate one named, identified member per agent. Edit individual identities in the app. A missing description is labeled pending definition.",
+            "A count-one row may provide agent_id; otherwise a unique ID is generated. An entry with count greater than one generates a distinct name and ID for each agent. Edit individual identities in the app. A missing description is labeled pending definition.",
         ),
         ("model_id", "Exact catalog or custom model ID for this agent. Blank leaves pricing incomplete."),
         (
@@ -112,7 +112,7 @@ def import_template():
         ("Overrides", "Blank execution cells inherit the profile. Zero is an explicit override."),
         (
             "Ownership",
-            "Each row is a disjoint direct-volume group. This import replaces the current agent list and its links after preview. Derived links must be rebuilt in the app.",
+            "Each row defines directly invoked agents with shared execution assumptions; count each agent once. This import replaces the current agent list and its links after preview. Derived links must be rebuilt in the app.",
         ),
         (
             "Complexity",
@@ -231,7 +231,7 @@ def export_estimate(estimate: Estimate):
     calc = wb.create_sheet("Calculations")
     columns = [
         "Scenario",
-        "Agent/group",
+        "Agent",
         "Step",
         "Model",
         "Count",
@@ -394,7 +394,9 @@ def export_estimate(estimate: Estimate):
             ],
         )
     identities = wb.create_sheet("Agent identities")
-    literal(identities, ["Group ID", "Group name", "Agent ID", "Agent name", "Business use case description"])
+    literal(
+        identities, ["Source ID", "Source name", "Agent ID", "Agent name", "Business use case description"]
+    )
     for row in estimate.agents:
         for member in row.members:
             literal(
@@ -404,7 +406,7 @@ def export_estimate(estimate: Estimate):
     literal(
         volume,
         [
-            "Agent/group",
+            "Agent",
             "Complexity",
             "Agent count",
             "Volume source",
@@ -451,9 +453,9 @@ def export_estimate(estimate: Estimate):
         links,
         [
             "Scenario",
-            "Parent agent/group",
-            "Child agent/group",
-            "Branch group",
+            "Caller agent",
+            "Child agent",
+            "Exclusive branch",
             "Trigger probability",
             "Child invocations per trigger",
             "Parent invocations/month (precomputed)",

@@ -24,15 +24,15 @@ test('suite members receive editable identities that survive save and Excel expo
   await expect(page.getByLabel('Simple agents total monthly invocations all agents')).toHaveText('60');
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await page.getByRole('button', { name: 'Select agent Medium agents' }).click();
-  await expect(page.getByText('This group has no agents. Edit the group to add members.')).toBeVisible();
+  await expect(page.getByText('No agents are defined here. Edit this entry to add agents.')).toBeVisible();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
 
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await expect(editor.getByLabel('Agent 1 name')).toHaveValue('Simple agent 1');
   await expect(editor.getByLabel('Agent 2 name')).toHaveValue('Simple agent 2');
   await expect(editor.getByLabel('Agent 1 business use case description')).toHaveValue(
@@ -87,7 +87,7 @@ test('suite members receive editable identities that survive save and Excel expo
     .getByRole('button', { name: /Identity fixture/ })
     .click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
   await expect(page.getByRole('dialog').getByLabel('Agent 1 ID')).toHaveValue('triage-1');
@@ -108,10 +108,10 @@ test('suite members receive editable identities that survive save and Excel expo
   expect(sheet.getCell('C3').value).toBe('draft-2');
 
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
-  const duplicate = page.getByRole('dialog', { name: 'Configure agent group' });
+  const duplicate = page.getByRole('dialog', { name: 'Edit agent' });
   await duplicate.getByLabel('Agent 2 ID').fill('triage-1');
   await duplicate.getByRole('button', { name: 'Apply changes' }).click();
   await expect(duplicate.getByRole('alert')).toContainText('Agent IDs must be unique');

@@ -11,13 +11,13 @@ def split_agent(
 ) -> tuple[Estimate, str]:
     source = next((row for row in estimate.agents if row.id == row_id), None)
     if source is None:
-        raise ValueError("Choose an existing agent group to customize.")
+        raise ValueError("Choose an existing agent to customize.")
     if source.count < 2:
         raise ValueError(f"{source.name}: at least two agents are required to customize one member.")
     if individual is not None and individual.id != source.id:
-        raise ValueError("The customized agent must come from the selected group.")
+        raise ValueError("The customized agent must match the selected entry.")
     if member_id is not None and not any(member.id == member_id for member in source.members):
-        raise ValueError("Choose an agent that belongs to this group.")
+        raise ValueError("Choose an agent listed in this entry.")
 
     next_estimate = estimate.model_copy(deep=True)
     group = next(row for row in next_estimate.agents if row.id == row_id)

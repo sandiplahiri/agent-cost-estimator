@@ -83,10 +83,10 @@ test('global custom category is assignable and reconciles through save, import a
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
-  const modelEditor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const modelEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
   await page
     .getByRole('dialog', { name: 'Choose a model' })
@@ -96,14 +96,14 @@ test('global custom category is assignable and reconciles through save, import a
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.48/mo');
 
   await page
-    .getByRole('region', { name: 'Agent groups' })
+    .getByRole('region', { name: 'Agent setup' })
     .getByRole('button', { name: 'Edit Simple agents' })
     .click();
   await page
-    .getByRole('dialog', { name: 'Configure agent group' })
+    .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Customize one agent' })
     .click();
-  const editor = page.getByRole('dialog', { name: 'Configure agent group' });
+  const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await expect(editor.getByLabel('Agent name')).toHaveValue('Simple agent 2');
   await editor.getByLabel('Complexity').selectOption('Research intensive');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
