@@ -1,0 +1,27 @@
+{
+  "verification": "Browser inspection using the frozen linked-agent fixture; no new title-only regression test added.",
+  "steps": [
+    "Open Agent inventory",
+    "Click Add agent",
+    "Inspect dialog title and close without applying",
+    "Click Edit Planner A",
+    "Inspect dialog title and close without applying"
+  ],
+  "expected": {
+    "creationTitle": "Add agent",
+    "existingTitle": "Edit agent",
+    "rowsAfterCancel": 4
+  },
+  "actual": {
+    "creationTitle": "Add agent",
+    "existingTitle": "Edit agent",
+    "rowsAfterCancel": 4
+  },
+  "checks": {
+    "build": "passed",
+    "codeCheck": "passed",
+    "inventoryE2E": "2 passed"
+  },
+  "numericVerification": "Companion E2E reports verify USD 5.124 linked-suite LLM cost and USD 47.168 total including extras, with Excel formula recalculation.",
+  "failures": []
+}

@@ -70,6 +70,8 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 ## Confirmed requirements
 
+**Agent inventory creation dialog (confirmed 2026-10-04):** Clicking **Add agent** in Agent inventory opens a dialog titled **Add agent**. Opening an existing agent continues to show **Edit agent**, including an individual sharing stored execution assumptions. Determine creation from whether the draft agent exists in the estimate, without adding persisted UI state.
+
 **Per-step Cost section (confirmed 2026-10-04):** Add the same **Cost** section to every step in an agent: Expected monthly input/output token counts and costs, plus total token cost in USD. Use each step's contribution to the current draft's canonical calculation, including conditional model calls, step probabilities, and retry/cache assumptions. Step costs reconcile to the agent token total and remain visible without expanding execution details. Missing pricing/workload and calculation failures retain the same incomplete/error treatment as the agent summary.
 
 - Support cost estimates for a single agent through a suite of agents.
