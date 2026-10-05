@@ -70,6 +70,14 @@ This brief records the discovery interview. Confirmed requirements are distingui
 
 ## Confirmed requirements
 
+**Bulk add button (confirmed 2026-10-05):** Display **+ Bulk add** as a filled button beside Add agent, with the same sizing and a different color. Use a plus icon and blue background while Add agent remains dark green. This supersedes the earlier link styling; the action still opens the existing bulk suite setup dialog.
+
+**Agent inventory simplification (confirmed 2026-10-04):** Remove the Agent setup section and its duplicate settings table. Keep the upper Agents inventory and its creation, template, JSON, and spreadsheet actions. Edit individual agents from the inventory; shared entries and invocation relationships remain editable through the agent suite graph.
+
+**Agents actions (confirmed 2026-10-04):** Rename **Bulk create** to **Bulk add**. Move Template, Export JSON, Import JSON, and spreadsheet Import from Agent setup into the upper Agents section, alongside Bulk add and Add agent. Remove the duplicate Add agent action in Agent setup. Keep row-specific controls with their entries and preserve the existing import validation, export snapshots, and bulk replacement behavior.
+
+**Bulk creation entry point (confirmed 2026-10-04):** Rename **Quick setup** to **Bulk create** and move the action from Agent setup to the upper **Agents** section, beside Add agent. Style it as a link while retaining button semantics because it opens the existing suite setup dialog. Keep it available when the inventory is empty; preserve the existing bulk creation behavior.
+
 **Agent inventory creation dialog (confirmed 2026-10-04):** Clicking **Add agent** in Agent inventory opens a dialog titled **Add agent**. Opening an existing agent continues to show **Edit agent**, including an individual sharing stored execution assumptions. Determine creation from whether the draft agent exists in the estimate, without adding persisted UI state.
 
 **Per-step Cost section (confirmed 2026-10-04):** Add the same **Cost** section to every step in an agent: Expected monthly input/output token counts and costs, plus total token cost in USD. Use each step's contribution to the current draft's canonical calculation, including conditional model calls, step probabilities, and retry/cache assumptions. Step costs reconcile to the agent token total and remain visible without expanding execution details. Missing pricing/workload and calculation failures retain the same incomplete/error treatment as the agent summary.

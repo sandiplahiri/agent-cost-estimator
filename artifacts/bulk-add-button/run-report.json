@@ -1,0 +1,23 @@
+{
+  "change": "Bulk add uses a plus icon and blue filled button, matching the Add agent button sizing.",
+  "commands": [
+    "npm run build",
+    "npm run check",
+    "npx playwright test e2e/budget.spec.ts -g 'Daily users derive per-agent monthly volume'"
+  ],
+  "results": {
+    "build": "passed",
+    "codeChecks": "passed",
+    "bulkAddJourney": "passed"
+  },
+  "fixture": "daily-volume-fixture.json; fixed Fixture A USD 2/M input, USD 8/M output.",
+  "numericalEvidence": "verification.json records independent expected and actual cost, invocation and Excel totals.",
+  "workbooks": [
+    "daily-volume-budget.xlsx",
+    "mixed-model-category-budget.xlsx"
+  ],
+  "limitations": [
+    "Excel formulas recalculated with HyperFormula; Excel desktop not automated."
+  ],
+  "failures": []
+}

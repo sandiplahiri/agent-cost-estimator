@@ -1,3 +1,4 @@
+import { openAgentEditor } from './agent-editing';
 import { expect, test } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import { HyperFormula } from 'hyperformula';
@@ -34,7 +35,10 @@ test('custom category deletion is blocked by draft and saved agents, then remove
   await expect(page.locator('.profile-card')).toHaveCount(4);
 
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent inventory', exact: true })
+    .getByRole('button', { name: 'Bulk add', exact: true })
+    .click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('1');
   await quick.getByLabel('Simple agents', { exact: true }).fill('1');
@@ -43,10 +47,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
   await quick.getByLabel('Simple users per agent per day *').fill('1');
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   const modelEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
   await page
@@ -55,10 +56,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
     .click();
   await modelEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await editor.getByLabel('Complexity').selectOption('Archive heavy');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
@@ -106,10 +104,7 @@ test('custom category deletion is blocked by draft and saved agents, then remove
     .getByRole('button', { name: /Category deletion fixture/ })
     .click();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   await editor.getByLabel('Complexity').selectOption('simple');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.24/mo');

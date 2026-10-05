@@ -1,0 +1,284 @@
+{
+  "executedAt": "2026-10-05T03:56:11.270Z",
+  "command": "npm run test:e2e",
+  "prerequisites": "npm run build and npm run check completed before this run.",
+  "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
+  "note": "Workbook formulas independently recalculated with HyperFormula; Excel desktop UI was not automated.",
+  "checks": [
+    {
+      "journey": "Daily volume for simple, medium, and high groups survives save and Excel export",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/daily-volume-budget.xlsx",
+      "expected": {
+        "daysPerMonth": 30,
+        "perAgentVolumes": [
+          180,
+          60,
+          60
+        ],
+        "categoryTotals": [
+          360,
+          60,
+          60
+        ],
+        "monthlyTokens": [
+          918000,
+          1764000,
+          11220000
+        ],
+        "dailyTokens": [
+          30600,
+          58800,
+          374000
+        ],
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
+      },
+      "actual": {
+        "perAgentVolumes": [
+          180,
+          60,
+          60
+        ],
+        "categoryTotals": [
+          360,
+          60,
+          60
+        ],
+        "monthlyTokens": [
+          918000,
+          1764000,
+          11220000
+        ],
+        "dailyTokens": [
+          30600,
+          58800,
+          374000
+        ],
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
+      }
+    },
+    {
+      "journey": "Daily spreadsheet import without manual fallback",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/daily-volume-import.xlsx",
+      "expected": {
+        "monthlyInvocationsPerAgent": 180,
+        "monthlyUsd": 1.4688,
+        "manualFallback": 0
+      },
+      "actual": {
+        "monthlyInvocationsPerAgent": 180,
+        "monthlyUsd": 1.4688,
+        "manualFallback": 0
+      }
+    },
+    {
+      "journey": "Category total sums multiple simple groups and updates with agent count",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/daily-volume-import.xlsx",
+      "expected": {
+        "categoryInvocations": 240,
+        "monthlyUsd": 1.9584
+      },
+      "actual": {
+        "categoryInvocations": 240,
+        "monthlyUsd": 1.9584
+      }
+    },
+    {
+      "journey": "Two models with different rates in one category",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/mixed-model-category-budget.xlsx",
+      "expected": {
+        "suiteUsd": 2.2644,
+        "categoryUsd": 2.2644,
+        "dailyCategoryUsd": 0.07548,
+        "dailyInputUsd": 0.0408,
+        "modelBInputTokens": 122400
+      },
+      "actual": {
+        "suiteUsd": 2.2644,
+        "categoryUsd": 2.2644,
+        "dailyCategoryUsd": 0.07548,
+        "dailyInputUsd": 0.0408,
+        "modelBInputTokens": 122400
+      }
+    },
+    {
+      "journey": "Split + zero override + detailed replacement",
+      "evidence": "Browser interactions",
+      "expected": 12.08,
+      "actual": 12.08
+    },
+    {
+      "journey": "Spreadsheet import and recovery",
+      "evidence": "agent-import.xlsx, invalid-import.xlsx, invalid-cache-import.xlsx, literal-text-budget.xlsx",
+      "expected": "No partial mutation; names remain text; invalid merged cache fractions identified at row 2; unpriced rows flagged",
+      "actual": "Verified through browser and exported workbook"
+    },
+    {
+      "journey": "Hundreds of agents",
+      "evidence": "300-agents-import.xlsx",
+      "expected": 244.8,
+      "actual": 244.8
+    },
+    {
+      "journey": "Per-call context tiers + cache reads/writes",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/tier-cache-budget.xlsx",
+      "expected": {
+        "scenarios": [
+          2.8725,
+          3.83,
+          11.43
+        ],
+        "components": [
+          2,
+          0.25,
+          1.5,
+          0.08
+        ],
+        "thresholdPreviewUsd": 7.6200375,
+        "thresholdDeltaUsd": 3.7900375
+      },
+      "actual": {
+        "scenarios": [
+          2.8725,
+          3.83,
+          11.43
+        ],
+        "components": [
+          2,
+          0.25,
+          1.5,
+          0.08
+        ],
+        "thresholdPreviewUsd": 7.6200375,
+        "thresholdDeltaUsd": 3.7900375
+      }
+    },
+    {
+      "journey": "Concurrent draft edits during save and refresh",
+      "evidence": "Browser interactions and saved estimate API",
+      "expected": [
+        "Before save",
+        "Edited while refreshing",
+        "Browser draft"
+      ],
+      "actual": [
+        "Before save",
+        "Edited while refreshing",
+        "Browser draft"
+      ]
+    },
+    {
+      "journey": "Bundled cache-hit price fallback",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/cache-hit-budget.xlsx",
+      "expected": 0.59976,
+      "actual": 0.59976
+    },
+    {
+      "journey": "Gemini cached-read pricing and missing cache-write recovery",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/gemini-cache-budget.xlsx",
+      "expected": {
+        "noCache": 3.4425,
+        "cachedRead": 2.754,
+        "missingCacheWrite": "Incomplete"
+      },
+      "actual": {
+        "cachedRead": 2.754,
+        "workbook": 2.754
+      }
+    },
+    {
+      "journey": "Replace prefilled numeric values with mouse and keyboard focus",
+      "evidence": "artifacts/numeric-replacement.png",
+      "expected": {
+        "totalCount": 3,
+        "inputTokens": 3000,
+        "usersPerDay": 25,
+        "invocationsPerAgentPerMonth": 750,
+        "volumeFactor": 0.5,
+        "monthlyUsd": 7.65
+      },
+      "actual": {
+        "totalCount": 3,
+        "inputTokens": 3000,
+        "usersPerDay": 25,
+        "invocationsPerAgentPerMonth": 750,
+        "volumeFactor": 0.5,
+        "monthlyUsd": 7.65,
+        "displayedMonthlyUsd": "$7.65/mo"
+      }
+    }
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "schema_version": 8,
+  "defaults_version": 1,
+  "id": "11b2cad6-e09e-46d5-a2a9-318edb6d5260",
+  "name": "Delegated work fixture",
+  "notes": "",
+  "profiles": {
+    "simple": {
+      "calls": "1",
+      "input_tokens": "2000",
+      "output_tokens": "500",
+      "retry_rate": "0.02",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "medium": {
+      "calls": "4",
+      "input_tokens": "6000",
+      "output_tokens": "1000",
+      "retry_rate": "0.05",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    },
+    "high": {
+      "calls": "10",
+      "input_tokens": "15000",
+      "output_tokens": "2000",
+      "retry_rate": "0.10",
+      "cache_fraction": "0",
+      "cache_write_fraction": "0"
+    }
+  },
+  "agents": [
+    {
+      "id": "planner",
+      "name": "Planner",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "planner",
+          "name": "Planner",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "daily_users",
+      "prior_volume_source": null,
+      "users_per_day": "10",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "Graph Fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "researcher",
+      "name": "Researcher",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "f3a53ea6-3065-5142-992a-b0e32e0bd340",
+          "name": "Researcher 1",
+          "business_use_case_description": "Business use case pending description"
+        },
+        {
+          "id": "988d7f32-ea6a-560d-846c-8cbe86cc17ee",
+          "name": "Researcher 2",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 2,
+      "invocations": "0",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "Graph Fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    },
+    {
+      "id": "reviewer",
+      "name": "Reviewer",
+      "description": "",
+      "use_case_name": "",
+      "use_case_description": "",
+      "members": [
+        {
+          "id": "reviewer",
+          "name": "Reviewer",
+          "business_use_case_description": "Business use case pending description"
+        }
+      ],
+      "complexity": "simple",
+      "count": 1,
+      "invocations": "0",
+      "volume_source": "derived",
+      "prior_volume_source": "daily_users",
+      "users_per_day": "1",
+      "invocations_per_user_per_agent_per_day": "1",
+      "overrides": {
+        "calls": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "retry_rate": null,
+        "cache_fraction": null,
+        "cache_write_fraction": null,
+        "model_id": "Graph Fixture"
+      },
+      "steps": [],
+      "tool_costs": []
+    }
+  ],
+  "links": [
+    {
+      "id": "ad2024bd-b509-4b16-a6e1-cafcceea9844",
+      "parent_id": "planner",
+      "child_id": "researcher",
+      "step_id": null,
+      "trigger_probability": "0.6",
+      "invocations_per_trigger": "2",
+      "branch_group": "",
+      "branch_event_id": null,
+      "low": {
+        "trigger_probability": "0.2",
+        "invocations_per_trigger": null
+      },
+      "high": {
+        "trigger_probability": "1",
+        "invocations_per_trigger": null
+      }
+    },
+    {
+      "id": "37aece68-f38e-4ddc-a570-20cc488bfa8f",
+      "parent_id": "planner",
+      "child_id": "reviewer",
+      "step_id": null,
+      "trigger_probability": "0.25",
+      "invocations_per_trigger": "1",
+      "branch_group": "",
+      "branch_event_id": null,
+      "low": {
+        "trigger_probability": null,
+        "invocations_per_trigger": null
+      },
+      "high": {
+        "trigger_probability": null,
+        "invocations_per_trigger": null
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Low",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "0.75",
+      "output_factor": "0.75",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "Expected",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1",
+      "output_factor": "1",
+      "retry_factor": "1",
+      "model_id": null
+    },
+    {
+      "name": "High",
+      "volume_factor": "1",
+      "calls_factor": "1",
+      "input_factor": "1.5",
+      "output_factor": "1.5",
+      "retry_factor": "1",
+      "model_id": null
+    }
+  ],
+  "prices": {
+    "Graph Fixture": {
+      "id": "Graph Fixture",
+      "provider": "Synthetic provider",
+      "source_type": "vendor_api",
+      "channel": "",
+      "region": "",
+      "currency": "USD",
+      "fx_to_usd": "1",
+      "fx_source": "",
+      "fx_retrieved_at": "",
+      "input": "2",
+      "output": "8",
+      "cache_read": null,
+      "cache_write": null,
+      "tiers": [],
+      "max_input": null,
+      "max_output": null,
+      "source": "Fixed E2E fixture; not provider prices",
+      "retrieved_at": "2026-01-01T00:00:00Z",
+      "custom": true,
+      "unsupported": []
+    }
+  },
+  "additional_costs": [],
+  "harness": {
+    "name": "Agent harness",
+    "harness_type": "none",
+    "fixed_monthly": "0",
+    "per_invocation": "0",
+    "per_step_execution": "0",
+    "allocation": "by_invocations",
+    "include_in_cost_per_use_case": true
+  }
+}

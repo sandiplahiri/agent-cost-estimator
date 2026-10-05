@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { FileSpreadsheet, Plus, Upload } from 'lucide-react';
 import { displayVolume, money, type AgentRow, type Estimate, type ScenarioResult } from './types';
 
 const pageSize = 50;
@@ -9,14 +9,24 @@ export function AgentInventory({
   expected,
   onEdit,
   onAdd,
+  onBulkAdd,
+  onExportJson,
+  onImportJson,
+  onImportSpreadsheet,
   busy,
 }: {
   estimate: Estimate;
   expected?: ScenarioResult;
   onEdit: (row: AgentRow, memberId: string) => void;
   onAdd: () => void;
+  onBulkAdd: () => void;
+  onExportJson: () => void;
+  onImportJson: (file: File) => void;
+  onImportSpreadsheet: (file: File) => void;
   busy: boolean;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const jsonFileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const rows = estimate.agents.flatMap((row) => row.members.map((member) => ({ row, member })));
@@ -52,12 +62,53 @@ export function AgentInventory({
           </h2>
           <p>Each row is one agent. Open a row to edit its use case, steps, models, and workload.</p>
         </div>
-        <button className="button dark" onClick={onAdd} disabled={busy}>
-          <Plus size={16} /> Add agent
-        </button>
+        <div className="button-row inventory-actions">
+          <a className="button subtle" href="/api/import/template">
+            <FileSpreadsheet size={15} /> Template
+          </a>
+          <button className="button subtle" onClick={onExportJson} disabled={busy}>
+            Export JSON
+          </button>
+          <button className="button subtle" onClick={() => jsonFileRef.current?.click()} disabled={busy}>
+            Import JSON
+          </button>
+          <button className="button subtle" onClick={() => fileRef.current?.click()} disabled={busy}>
+            <Upload size={15} /> Import
+          </button>
+          <button className="button bulk-add" onClick={onBulkAdd} disabled={busy}>
+            <Plus size={16} aria-hidden="true" /> Bulk add
+          </button>
+          <button className="button dark" onClick={onAdd} disabled={busy}>
+            <Plus size={16} /> Add agent
+          </button>
+        </div>
       </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".xlsx"
+        aria-label="Import agent spreadsheet"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onImportSpreadsheet(file);
+          event.target.value = '';
+        }}
+      />
+      <input
+        ref={jsonFileRef}
+        type="file"
+        accept=".json,application/json"
+        aria-label="Import JSON estimate"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onImportJson(file);
+          event.target.value = '';
+        }}
+      />
       {rows.length === 0 ? (
-        <div className="empty-state">No agents yet. Add an agent to define its business use case.</div>
+        <div className="empty-state">No agents yet. Add an agent or use Bulk add to start your suite.</div>
       ) : (
         <>
           <div className="inventory-toolbar">

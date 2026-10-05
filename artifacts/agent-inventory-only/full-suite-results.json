@@ -1,0 +1,872 @@
+{
+  "config": {
+    "argv": [
+      "/Users/sandiplahiri/.nvm/versions/node/v24.15.0/bin/node",
+      "/Users/sandiplahiri/llm/token-cost-estimator/node_modules/.bin/playwright",
+      "test"
+    ],
+    "configFile": "/Users/sandiplahiri/llm/token-cost-estimator/playwright.config.ts",
+    "rootDir": "/Users/sandiplahiri/llm/token-cost-estimator/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/sandiplahiri/llm/token-cost-estimator/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/sandiplahiri/llm/token-cost-estimator/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "artifacts/e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.63.0",
+    "workers": 1,
+    "webServer": {
+      "command": ".venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8011",
+      "url": "http://127.0.0.1:8011/api/health",
+      "reuseExistingServer": false,
+      "env": {
+        "ESTIMATOR_DB": "artifacts/e2e-1791172499205.sqlite3"
+      },
+      "timeout": 30000
+    }
+  },
+  "suites": [
+    {
+      "title": "agent-identities.spec.ts",
+      "file": "agent-identities.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "suite members receive editable identities that survive save and Excel export",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2430,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:00.718Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2f166cb8b58ed2a53338-5555e5eef0e6f3f02519",
+          "file": "agent-identities.spec.ts",
+          "line": 7,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "agent-inventory.spec.ts",
+      "file": "agent-inventory.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "inventory edits one linked group member and preserves reconciled costs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6238,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:03.497Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ae63d1dfd53d0723fead-4081016acb4d0ebc4978",
+          "file": "agent-inventory.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "inventory total includes tool and harness shares, excludes suite extras, and labels partial prices",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7233,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:09.740Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ae63d1dfd53d0723fead-3d8a0a0723a011bca0cb",
+          "file": "agent-inventory.spec.ts",
+          "line": 431,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "agentic.spec.ts",
+      "file": "agentic.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Agentic use case, conditional models, delegated work, tools, harness, saved view and workbook reconcile",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3479,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:16.987Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6eed07f523e965d29e0c-315b2ae6bb96d5c66e56",
+          "file": "agentic.spec.ts",
+          "line": 10,
+          "column": 1
+        },
+        {
+          "title": "Linked group members become independently editable without changing graph totals",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3425,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:20.471Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6eed07f523e965d29e0c-6a0dc4edfa0ad3274241",
+          "file": "agentic.spec.ts",
+          "line": 377,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "budget.spec.ts",
+      "file": "budget.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Budget, explicit scenarios, save/reopen, Excel formulas, reset and undo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3887,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:23.919Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-21873f59e46629776816",
+          "file": "budget.spec.ts",
+          "line": 114,
+          "column": 1
+        },
+        {
+          "title": "Top agents by cost follows scenario and individual edits and reconciles with Excel",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3754,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:27.815Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-e73ee3efafbac8ab2890",
+          "file": "budget.spec.ts",
+          "line": 197,
+          "column": 1
+        },
+        {
+          "title": "top five ranks individual members by token cost rather than group or tool costs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1251,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:31.575Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-5db51d73c50cbcef08fa",
+          "file": "budget.spec.ts",
+          "line": 297,
+          "column": 1
+        },
+        {
+          "title": "Agent links derive pooled child volume, preserve scenarios, and export a reproducible graph",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 11724,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Agent invocation graph' }).getByRole('status')\nExpected substring: \u001b[32m\"30 → 75\"\u001b[39m\nReceived string:    \u001b[31m\"Reviewer baseline invocations/month: 30 → 90Low suite LLM/month: $2.75 → $2.75 · 0.25 probability × 1 child invocations/triggerExpected suite LLM/month: $5.63 → $6.12 · 0.25 probability × 1 child invocations/triggerHigh suite LLM/month: $11.38 → $12.85 · 0.25 probability × 1 child invocations/triggerPreview only. Apply to update this draft; Save estimate to persist it.Apply link change\"\u001b[39m\nTimeout: 10000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('region', { name: 'Agent invocation graph' }).getByRole('status') with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Agent invocation graph' }).getByRole('status')\u001b[22m\n\u001b[2m    23 × locator resolved to <div role=\"status\" class=\"graph-preview\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"Reviewer baseline invocations/month: 30 → 90Low suite LLM/month: $2.75 → $2.75 · 0.25 probability × 1 child invocations/triggerExpected suite LLM/month: $5.63 → $6.12 · 0.25 probability × 1 child invocations/triggerHigh suite LLM/month: $11.38 → $12.85 · 0.25 probability × 1 child invocations/triggerPreview only. Apply to update this draft; Save estimate to persist it.Apply link change\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Agent invocation graph' }).getByRole('status')\nExpected substring: \u001b[32m\"30 → 75\"\u001b[39m\nReceived string:    \u001b[31m\"Reviewer baseline invocations/month: 30 → 90Low suite LLM/month: $2.75 → $2.75 · 0.25 probability × 1 child invocations/triggerExpected suite LLM/month: $5.63 → $6.12 · 0.25 probability × 1 child invocations/triggerHigh suite LLM/month: $11.38 → $12.85 · 0.25 probability × 1 child invocations/triggerPreview only. Apply to update this draft; Save estimate to persist it.Apply link change\"\u001b[39m\nTimeout: 10000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('region', { name: 'Agent invocation graph' }).getByRole('status') with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Agent invocation graph' }).getByRole('status')\u001b[22m\n\u001b[2m    23 × locator resolved to <div role=\"status\" class=\"graph-preview\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"Reviewer baseline invocations/month: 30 → 90Low suite LLM/month: $2.75 → $2.75 · 0.25 probability × 1 child invocations/triggerExpected suite LLM/month: $5.63 → $6.12 · 0.25 probability × 1 child invocations/triggerHigh suite LLM/month: $11.38 → $12.85 · 0.25 probability × 1 child invocations/triggerPreview only. Apply to update this draft; Save estimate to persist it.Apply link change\"\u001b[22m\n\n    at /Users/sandiplahiri/llm/token-cost-estimator/e2e/budget.spec.ts:546:43",
+                    "location": {
+                      "file": "/Users/sandiplahiri/llm/token-cost-estimator/e2e/budget.spec.ts",
+                      "column": 43,
+                      "line": 546
+                    },
+                    "snippet": "  544 |   await graph.getByLabel('Trigger probability (0–1)').fill('0.25');\n  545 |   await graph.getByRole('button', { name: 'Preview link change' }).click();\n> 546 |   await expect(graph.getByRole('status')).toContainText('30 → 75');\n      |                                           ^\n  547 |   await graph.getByRole('button', { name: 'Apply link change' }).click();\n  548 |   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');\n  549 |   await expect(page.getByTestId('cost-low')).toHaveText('$3.03/mo');"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/sandiplahiri/llm/token-cost-estimator/e2e/budget.spec.ts",
+                        "column": 43,
+                        "line": 546
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByRole('region', { name: 'Agent invocation graph' }).getByRole('status')\nExpected substring: \u001b[32m\"30 → 75\"\u001b[39m\nReceived string:    \u001b[31m\"Reviewer baseline invocations/month: 30 → 90Low suite LLM/month: $2.75 → $2.75 · 0.25 probability × 1 child invocations/triggerExpected suite LLM/month: $5.63 → $6.12 · 0.25 probability × 1 child invocations/triggerHigh suite LLM/month: $11.38 → $12.85 · 0.25 probability × 1 child invocations/triggerPreview only. Apply to update this draft; Save estimate to persist it.Apply link change\"\u001b[39m\nTimeout: 10000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByRole('region', { name: 'Agent invocation graph' }).getByRole('status') with timeout 10000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('region', { name: 'Agent invocation graph' }).getByRole('status')\u001b[22m\n\u001b[2m    23 × locator resolved to <div role=\"status\" class=\"graph-preview\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"Reviewer baseline invocations/month: 30 → 90Low suite LLM/month: $2.75 → $2.75 · 0.25 probability × 1 child invocations/triggerExpected suite LLM/month: $5.63 → $6.12 · 0.25 probability × 1 child invocations/triggerHigh suite LLM/month: $11.38 → $12.85 · 0.25 probability × 1 child invocations/triggerPreview only. Apply to update this draft; Save estimate to persist it.Apply link change\"\u001b[22m\n\n\n  544 |   await graph.getByLabel('Trigger probability (0–1)').fill('0.25');\n  545 |   await graph.getByRole('button', { name: 'Preview link change' }).click();\n> 546 |   await expect(graph.getByRole('status')).toContainText('30 → 75');\n      |                                           ^\n  547 |   await graph.getByRole('button', { name: 'Apply link change' }).click();\n  548 |   await expect(page.getByTestId('cost-expected')).toHaveText('$6.00/mo');\n  549 |   await expect(page.getByTestId('cost-low')).toHaveText('$3.03/mo');\n    at /Users/sandiplahiri/llm/token-cost-estimator/e2e/budget.spec.ts:546:43"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:32.832Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/sandiplahiri/llm/token-cost-estimator/test-results/budget-Agent-links-derive--d2f92-export-a-reproducible-graph/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sandiplahiri/llm/token-cost-estimator/test-results/budget-Agent-links-derive--d2f92-export-a-reproducible-graph/error-context.md"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/sandiplahiri/llm/token-cost-estimator/test-results/budget-Agent-links-derive--d2f92-export-a-reproducible-graph/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/sandiplahiri/llm/token-cost-estimator/test-results/budget-Agent-links-derive--d2f92-export-a-reproducible-graph/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/sandiplahiri/llm/token-cost-estimator/e2e/budget.spec.ts",
+                    "column": 43,
+                    "line": 546
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-dfc4755362e699919b5c",
+          "file": "budget.spec.ts",
+          "line": 423,
+          "column": 1
+        },
+        {
+          "title": "Daily users derive per-agent monthly volume across all complexity groups",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7582,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:45.235Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-952e4f421feb8c1cef39",
+          "file": "budget.spec.ts",
+          "line": 783,
+          "column": 1
+        },
+        {
+          "title": "Individual overrides, zero output, detailed replacement and incomplete prices",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2914,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:53.192Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-d329fd0cffb8fc39d471",
+          "file": "budget.spec.ts",
+          "line": 1154,
+          "column": 1
+        },
+        {
+          "title": "Spreadsheet import, literal text export, invalid import recovery and unpriced models",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3842,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:56.112Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-021e0050e0ecd63f109e",
+          "file": "budget.spec.ts",
+          "line": 1206,
+          "column": 1
+        },
+        {
+          "title": "Request-level tiers and cache partitions reconcile in the app and workbook",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1867,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:55:59.959Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-910e8e9c981b7fd34292",
+          "file": "budget.spec.ts",
+          "line": 1324,
+          "column": 1
+        },
+        {
+          "title": "Edits made during save and catalog refresh remain in the draft",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2050,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:01.832Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-8a036e89ab09e797869e",
+          "file": "budget.spec.ts",
+          "line": 1477,
+          "column": 1
+        },
+        {
+          "title": "Bundled cache-hit pricing is used in the browser and exported workbook",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2142,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:03.889Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-2b50ad1cadfe2cdec46c",
+          "file": "budget.spec.ts",
+          "line": 1538,
+          "column": 1
+        },
+        {
+          "title": "Gemini cache-write gap identifies the missing rate and recovers when unused",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2369,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:06.036Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-51621a0ecff4c7819d86",
+          "file": "budget.spec.ts",
+          "line": 1566,
+          "column": 1
+        },
+        {
+          "title": "Typing into prefilled numeric fields replaces their values",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2850,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:08.410Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bfff7a1deaa6eae76f63-c1c29af912fc10a5c176",
+          "file": "budget.spec.ts",
+          "line": 1640,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "category-deletion.spec.ts",
+      "file": "category-deletion.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "custom category deletion is blocked by draft and saved agents, then removes only unused starters",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3552,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:11.279Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c83c63ea70684262b999-cdc6d394ae10aaaf59ae",
+          "file": "category-deletion.spec.ts",
+          "line": 8,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "custom-categories.spec.ts",
+      "file": "custom-categories.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "global custom category is assignable and reconciles through save, import and Excel",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2966,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:14.841Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5007e788fd8f5622fbd4-2e7d1951c5eb415ec648",
+          "file": "custom-categories.spec.ts",
+          "line": 8,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "profile-model-decoupling.spec.ts",
+      "file": "profile-model-decoupling.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "legacy profile models become agent choices while a shared profile prices two models",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1132,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-05T03:56:17.816Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e52d2106ba2684de76ab-dbcadb14065a4672bb81",
+          "file": "profile-model-decoupling.spec.ts",
+          "line": 7,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-05T03:54:59.208Z",
+    "duration": 79963.23700000001,
+    "expected": 19,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "commands": [
+    "npm run build",
+    "npm run check",
+    "npm run test:e2e"
+  ],
+  "results": {
+    "build": "passed",
+    "check": "passed",
+    "E2E": "20 passed"
+  },
+  "actionsInAgentsHeader": [
+    "Template",
+    "Export JSON",
+    "Import JSON",
+    "Import",
+    "Bulk add",
+    "Add agent"
+  ],
+  "change": "Bulk create renamed to Bulk add. Suite-level actions and file controls moved into Agents. Duplicate Add agent removed from Agent setup; entry controls stay with their rows.",
+  "verification": [
+    "Bulk add creates the suite from the new header",
+    "Add agent creates an individually editable agent and reconciles numeric totals",
+    "Spreadsheet Import button opens the actual browser file picker, validates the workbook, and preserves failure recovery",
+    "Template link downloads an Excel template",
+    "Export JSON downloads the frozen estimate; Import JSON opens the file picker and restores the original estimate",
+    "Desktop and mobile header screenshots visually inspected"
+  ],
+  "pricingFixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
+  "numericChecks": [
+    {
+      "journey": "Daily volume for simple, medium, and high groups survives save and Excel export",
+      "evidence": "daily-volume-budget.xlsx",
+      "expected": {
+        "daysPerMonth": 30,
+        "perAgentVolumes": [
+          180,
+          60,
+          60
+        ],
+        "categoryTotals": [
+          360,
+          60,
+          60
+        ],
+        "monthlyTokens": [
+          918000,
+          1764000,
+          11220000
+        ],
+        "dailyTokens": [
+          30600,
+          58800,
+          374000
+        ],
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
+      },
+      "actual": {
+        "perAgentVolumes": [
+          180,
+          60,
+          60
+        ],
+        "categoryTotals": [
+          360,
+          60,
+          60
+        ],
+        "monthlyTokens": [
+          918000,
+          1764000,
+          11220000
+        ],
+        "dailyTokens": [
+          30600,
+          58800,
+          374000
+        ],
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
+      }
+    },
+    {
+      "journey": "Daily spreadsheet import without manual fallback",
+      "evidence": "daily-volume-import.xlsx",
+      "expected": {
+        "monthlyInvocationsPerAgent": 180,
+        "monthlyUsd": 1.4688,
+        "manualFallback": 0
+      },
+      "actual": {
+        "monthlyInvocationsPerAgent": 180,
+        "monthlyUsd": 1.4688,
+        "manualFallback": 0
+      }
+    },
+    {
+      "journey": "Spreadsheet import and recovery",
+      "evidence": "agent-import.xlsx, invalid-import.xlsx, invalid-cache-import.xlsx, literal-text-budget.xlsx",
+      "expected": "No partial mutation; names remain text; invalid merged cache fractions identified at row 2; unpriced rows flagged",
+      "actual": "Verified through browser and exported workbook"
+    }
+  ],
+  "jsonRoundTripFixture": {
+    "expected": {
+      "completions": 100,
+      "childCompletions": 50,
+      "model": 0.38,
+      "tools": 1.25,
+      "harness": 11.675,
+      "total": 13.305,
+      "loadedPerRoot": 0.13305
+    },
+    "actual": {
+      "completions": 100,
+      "childCompletions": 50,
+      "model": 0.38,
+      "tools": 1.25,
+      "harness": 11.675,
+      "total": 13.305,
+      "loadedPerRoot": 0.13305
+    },
+    "workbook": "json-round-trip/agentic-budget.xlsx"
+  },
+  "workbookVerification": "Workbook formulas independently recalculated with HyperFormula; Excel desktop UI was not automated.",
+  "failures": []
+}

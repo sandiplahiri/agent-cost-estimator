@@ -7,7 +7,6 @@ import {
   ChevronRight,
   CircleHelp,
   Coins,
-  FileSpreadsheet,
   FolderOpen,
   GitBranch,
   LayoutDashboard,
@@ -16,11 +15,9 @@ import {
   Plus,
   RotateCcw,
   Save,
-  Settings2,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
-  Upload,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -34,7 +31,6 @@ import {
   api,
   categoryClass,
   complexities,
-  effective,
   displayVolume,
   id,
   money,
@@ -221,10 +217,7 @@ export default function App() {
     estimate: Estimate;
     result: Results;
   } | null>(null);
-  const [search, setSearch] = useState('');
   const [editingSingleAgent, setEditingSingleAgent] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const jsonFileRef = useRef<HTMLInputElement>(null);
   const estimateRef = useRef(estimate);
   useLayoutEffect(() => {
     estimateRef.current = estimate;
@@ -632,9 +625,6 @@ export default function App() {
       r.volume_source === 'daily_users' &&
       (r.users_per_day === null || r.invocations_per_user_per_agent_per_day === null),
   );
-  const rowResults = (rowId: string) => expected?.lines.filter((l) => l.row_id === rowId) || [];
-  const rowCost = (rowId: string) => rowResults(rowId).reduce((sum, l) => sum + Number(l.cost || 0), 0);
-  const filteredRows = estimate.agents.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
   const title = {
     suite: 'Your agent suite, budgeted.',
     inventory: 'Know every agent in your suite.',
@@ -892,325 +882,17 @@ export default function App() {
           ))}
 
           {tab === 'inventory' && (
-            <>
-              <AgentInventory
-                estimate={estimate}
-                expected={expected}
-                onEdit={openInventoryAgent}
-                onAdd={startNewAgent}
-                busy={!!busy}
-              />
-              <section className="panel suite-panel" aria-label="Agent setup">
-                <div className="section-heading">
-                  <div>
-                    <h2>
-                      Agent setup <span className="count-chip">{totalAgents} agents</span>
-                    </h2>
-                    <p>Set up agents and their workload. Customize each agent as needed.</p>
-                  </div>
-                  <div className="button-row">
-                    <a className="button subtle" href="/api/import/template">
-                      <FileSpreadsheet size={15} />
-                      Template
-                    </a>
-                    <button className="button subtle" onClick={exportJson}>
-                      Export JSON
-                    </button>
-                    <button className="button subtle" onClick={() => jsonFileRef.current?.click()}>
-                      Import JSON
-                    </button>
-                    <button className="button subtle" onClick={() => fileRef.current?.click()}>
-                      <Upload size={15} />
-                      Import
-                    </button>
-                    <button className="button dark" onClick={() => setModal('quick')}>
-                      <Plus size={16} />
-                      Quick setup
-                    </button>
-                  </div>
-                </div>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".xlsx"
-                  aria-label="Import agent spreadsheet"
-                  hidden
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void previewImport(file);
-                    e.target.value = '';
-                  }}
-                />
-                <input
-                  ref={jsonFileRef}
-                  type="file"
-                  accept=".json,application/json"
-                  aria-label="Import JSON estimate"
-                  hidden
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void importJson(file);
-                    e.target.value = '';
-                  }}
-                />
-                {estimate.agents.length > 0 ? (
-                  <>
-                    <div className="inventory-toolbar">
-                      <input
-                        className="search-input"
-                        aria-label="Search agents"
-                        placeholder="Search agents…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                      <span>Invocations include calls from other agents.</span>
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          setEditing({
-                            id: id(),
-                            name: uniqueAgentName('New agent', estimate),
-                            description: '',
-                            use_case_name: '',
-                            use_case_description: '',
-                            members: [
-                              {
-                                id: id(),
-                                name: uniqueAgentName('New agent', estimate),
-                                business_use_case_description: pendingUseCase,
-                              },
-                            ],
-                            complexity: 'simple',
-                            count: 1,
-                            invocations: '0',
-                            volume_source: 'daily_users',
-                            prior_volume_source: null,
-                            users_per_day: null,
-                            invocations_per_user_per_agent_per_day: null,
-                            overrides: {},
-                            steps: [],
-                            tool_costs: [],
-                          })
-                        }
-                      >
-                        <Plus size={14} />
-                        Add agent
-                      </button>
-                    </div>
-                    <p className="volume-note">
-                      * Required for directly invoked agents. Monthly invocations per agent = users per day ×
-                      invocations per user per agent per day × 30 days. Linked agents receive work from
-                      callers; that work is divided evenly among agents sharing these assumptions.
-                    </p>
-                    {missingDaily.length > 0 && (
-                      <p className="volume-note invalid-text" role="alert">
-                        Complete both required daily inputs for {missingDaily.length} agent setup{' '}
-                        {missingDaily.length === 1 ? 'entry' : 'entries'} before saving or exporting.
-                      </p>
-                    )}
-                    <div className="table-scroll">
-                      <table className="agent-table">
-                        <thead>
-                          <tr>
-                            <th>AGENT</th>
-                            <th>COUNT</th>
-                            <th>USERS / AGENT / DAY *</th>
-                            <th>INVOCATIONS / USER / AGENT / DAY *</th>
-                            <th>MONTHLY INVOCATIONS</th>
-                            <th>MODEL</th>
-                            <th>LLM / MONTH</th>
-                            <th>
-                              <span className="sr-only">Actions</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredRows.map((row) => {
-                            const execution = effective(estimate, row);
-                            const lines = rowResults(row.id);
-                            const incomplete = lines.some((l) => l.issues.length > 0);
-                            return (
-                              <tr key={row.id}>
-                                <td>
-                                  <button className="row-name" onClick={() => setEditing(clone(row))}>
-                                    {row.name}
-                                  </button>
-                                  <div className="row-meta">
-                                    <span className={`complexity ${categoryClass(row.complexity)}`}>
-                                      {row.complexity}
-                                    </span>
-                                    {row.steps.length > 0 ? (
-                                      <small>{row.steps.length} detailed steps</small>
-                                    ) : (
-                                      Object.values(row.overrides).some((v) => v != null) && (
-                                        <small>Customized</small>
-                                      )
-                                    )}
-                                  </div>
-                                </td>
-                                <td>
-                                  <input
-                                    type="number"
-                                    min={row.volume_source === 'derived' ? 1 : 0}
-                                    step={1}
-                                    aria-label={`${row.name} count`}
-                                    value={row.count}
-                                    onFocus={(e) => e.currentTarget.select()}
-                                    onChange={(e) =>
-                                      update((n) => {
-                                        const target = n.agents.find((r) => r.id === row.id)!;
-                                        const count = Number(e.target.value);
-                                        target.members = resizeMembers(target, count);
-                                        target.count = count;
-                                      })
-                                    }
-                                  />
-                                </td>
-                                <td>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    required
-                                    disabled={row.volume_source === 'derived'}
-                                    aria-label={`${row.name} users per day`}
-                                    value={
-                                      row.volume_source === 'daily_users' ? (row.users_per_day ?? '') : ''
-                                    }
-                                    placeholder={row.volume_source === 'derived' ? 'From links' : 'Required'}
-                                    onFocus={(e) => e.currentTarget.select()}
-                                    onChange={(e) =>
-                                      update((n) => {
-                                        const target = n.agents.find((r) => r.id === row.id)!;
-                                        target.volume_source = 'daily_users';
-                                        target.users_per_day = e.target.value || null;
-                                      })
-                                    }
-                                  />
-                                </td>
-                                <td>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    required
-                                    disabled={row.volume_source === 'derived'}
-                                    aria-label={`${row.name} invocations per user per agent per day`}
-                                    value={
-                                      row.volume_source === 'daily_users'
-                                        ? (row.invocations_per_user_per_agent_per_day ?? '')
-                                        : ''
-                                    }
-                                    placeholder={row.volume_source === 'derived' ? 'From links' : 'Required'}
-                                    onFocus={(e) => e.currentTarget.select()}
-                                    onChange={(e) =>
-                                      update((n) => {
-                                        const target = n.agents.find((r) => r.id === row.id)!;
-                                        target.volume_source = 'daily_users';
-                                        target.invocations_per_user_per_agent_per_day =
-                                          e.target.value || null;
-                                      })
-                                    }
-                                  />
-                                </td>
-                                <td>
-                                  <div className="derived-volume">
-                                    <span>
-                                      Per agent:{' '}
-                                      <output
-                                        title={lines[0]?.base_invocations}
-                                        aria-label={`${row.name} total monthly invocations per agent`}
-                                      >
-                                        {lines.length &&
-                                        (row.volume_source === 'manual' ||
-                                          row.volume_source === 'derived' ||
-                                          (row.users_per_day !== null &&
-                                            row.invocations_per_user_per_agent_per_day !== null))
-                                          ? displayVolume(lines[0].base_invocations)
-                                          : '—'}
-                                      </output>
-                                    </span>
-                                    <span>
-                                      All agents:{' '}
-                                      <output
-                                        title={lines[0]?.base_total_invocations}
-                                        aria-label={`${row.name} total monthly invocations all agents`}
-                                        className="total-volume"
-                                      >
-                                        {lines.length &&
-                                        (row.volume_source === 'manual' ||
-                                          row.volume_source === 'derived' ||
-                                          (row.users_per_day !== null &&
-                                            row.invocations_per_user_per_agent_per_day !== null))
-                                          ? displayVolume(lines[0].base_total_invocations)
-                                          : '—'}
-                                      </output>
-                                    </span>
-                                    {row.volume_source === 'manual' && (
-                                      <small title="Enter both required daily inputs to convert this saved manual volume.">
-                                        Legacy manual volume
-                                      </small>
-                                    )}
-                                    {row.volume_source === 'derived' && (
-                                      <small>Derived from agent links</small>
-                                    )}
-                                  </div>
-                                </td>
-                                <td>
-                                  <button
-                                    className="text-button"
-                                    aria-label={`Copy ${row.name}`}
-                                    onClick={() => copyAgent(row)}
-                                  >
-                                    Copy
-                                  </button>
-                                  <button
-                                    className={`inline-model ${!execution.model_id && !row.steps.length ? 'unselected' : ''}`}
-                                    onClick={() => setEditing(clone(row))}
-                                  >
-                                    {row.steps.length
-                                      ? 'Multiple steps'
-                                      : execution.model_id || 'Choose a model'}
-                                    <ChevronRight size={12} />
-                                  </button>
-                                </td>
-                                <td className="cost-cell">
-                                  {expected
-                                    ? incomplete && rowCost(row.id) === 0
-                                      ? 'Incomplete'
-                                      : money(rowCost(row.id))
-                                    : '—'}
-                                  {incomplete && (
-                                    <span
-                                      className="row-warning"
-                                      title={lines.flatMap((l) => l.issues).join(' ')}
-                                    >
-                                      Incomplete
-                                    </span>
-                                  )}
-                                </td>
-                                <td>
-                                  <button
-                                    className="icon-button"
-                                    aria-label={`Edit ${row.name}`}
-                                    onClick={() => setEditing(clone(row))}
-                                  >
-                                    <Settings2 size={16} />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    {filteredRows.length === 0 && <p className="empty-inline">No matching agents.</p>}
-                  </>
-                ) : (
-                  <p className="empty-inline">Add an agent or use Quick setup to start your suite.</p>
-                )}
-              </section>
-            </>
+            <AgentInventory
+              estimate={estimate}
+              expected={expected}
+              onEdit={openInventoryAgent}
+              onAdd={startNewAgent}
+              onBulkAdd={() => setModal('quick')}
+              onExportJson={exportJson}
+              onImportJson={(file) => void importJson(file)}
+              onImportSpreadsheet={(file) => void previewImport(file)}
+              busy={!!busy}
+            />
           )}
 
           {tab === 'suite' && (

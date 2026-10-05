@@ -534,6 +534,18 @@ textarea {
 .agent-inventory-panel {
   margin-bottom: 24px;
 }
+.inventory-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.button.bulk-add {
+  background: #385ca8;
+  color: #fff;
+  border-color: #385ca8;
+}
+.button.bulk-add:hover {
+  background: #2f4f94;
+}
 .inventory-agent-table {
   min-width: 1250px;
 }

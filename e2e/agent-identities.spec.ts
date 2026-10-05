@@ -1,3 +1,4 @@
+import { openAgentEditor, expectBaseVolume } from './agent-editing';
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import fs from 'node:fs/promises';
@@ -12,7 +13,10 @@ test('suite members receive editable identities that survive save and Excel expo
   await page.goto('/');
   await page.getByLabel('Estimate name').fill('Identity fixture');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent inventory', exact: true })
+    .getByRole('button', { name: 'Bulk add', exact: true })
+    .click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');
   await quick.getByLabel('Simple agents', { exact: true }).fill('2');
@@ -21,17 +25,14 @@ test('suite members receive editable identities that survive save and Excel expo
   await quick.getByLabel('Simple users per agent per day *').fill('1');
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
-  await expect(page.getByLabel('Simple agents total monthly invocations all agents')).toHaveText('60');
+  await expectBaseVolume(page, 'Simple agents', 30, 60);
   await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
   await page.getByRole('button', { name: 'Select agent Medium agents' }).click();
   await expect(page.getByText('No agents are defined here. Edit this entry to add agents.')).toBeVisible();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
 
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await expect(editor.getByLabel('Agent 1 name')).toHaveValue('Simple agent 1');
   await expect(editor.getByLabel('Agent 2 name')).toHaveValue('Simple agent 2');
@@ -46,7 +47,7 @@ test('suite members receive editable identities that survive save and Excel expo
   await editor.getByLabel('Agent 2 business use case description').fill('Drafts a customer reply');
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(editor).not.toBeVisible();
-  await expect(page.getByLabel('Simple agents total monthly invocations all agents')).toHaveText('60');
+  await expectBaseVolume(page, 'Simple agents', 30, 60);
 
   await page.getByRole('button', { name: 'Save estimate', exact: true }).click();
   const list = await (await request.get('/api/estimates')).json();
@@ -86,10 +87,7 @@ test('suite members receive editable identities that survive save and Excel expo
     .getByRole('dialog', { name: 'Saved estimates' })
     .getByRole('button', { name: /Identity fixture/ })
     .click();
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   await expect(page.getByRole('dialog').getByLabel('Agent 1 ID')).toHaveValue('triage-1');
   await page.getByRole('dialog').getByRole('button', { name: 'Close dialog' }).click();
 
@@ -107,10 +105,7 @@ test('suite members receive editable identities that survive save and Excel expo
   expect(sheet.getCell('E2').value).toBe('Classifies support requests');
   expect(sheet.getCell('C3').value).toBe('draft-2');
 
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   const duplicate = page.getByRole('dialog', { name: 'Edit agent' });
   await duplicate.getByLabel('Agent 2 ID').fill('triage-1');
   await duplicate.getByRole('button', { name: 'Apply changes' }).click();

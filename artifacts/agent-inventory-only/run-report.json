@@ -1,0 +1,37 @@
+{
+  "change": "Remove Agent setup and its duplicate settings table; retain Agents actions and individual editing.",
+  "commands": [
+    "npm run build",
+    "npm run check",
+    "npm run test:e2e",
+    "npx playwright test e2e/budget.spec.ts -g 'Agent links derive pooled child volume'"
+  ],
+  "verification": {
+    "build": "passed",
+    "codeChecks": "passed",
+    "fullSuite": {
+      "passed": 19,
+      "failed": 1
+    },
+    "targetedGraphRerun": {
+      "passed": 1,
+      "failed": 0
+    },
+    "uniqueJourneysVerified": 20
+  },
+  "resolvedFailure": "Graph check was selecting the inspected Researcher as caller. Explicitly select Planner for the existing expected workload; targeted rerun passed.",
+  "pricing": "Fixed custom pricing fixtures; Fixture A uses USD 2/M input and USD 8/M output. No provider calls.",
+  "numericalEvidence": [
+    "full-suite-verification.json",
+    "graph-verification.json",
+    "agent-inventory/run-report.json",
+    "agent-inventory-cost/run-report.json",
+    "agent-identities/run-report.json",
+    "agentic-mvp/step-cost-report.json"
+  ],
+  "workbooks": "Exported Excel files checked by existing E2E journeys; calculation formulas independently recalculated with HyperFormula.",
+  "limitations": [
+    "Excel desktop was not automated; spreadsheet recalculation uses HyperFormula."
+  ],
+  "failures": []
+}

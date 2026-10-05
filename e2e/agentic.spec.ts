@@ -1,3 +1,4 @@
+import { openAgentEditor } from './agent-editing';
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import { HyperFormula } from 'hyperformula';
@@ -213,10 +214,7 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
   const jsonDownloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Resolve inquiry', exact: true })
-    .click();
+  await openAgentEditor(page, 'Resolve inquiry');
   const costEditor = page.getByRole('dialog', { name: 'Edit agent' });
   const conditionalStepCost = costEditor.getByRole('region', { name: 'Step 2 cost', exact: true });
   await expect(
@@ -247,7 +245,11 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
     ),
   );
   await costEditor.getByRole('button', { name: 'Close dialog' }).click();
-  await page.getByRole('button', { name: 'Export JSON' }).click();
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent inventory', exact: true })
+    .getByRole('button', { name: 'Export JSON' })
+    .click();
   const jsonFile = path.join(artifactDir, 'agentic-export.json');
   await (await jsonDownloadPromise).saveAs(jsonFile);
   const exportedJson = JSON.parse(await fs.readFile(jsonFile, 'utf8'));
@@ -256,9 +258,11 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   await page.getByRole('button', { name: 'Agent harness' }).click();
   await expect(page.getByText('$11.68', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  await page.getByRole('button', { name: 'Agent suite graph', exact: true }).click();
+  await page.getByRole('button', { name: 'Select agent Resolve inquiry', exact: true }).click();
   await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Copy Resolve inquiry' })
+    .locator('.graph-inspector-agent')
+    .getByRole('button', { name: 'Copy agent', exact: true })
     .click();
   await expect(page.getByRole('dialog', { name: 'Edit agent' })).toBeVisible();
   await page
@@ -277,17 +281,20 @@ test('Agentic use case, conditional models, delegated work, tools, harness, save
   expect(
     Number(copyResult.scenarios[1].use_case_costs[copiedAgent.id].loaded_cost_per_completion),
   ).toBeCloseTo(0.06, 2);
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Resolve inquiry', exact: true })
-    .click();
+  await openAgentEditor(page, 'Resolve inquiry');
   const editor = page.getByRole('dialog', { name: 'Edit agent' });
   await page.screenshot({ path: path.join(artifactDir, 'edit-agent-dialog.png'), fullPage: true });
   await editor.getByLabel('Model invocation probability (0–1)').nth(1).fill('0');
   await editor.getByRole('button', { name: 'Add model to step' }).first().click();
   await editor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toContainText('$0.37');
-  await page.getByLabel('Import JSON estimate').setInputFiles(jsonFile);
+  await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
+  const jsonChooser = page.waitForEvent('filechooser');
+  await page
+    .getByRole('region', { name: 'Agent inventory', exact: true })
+    .getByRole('button', { name: 'Import JSON', exact: true })
+    .click();
+  await (await jsonChooser).setFiles(jsonFile);
   await expect(page.getByTestId('cost-expected')).toContainText('$0.38');
 
   const workbookResponse = await request.post('/api/export', { data: estimate });

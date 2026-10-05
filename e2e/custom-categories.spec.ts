@@ -1,3 +1,4 @@
+import { openAgentEditor } from './agent-editing';
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
 import { HyperFormula } from 'hyperformula';
@@ -73,7 +74,10 @@ test('global custom category is assignable and reconciles through save, import a
   expect(reserved.status()).toBe(422);
 
   await page.getByRole('button', { name: 'Agent inventory', exact: true }).click();
-  await page.getByRole('button', { name: 'Quick setup', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Agent inventory', exact: true })
+    .getByRole('button', { name: 'Bulk add', exact: true })
+    .click();
   const quick = page.getByRole('dialog', { name: 'Set up your agent suite' });
   await quick.getByLabel('Total agent count').fill('2');
   await quick.getByLabel('Simple agents', { exact: true }).fill('2');
@@ -82,10 +86,7 @@ test('global custom category is assignable and reconciles through save, import a
   await quick.getByLabel('Simple users per agent per day *').fill('1');
   await quick.getByLabel('Simple invocations per user per agent per day *').fill('1');
   await quick.getByRole('button', { name: 'Create suite' }).click();
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   const modelEditor = page.getByRole('dialog', { name: 'Edit agent' });
   await modelEditor.getByRole('button', { name: 'Model: Select model' }).click();
   await page
@@ -95,10 +96,7 @@ test('global custom category is assignable and reconciles through save, import a
   await modelEditor.getByRole('button', { name: 'Apply changes' }).click();
   await expect(page.getByTestId('cost-expected')).toHaveText('$0.48/mo');
 
-  await page
-    .getByRole('region', { name: 'Agent setup' })
-    .getByRole('button', { name: 'Edit Simple agents' })
-    .click();
+  await openAgentEditor(page, 'Simple agents');
   await page
     .getByRole('dialog', { name: 'Edit agent' })
     .getByRole('button', { name: 'Customize one agent' })

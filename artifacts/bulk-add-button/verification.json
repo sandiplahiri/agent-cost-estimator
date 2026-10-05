@@ -1,0 +1,178 @@
+{
+  "executedAt": "2026-10-05T04:00:52.728Z",
+  "command": "npm run test:e2e",
+  "prerequisites": "npm run build and npm run check completed before this run.",
+  "fixture": "Architect-defined Fixture A: $2/M input, $8/M output. Not provider prices.",
+  "note": "Workbook formulas independently recalculated with HyperFormula; Excel desktop UI was not automated.",
+  "checks": [
+    {
+      "journey": "Daily volume for simple, medium, and high groups survives save and Excel export",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/daily-volume-budget.xlsx",
+      "expected": {
+        "daysPerMonth": 30,
+        "perAgentVolumes": [
+          180,
+          60,
+          60
+        ],
+        "categoryTotals": [
+          360,
+          60,
+          60
+        ],
+        "monthlyTokens": [
+          918000,
+          1764000,
+          11220000
+        ],
+        "dailyTokens": [
+          30600,
+          58800,
+          374000
+        ],
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
+      },
+      "actual": {
+        "perAgentVolumes": [
+          180,
+          60,
+          60
+        ],
+        "categoryTotals": [
+          360,
+          60,
+          60
+        ],
+        "monthlyTokens": [
+          918000,
+          1764000,
+          11220000
+        ],
+        "dailyTokens": [
+          30600,
+          58800,
+          374000
+        ],
+        "monthlyUsd": 38.3376,
+        "categoryCosts": [
+          2.9376,
+          5.04,
+          30.36
+        ],
+        "dailyCategoryCosts": [
+          0.09792,
+          0.168,
+          1.012
+        ],
+        "monthlyInputTokens": [
+          734400,
+          1512000,
+          9900000
+        ],
+        "monthlyOutputTokens": [
+          183600,
+          252000,
+          1320000
+        ],
+        "monthlyInputCosts": [
+          1.4688,
+          3.024,
+          19.8
+        ],
+        "monthlyOutputCosts": [
+          1.4688,
+          2.016,
+          10.56
+        ],
+        "suiteMonthlySummary": {
+          "inputTokens": 12146400,
+          "inputUsd": 24.2928,
+          "outputTokens": 1755600,
+          "outputUsd": 14.0448,
+          "llmUsd": 38.3376
+        }
+      }
+    },
+    {
+      "journey": "Daily spreadsheet import without manual fallback",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/daily-volume-import.xlsx",
+      "expected": {
+        "monthlyInvocationsPerAgent": 180,
+        "monthlyUsd": 1.4688,
+        "manualFallback": 0
+      },
+      "actual": {
+        "monthlyInvocationsPerAgent": 180,
+        "monthlyUsd": 1.4688,
+        "manualFallback": 0
+      }
+    },
+    {
+      "journey": "Category total sums multiple simple groups and updates with agent count",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/daily-volume-import.xlsx",
+      "expected": {
+        "categoryInvocations": 240,
+        "monthlyUsd": 1.9584
+      },
+      "actual": {
+        "categoryInvocations": 240,
+        "monthlyUsd": 1.9584
+      }
+    },
+    {
+      "journey": "Two models with different rates in one category",
+      "evidence": "/Users/sandiplahiri/llm/token-cost-estimator/artifacts/mixed-model-category-budget.xlsx",
+      "expected": {
+        "suiteUsd": 2.2644,
+        "categoryUsd": 2.2644,
+        "dailyCategoryUsd": 0.07548,
+        "dailyInputUsd": 0.0408,
+        "modelBInputTokens": 122400
+      },
+      "actual": {
+        "suiteUsd": 2.2644,
+        "categoryUsd": 2.2644,
+        "dailyCategoryUsd": 0.07548,
+        "dailyInputUsd": 0.0408,
+        "modelBInputTokens": 122400
+      }
+    }
+  ]
+}
