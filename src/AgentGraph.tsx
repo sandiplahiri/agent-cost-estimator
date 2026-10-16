@@ -8,14 +8,12 @@ export function AgentGraph({
   result,
   busy,
   onEditAgent,
-  onEditShared,
   onAddAgent,
 }: {
   estimate: Estimate;
   result: Results | null;
   busy: boolean;
   onEditAgent: (row: AgentRow, memberId: string) => void;
-  onEditShared: (row: AgentRow) => void;
   onAddAgent: () => void;
 }) {
   const nodes = estimate.agents.flatMap((row) => row.members.map((member) => ({ row, member })));
@@ -78,7 +76,6 @@ export function AgentGraph({
   const canvasWidth = 72 + Math.max(0, layers.size - 1) * 390 + 260;
   const canvasHeight = 72 + Math.max(0, widestLayer - 1) * 150 + 110;
   const expected = result?.scenarios.find((scenario) => scenario.name === 'Expected');
-  const shared = estimate.agents.filter((row) => row.count > 0);
 
   return (
     <section className="panel graph-panel" aria-label="Agent invocation graph">
@@ -211,27 +208,6 @@ export function AgentGraph({
             </li>
           ))}
         </ul>
-        {shared.length > 0 && (
-          <details className="graph-shared-settings">
-            <summary>Edit shared execution settings</summary>
-            <p className="muted small">
-              These settings apply to all listed agents. Click a graph node to edit only that individual.
-            </p>
-            <div className="button-row">
-              {shared.map((row) => (
-                <button
-                  key={row.id}
-                  className="button subtle"
-                  disabled={busy}
-                  onClick={() => onEditShared(row)}
-                  aria-label={`Edit shared settings for ${row.name}`}
-                >
-                  {row.name} · {row.count} agents
-                </button>
-              ))}
-            </div>
-          </details>
-        )}
       </div>
     </section>
   );

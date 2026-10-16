@@ -1,0 +1,15 @@
+{
+  "change": "Remove Edit shared execution settings from Agent suite graph; retain individual node editing.",
+  "commands": [
+    "npm run check",
+    "npm run build",
+    "npm run test:e2e -- e2e/agent-graph.spec.ts"
+  ],
+  "results": {
+    "check": "passed",
+    "build": "passed",
+    "graph_e2e": "1 passed"
+  },
+  "numerical_verification": "verification.json records independently expected and actual costs; budget.xlsx recalculated with HyperFormula to USD 4.26.",
+  "limitations": "Full E2E suite was not run. Legacy shared-editor journeys using e2e/agent-editing.ts still target the removed control and need migration to individual editing or import workflows."
+}

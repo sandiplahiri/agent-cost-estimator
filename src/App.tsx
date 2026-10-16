@@ -1031,11 +1031,6 @@ export default function App() {
               result={result}
               busy={Boolean(busy)}
               onEditAgent={openInventoryAgent}
-              onEditShared={(row) => {
-                setEditingSingleAgent(false);
-                setEditingMemberId(null);
-                setEditing(clone(row));
-              }}
               onAddAgent={startNewAgent}
             />
           )}
